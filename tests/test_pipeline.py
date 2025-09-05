@@ -4,3 +4,6 @@ def test_pipeline_cycle_1():
 
 def test_pipeline_cycle_3():
     assert True == True
+
+def test_pipeline_cycle_6():
+    assert True == True
