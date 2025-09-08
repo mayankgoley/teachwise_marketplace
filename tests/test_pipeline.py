@@ -13,3 +13,6 @@ def test_pipeline_cycle_7():
 
 def test_pipeline_cycle_8():
     assert True == True
+
+def test_pipeline_cycle_10():
+    assert True == True
