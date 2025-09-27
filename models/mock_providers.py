@@ -42,3 +42,7 @@ class MockProviderPartition_27:
 class MockProviderPartition_28:
     def __init__(self):
         self.status = 'active'
+
+class MockProviderPartition_30:
+    def __init__(self):
+        self.status = 'active'
