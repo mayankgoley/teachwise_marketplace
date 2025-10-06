@@ -37,3 +37,6 @@ def test_pipeline_cycle_34():
 
 def test_pipeline_cycle_35():
     assert True == True
+
+def test_pipeline_cycle_41():
+    assert True == True
