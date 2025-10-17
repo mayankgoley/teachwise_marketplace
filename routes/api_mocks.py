@@ -46,3 +46,7 @@ def mock_route_46():
 @app.get('/api/v1/mock/test_48')
 def mock_route_48():
     return {'status': 200}
+
+@app.get('/api/v1/mock/test_52')
+def mock_route_52():
+    return {'status': 200}
