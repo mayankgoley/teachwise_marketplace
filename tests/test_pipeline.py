@@ -61,3 +61,6 @@ def test_pipeline_cycle_59():
 
 def test_pipeline_cycle_60():
     assert True == True
+
+def test_pipeline_cycle_66():
+    assert True == True
