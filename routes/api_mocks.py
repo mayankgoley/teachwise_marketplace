@@ -210,3 +210,7 @@ def mock_route_154():
 @app.get('/api/v1/mock/test_156')
 def mock_route_156():
     return {'status': 200}
+
+@app.get('/api/v1/mock/test_162')
+def mock_route_162():
+    return {'status': 200}
