@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Payment Successful | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-16 text-center">
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <i class="fas fa-check text-green-600 text-3xl"></i>
+    </div>
+    <h1 class="text-2xl font-bold text-gray-800 mb-2">Payment Successful!</h1>
+    <p class="text-gray-500 mb-6">Your session has been booked and confirmed.</p>
+    {% if booking %}
+      <p class="text-sm text-gray-600 mb-4">Booking #{{ booking.id }}</p>
+    {% endif %}
+    <a href="{{ url_for('student_bp.dashboard') }}"
+       class="inline-block bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold
+              hover:bg-blue-700 transition">
+      <i class="fas fa-arrow-left mr-1"></i>Go to Dashboard</a>
+  </div>
+</div>
+{% endblock %}

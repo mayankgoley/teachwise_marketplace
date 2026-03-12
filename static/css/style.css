@@ -1,0 +1,52 @@
+/* Custom styles for TeachWise */
+
+/* Smooth scrolling */
+html { scroll-behavior: smooth; }
+
+/* Form focus states */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+/* Card hover lift effect */
+.hover\:shadow-md:hover {
+  transform: translateY(-2px);
+  transition: all 0.2s ease;
+}
+
+/* Subject icon hover */
+section a[class*='rounded-xl']:hover {
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+}
+
+/* ── Notification badge pulse ── */
+@keyframes notif-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+.notif-badge-pulse {
+  animation: notif-pulse 2s ease-in-out infinite;
+}
+
+/* Notification dropdown */
+.notif-dropdown {
+  width: 360px;
+  max-height: 420px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.12);
+  border-radius: 0.75rem;
+}
+.notif-dropdown .notif-list {
+  max-height: 340px;
+  overflow-y: auto;
+}
+.notif-dropdown .notif-list::-webkit-scrollbar { width: 4px; }
+.notif-dropdown .notif-list::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+
+@media (max-width: 480px) {
+  .notif-dropdown {
+    width: calc(100vw - 2rem);
+    right: -0.5rem;
+  }
+}

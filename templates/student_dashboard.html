@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+  <!-- Header -->
+  <div class="flex justify-between items-center mb-8">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-800">Welcome, {{ student.name }}!</h1>
+      <p class="text-gray-500 mt-1">Your student dashboard</p>
+    </div>
+    <div class="flex items-center space-x-4">
+      <a href="{{ url_for('assignment_bp.student_assignments') }}"
+         class="text-indigo-600 hover:text-indigo-800 font-medium relative">
+        <i class="fas fa-tasks mr-1"></i>Assignments
+        {% if pending_assignments %}
+        <span class="absolute -top-2 -right-3 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{{ pending_assignments }}</span>
+        {% endif %}</a>
+      <a href="{{ url_for('recording_bp.student_recordings') }}"
+         class="text-red-600 hover:text-red-800 font-medium">
+        <i class="fas fa-video mr-1"></i>Recordings</a>
+      <a href="{{ url_for('student_bp.saved_locations') }}"
+         class="text-blue-600 hover:text-blue-800 font-medium">
+        <i class="fas fa-map-marker-alt mr-1"></i>Locations</a>
+      <a href="{{ url_for('student_bp.notification_settings') }}"
+         class="text-gray-600 hover:text-blue-600 font-medium">
+        <i class="fas fa-bell mr-1"></i>Notifications</a>
+      <a href="{{ url_for('progress_bp.student_progress') }}"
+         class="text-green-600 hover:text-green-800 font-medium">
+        <i class="fas fa-chart-line mr-1"></i>Progress</a>
+      <a href="{{ url_for('student_bp.booking_history') }}"
+         class="text-blue-600 hover:text-blue-800 font-medium">
+        <i class="fas fa-history mr-1"></i>Booking History</a>
+      <a href="{{ url_for('student_bp.logout_student') }}"
+         class="text-red-500 hover:text-red-700 font-medium">
+        <i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
+    </div>
+  </div>
+
+  <!-- Guardian Status (for minors) -->
+  {% if student.is_minor %}
+  <div class="mb-6 p-4 rounded-lg border
+    {% if student.guardian_verified %}bg-green-50 border-green-200
+    {% else %}bg-yellow-50 border-yellow-200{% endif %}">
+    {% if student.guardian_verified %}
+      <p class="text-green-800 font-medium">
+        <i class="fas fa-check-circle mr-1"></i>
+        Guardian verified &mdash; you can book sessions.</p>
+    {% else %}
+      <p class="text-yellow-800 font-medium">
+        <i class="fas fa-exclamation-triangle mr-1"></i>
+        Waiting for guardian verification. Your guardian must click the
+        verification link sent to their email before you can book sessions.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Stats Cards -->
+  <div class="grid md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center space-x-3">
+        <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+          <i class="fas fa-calendar-check text-blue-600 text-xl"></i></div>
+        <div>
+          <p class="text-2xl font-bold text-gray-800">{{ upcoming_slots|length }}</p>
+          <p class="text-gray-500 text-sm">Upcoming Sessions</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center space-x-3">
+        <div class="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
+          <i class="fas fa-book text-green-600 text-xl"></i></div>
+        <div>
+          <p class="text-2xl font-bold text-gray-800">{{ student.bookings|length }}</p>
+          <p class="text-gray-500 text-sm">Total Bookings</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center space-x-3">
+        <div class="w-12 h-12 bg-yellow-50 rounded-lg flex items-center justify-center">
+          <i class="fas fa-star text-yellow-500 text-xl"></i></div>
+        <div>
+          <p class="text-2xl font-bold text-gray-800">{{ student.reviews|length }}</p>
+          <p class="text-gray-500 text-sm">Reviews Given</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pending Reschedule Requests -->
+  {% if pending_reschedules %}
+  <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mb-8">
+    <h2 class="text-lg font-bold text-yellow-800 mb-4">
+      <i class="fas fa-exchange-alt mr-2 text-yellow-600"></i>Pending Reschedule Requests</h2>
+    <div class="space-y-3">
+      {% for rr in pending_reschedules %}
+      <div class="bg-white rounded-lg border border-yellow-200 p-4">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <p class="font-semibold text-gray-800">
+              {{ rr.original_slot.tutor.name }} wants to reschedule</p>
+            <div class="mt-2 grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p class="text-gray-500 font-medium">Current Time</p>
+                <p class="text-gray-700">
+                  {{ rr.original_slot.date.strftime('%B %d, %Y') }}<br>
+                  {{ rr.original_slot.start_time.strftime('%I:%M %p') }} - {{ rr.original_slot.end_time.strftime('%I:%M %p') }}</p>
+              </div>
+              <div>
+                <p class="text-purple-600 font-medium">Proposed New Time</p>
+                <p class="text-gray-700">
+                  {{ rr.proposed_slot.date.strftime('%B %d, %Y') }}<br>
+                  {{ rr.proposed_slot.start_time.strftime('%I:%M %p') }} - {{ rr.proposed_slot.end_time.strftime('%I:%M %p') }}</p>
+              </div>
+            </div>
+            {% if rr.reason %}
+            <p class="text-sm text-gray-500 mt-2">
+              <i class="fas fa-comment mr-1"></i>{{ rr.reason }}</p>
+            {% endif %}
+            <p class="text-xs text-gray-400 mt-1">
+              Expires {{ rr.expires_at.strftime('%b %d at %I:%M %p') }}</p>
+          </div>
+          <div class="flex-shrink-0 ml-4 flex space-x-2">
+            <form method="POST" action="{{ url_for('reschedule_bp.approve_reschedule', request_id=rr.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit"
+                      class="px-4 py-2 text-sm font-medium text-white bg-green-600
+                             rounded-lg hover:bg-green-700 transition">
+                <i class="fas fa-check mr-1"></i>Approve</button>
+            </form>
+            <form method="POST" action="{{ url_for('reschedule_bp.reject_reschedule', request_id=rr.id) }}"
+                  onsubmit="return confirm('Reject this reschedule request?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit"
+                      class="px-4 py-2 text-sm font-medium text-red-600 border border-red-300
+                             rounded-lg hover:bg-red-50 transition">
+                <i class="fas fa-times mr-1"></i>Reject</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Upcoming Sessions -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">
+      <i class="fas fa-clock mr-2 text-blue-600"></i>Upcoming Sessions</h2>
+    {% if upcoming_slots %}
+      <div class="space-y-4">
+        {% for slot in upcoming_slots %}
+        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div>
+            <p class="font-semibold text-gray-800">{{ slot.tutor.name }}</p>
+            <p class="text-gray-500 text-sm">
+              {{ slot.subject or slot.tutor.subject }} &bull;
+              {{ slot.date.strftime('%B %d, %Y') }} &bull;
+              {{ slot.start_time|local_time(slot.date, user_timezone) }} - {{ slot.end_time|local_time(slot.date, user_timezone) }}</p>
+            <span class="inline-block mt-1 px-2 py-1 text-xs rounded-full
+              {% if slot.mode == 'online' %}bg-blue-100 text-blue-700
+              {% else %}bg-green-100 text-green-700{% endif %}">
+              {{ slot.mode }}</span>
+          </div>
+          {% if booking_map.get(slot.id) %}
+            {% set hours_until = ((slot.date.strftime('%Y-%m-%d') + ' ' + slot.start_time.strftime('%H:%M'))|string) %}
+            {% set session_dt = now.replace(year=slot.date.year, month=slot.date.month, day=slot.date.day, hour=slot.start_time.hour, minute=slot.start_time.minute, second=0, microsecond=0) %}
+            {% set delta_seconds = (session_dt - now).total_seconds() %}
+            {% set hours_left = delta_seconds / 3600 %}
+            <div class="flex-shrink-0 ml-4 flex space-x-2">
+              {% if slot.mode in ('online', 'both') and slot.jitsi_room_name and delta_seconds <= 900 and delta_seconds >= -1800 %}
+              <a href="{{ url_for('session_bp.join_session', slot_id=slot.id) }}"
+                 class="px-3 py-1.5 text-sm font-medium text-white bg-green-600
+                        rounded-lg hover:bg-green-700 transition">
+                <i class="fas fa-video mr-1"></i>Join Session</a>
+              {% elif slot.mode in ('online', 'both') and slot.jitsi_room_name and delta_seconds > 900 %}
+              <span class="px-3 py-1.5 text-sm font-medium text-gray-400 border border-gray-200
+                           rounded-lg cursor-default" title="Opens 15 min before session">
+                <i class="fas fa-video mr-1"></i>Join (opens soon)</span>
+              {% endif %}
+              {% if hours_left >= 6 %}
+              <a href="{{ url_for('reschedule_bp.select_slot', booking_id=booking_map[slot.id].id) }}"
+                 class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300
+                        rounded-lg hover:bg-blue-50 transition">
+                <i class="fas fa-exchange-alt mr-1"></i>Reschedule</a>
+              {% endif %}
+              <form method="POST"
+                    action="{{ url_for('student_bp.cancel_booking', booking_id=booking_map[slot.id].id) }}"
+                    onsubmit="return confirm('Cancel this session?\n\n{% if hours_left > 24 %}Full refund (${{ '%.2f'|format(slot.price) }}){% elif hours_left >= 12 %}50% refund (${{ '%.2f'|format(slot.price * 0.5) }}){% else %}No refund (less than 12h before session){% endif %}');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit"
+                        class="px-3 py-1.5 text-sm font-medium text-red-600 border border-red-300
+                               rounded-lg hover:bg-red-50 transition">
+                  <i class="fas fa-times mr-1"></i>Cancel</button>
+              </form>
+            </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-gray-400 text-center py-8">
+        No upcoming sessions.
+        <a href="{{ url_for('main.index') }}#tutors" class="text-blue-600 hover:underline">
+          Find a tutor</a></p>
+    {% endif %}
+  </div>
+
+  <!-- Favorite Tutors -->
+  {% if fav_tutors %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-bold text-gray-800">
+        <i class="fas fa-heart mr-2 text-red-500"></i>Favorite Tutors</h2>
+      <a href="{{ url_for('student_bp.favorites_page') }}"
+         class="text-blue-600 hover:underline text-sm">See all</a>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {% for tutor in fav_tutors %}
+      <a href="{{ url_for('tutor_bp.view_tutor_profile', tutor_id=tutor.id) }}"
+         class="text-center p-4 bg-gray-50 rounded-lg hover:bg-blue-50 transition">
+        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+          {% if tutor.profile_photo %}
+            <img src="{{ tutor.profile_photo|photo_url }}"
+                 class="w-12 h-12 rounded-full object-cover">
+          {% else %}
+            <i class="fas fa-user text-blue-600"></i>
+          {% endif %}
+        </div>
+        <p class="font-medium text-gray-800 text-sm">{{ tutor.name }}</p>
+        <p class="text-gray-500 text-xs">{{ tutor.subject }}</p>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Quick Actions -->
+  <div class="grid md:grid-cols-2 gap-6">
+    <a href="{{ url_for('main.index') }}#tutors"
+       class="bg-blue-600 text-white rounded-xl p-6 hover:bg-blue-700 transition">
+      <i class="fas fa-search text-2xl mb-2"></i>
+      <h3 class="text-lg font-bold">Find a Tutor</h3>
+      <p class="text-blue-100 text-sm mt-1">Browse available tutors and book a session</p>
+    </a>
+    <a href="{{ url_for('main.index') }}"
+       class="bg-gray-800 text-white rounded-xl p-6 hover:bg-gray-900 transition">
+      <i class="fas fa-home text-2xl mb-2"></i>
+      <h3 class="text-lg font-bold">Back to Home</h3>
+      <p class="text-gray-300 text-sm mt-1">Return to the homepage</p>
+    </a>
+  </div>
+</div>
+{% endblock %}

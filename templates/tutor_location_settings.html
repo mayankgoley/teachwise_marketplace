@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Location Settings | TeachWise{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/location-picker.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">
+        <i class="fas fa-map-marker-alt mr-2 text-blue-600"></i>Default Location</h1>
+      <p class="text-gray-500 text-sm mt-1">Set your default location and travel radius for in-person sessions</p>
+    </div>
+    <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
+       class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+      <i class="fas fa-arrow-left mr-1"></i>Dashboard</a>
+  </div>
+
+  <form method="POST" id="locationForm"
+        class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="lat" id="locLat" value="{{ tutor.latitude or '' }}">
+    <input type="hidden" name="lng" id="locLng" value="{{ tutor.longitude or '' }}">
+    <input type="hidden" name="address" id="locAddress" value="{{ tutor.address or '' }}">
+
+    <!-- Label -->
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Location Label (optional)</label>
+      <input type="text" name="label" id="locLabel" maxlength="100"
+             value="{{ tutor.default_location_label or '' }}"
+             placeholder="e.g. My Home in LA, Fullerton Office"
+             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                    focus:ring-2 focus:ring-blue-500">
+    </div>
+
+    <!-- Address Search -->
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Search Address</label>
+      <div class="relative">
+        <input type="text" id="locSearch" placeholder="Type an address..."
+               value="{{ tutor.address or '' }}"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                      focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+
+    <!-- Map -->
+    <div class="mb-4">
+      <div id="locMap" class="lp-map-container" style="height:350px;"></div>
+      <p class="text-xs text-gray-400 mt-1">Click the map or drag the marker to adjust your location</p>
+    </div>
+
+    <!-- Radius -->
+    <div class="mb-6">
+      <label class="block text-sm font-medium text-gray-700 mb-1">
+        Travel Radius: <span id="radiusDisplay">{{ tutor.default_radius_miles|default(10)|int }}</span> miles</label>
+      <div class="flex items-center space-x-3">
+        <select name="radius_miles" id="locRadius"
+                class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+          {% for r in [5, 10, 15, 25] %}
+          <option value="{{ r }}" {{ 'selected' if (tutor.default_radius_miles or 10)|int == r }}>{{ r }} miles</option>
+          {% endfor %}
+          <option value="custom" id="customRadiusOpt">Custom...</option>
+        </select>
+        <input type="number" id="customRadius" min="1" max="50" step="1"
+               class="hidden w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+               placeholder="1-50">
+      </div>
+    </div>
+
+    <button type="submit" id="saveBtn"
+            class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold
+                   hover:bg-blue-700 transition">
+      <i class="fas fa-save mr-2"></i>Save Default Location</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='js/location-picker.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const picker = new LocationPicker({
+    mapContainerId: 'locMap',
+    searchInputId: 'locSearch',
+    latFieldId: 'locLat',
+    lngFieldId: 'locLng',
+    addressFieldId: 'locAddress',
+    labelFieldId: 'locLabel',
+    showRadius: true,
+    radiusFieldId: 'locRadius',
+    radiusUnit: 'miles',
+    draggable: true,
+    defaultCenter: [34.0522, -118.2437],
+    defaultZoom: 11,
+    initialLat: {{ tutor.latitude or 'null' }},
+    initialLng: {{ tutor.longitude or 'null' }}
+  });
+
+  // Custom radius toggle
+  const radiusSelect = document.getElementById('locRadius');
+  const customInput = document.getElementById('customRadius');
+  const radiusDisplay = document.getElementById('radiusDisplay');
+
+  radiusSelect.addEventListener('change', function() {
+    if (this.value === 'custom') {
+      customInput.classList.remove('hidden');
+      customInput.focus();
+    } else {
+      customInput.classList.add('hidden');
+      radiusDisplay.textContent = this.value;
+      picker.setRadius(parseFloat(this.value));
+    }
+  });
+
+  customInput.addEventListener('input', function() {
+    const v = Math.min(Math.max(parseInt(this.value) || 1, 1), 50);
+    radiusDisplay.textContent = v;
+    radiusSelect.value = v;
+    // If v matches a preset, select it; else keep custom
+    const opts = Array.from(radiusSelect.options).map(o => o.value);
+    if (!opts.includes(String(v))) {
+      radiusSelect.value = 'custom';
+    }
+    picker.setRadius(v);
+  });
+
+  // On form submit, ensure custom radius is sent correctly
+  document.getElementById('locationForm').addEventListener('submit', function() {
+    if (radiusSelect.value === 'custom') {
+      radiusSelect.value = customInput.value || '10';
+    }
+  });
+
+  // Validate before submit
+  document.getElementById('locationForm').addEventListener('submit', function(e) {
+    const lat = document.getElementById('locLat').value;
+    const lng = document.getElementById('locLng').value;
+    if (!lat || !lng) {
+      e.preventDefault();
+      alert('Please select a location on the map first.');
+    }
+  });
+
+  // Initialize radius circle if location exists
+  {% if tutor.latitude and tutor.longitude %}
+  picker.setRadius({{ tutor.default_radius_miles or 10 }});
+  {% endif %}
+});
+</script>
+{% endblock %}

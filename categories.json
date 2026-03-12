@@ -1,0 +1,744 @@
+{
+  "platform_categories": [
+    {
+      "id": "academics",
+      "name": "Academics & Tutoring",
+      "icon": "book-open",
+      "subcategories": [
+        {
+          "id": "math",
+          "name": "Mathematics",
+          "topics": ["Algebra", "Geometry", "Trigonometry", "Calculus", "Statistics", "Linear Algebra", "Discrete Math", "Pre-Calculus", "AP Calculus", "SAT Math"]
+        },
+        {
+          "id": "science",
+          "name": "Science",
+          "topics": ["Physics", "Chemistry", "Biology", "Earth Science", "Environmental Science", "Anatomy", "Astronomy", "AP Physics", "AP Chemistry", "AP Biology"]
+        },
+        {
+          "id": "english",
+          "name": "English & Writing",
+          "topics": ["Grammar", "Creative Writing", "Essay Writing", "Literature", "Poetry", "AP English", "Business Writing", "Technical Writing", "Journalism", "Screenwriting"]
+        },
+        {
+          "id": "history_social",
+          "name": "History & Social Studies",
+          "topics": ["US History", "World History", "Government", "Economics", "Geography", "AP US History", "AP World History", "Sociology", "Psychology", "Political Science"]
+        },
+        {
+          "id": "test_prep",
+          "name": "Test Preparation",
+          "topics": ["SAT", "ACT", "GRE", "GMAT", "LSAT", "MCAT", "TOEFL", "IELTS", "AP Exams", "GED", "PSAT", "SSAT", "ISEE", "CLEP", "Praxis", "ASVAB", "DAT", "OAT", "PCAT"]
+        },
+        {
+          "id": "college_admissions",
+          "name": "College Admissions",
+          "topics": ["College Application Essays", "Interview Prep", "College Counseling", "Scholarship Applications", "Financial Aid Guidance", "Portfolio Review"]
+        },
+        {
+          "id": "elementary",
+          "name": "Elementary Education",
+          "topics": ["Reading", "Phonics", "Basic Math", "Handwriting", "Spelling", "Early Science", "Social Studies", "Homework Help"]
+        },
+        {
+          "id": "special_education",
+          "name": "Special Education & Learning Support",
+          "topics": ["Dyslexia Support", "ADHD Learning Strategies", "Autism Spectrum Support", "IEP Guidance", "Speech Therapy Exercises", "Occupational Therapy Activities", "Gifted Education"]
+        },
+        {
+          "id": "homeschool",
+          "name": "Homeschooling",
+          "topics": ["Homeschool Curriculum", "Homeschool Math", "Homeschool Science", "Homeschool English", "Montessori Methods", "Classical Education", "Unschooling Guidance"]
+        }
+      ]
+    },
+    {
+      "id": "languages",
+      "name": "Languages",
+      "icon": "globe",
+      "subcategories": [
+        {
+          "id": "esl",
+          "name": "English as a Second Language (ESL)",
+          "topics": ["Conversational English", "Business English", "Academic English", "Pronunciation", "TOEFL Prep", "IELTS Prep", "American Accent Training"]
+        },
+        {
+          "id": "spanish",
+          "name": "Spanish",
+          "topics": ["Beginner Spanish", "Conversational Spanish", "Business Spanish", "Spanish for Healthcare", "AP Spanish", "Latin American Spanish", "Castilian Spanish"]
+        },
+        {
+          "id": "french",
+          "name": "French",
+          "topics": ["Beginner French", "Conversational French", "Business French", "AP French", "French Literature"]
+        },
+        {
+          "id": "mandarin",
+          "name": "Mandarin Chinese",
+          "topics": ["Beginner Mandarin", "Conversational Mandarin", "Business Mandarin", "HSK Prep", "Chinese Characters/Writing"]
+        },
+        {
+          "id": "other_languages",
+          "name": "Other Languages",
+          "topics": ["German", "Italian", "Portuguese", "Japanese", "Korean", "Arabic", "Hindi", "Russian", "Hebrew", "Vietnamese", "Tagalog", "Polish", "Turkish", "Swahili", "Dutch", "Greek", "Thai", "Farsi", "Urdu", "American Sign Language (ASL)", "Latin"]
+        }
+      ]
+    },
+    {
+      "id": "music",
+      "name": "Music",
+      "icon": "music",
+      "subcategories": [
+        {
+          "id": "instruments_string",
+          "name": "String Instruments",
+          "topics": ["Guitar (Acoustic)", "Guitar (Electric)", "Guitar (Classical)", "Bass Guitar", "Ukulele", "Violin", "Viola", "Cello", "Double Bass", "Banjo", "Mandolin", "Harp", "Sitar"]
+        },
+        {
+          "id": "instruments_keyboard",
+          "name": "Keyboard Instruments",
+          "topics": ["Piano", "Keyboard", "Organ", "Synthesizer", "Accordion"]
+        },
+        {
+          "id": "instruments_wind",
+          "name": "Wind & Brass Instruments",
+          "topics": ["Flute", "Clarinet", "Saxophone", "Trumpet", "Trombone", "French Horn", "Tuba", "Oboe", "Bassoon", "Harmonica", "Recorder", "Bagpipes"]
+        },
+        {
+          "id": "instruments_percussion",
+          "name": "Percussion & Drums",
+          "topics": ["Drum Kit", "Snare Drum", "Congas", "Bongos", "Djembe", "Tabla", "Marimba", "Xylophone", "Vibraphone", "Cajon", "Steel Drums"]
+        },
+        {
+          "id": "vocals",
+          "name": "Vocal Training",
+          "topics": ["Singing (Pop)", "Singing (Classical/Opera)", "Singing (Jazz)", "Singing (R&B/Soul)", "Singing (Country)", "Voice Acting", "Rap/Hip-Hop Vocals", "Choir Training", "Beatboxing"]
+        },
+        {
+          "id": "music_theory",
+          "name": "Music Theory & Composition",
+          "topics": ["Music Theory", "Songwriting", "Music Composition", "Arranging", "Sight Reading", "Ear Training", "Harmony", "Counterpoint"]
+        },
+        {
+          "id": "music_production",
+          "name": "Music Production & Technology",
+          "topics": ["Music Production (Ableton)", "Music Production (FL Studio)", "Music Production (Logic Pro)", "Music Production (Pro Tools)", "Mixing & Mastering", "Sound Design", "DJ Skills", "Audio Engineering", "Podcast Production"]
+        }
+      ]
+    },
+    {
+      "id": "dance",
+      "name": "Dance",
+      "icon": "sparkles",
+      "subcategories": [
+        {
+          "id": "dance_ballroom",
+          "name": "Ballroom & Social Dance",
+          "topics": ["Waltz", "Tango", "Foxtrot", "Quickstep", "Cha-Cha", "Rumba", "Samba", "Jive", "Swing", "Lindy Hop", "West Coast Swing", "Salsa", "Bachata", "Merengue", "Kizomba"]
+        },
+        {
+          "id": "dance_classical",
+          "name": "Classical & Concert Dance",
+          "topics": ["Ballet", "Pointe", "Contemporary", "Modern Dance", "Jazz Dance", "Lyrical Dance"]
+        },
+        {
+          "id": "dance_urban",
+          "name": "Urban & Street Dance",
+          "topics": ["Hip-Hop", "Breaking (Breakdance)", "Popping", "Locking", "Krumping", "House Dance", "Waacking"]
+        },
+        {
+          "id": "dance_cultural",
+          "name": "Cultural & Folk Dance",
+          "topics": ["Bollywood", "Bharatanatyam", "Kathak", "Flamenco", "Irish Dance", "African Dance", "Hawaiian Hula", "Line Dancing", "Country Two-Step", "Belly Dance", "Folk Dance", "Square Dancing", "Tap Dance"]
+        },
+        {
+          "id": "dance_fitness",
+          "name": "Dance Fitness",
+          "topics": ["Zumba", "Barre", "Dance Cardio", "Pole Dance Fitness", "Aerial Dance"]
+        }
+      ]
+    },
+    {
+      "id": "sports",
+      "name": "Sports & Athletics",
+      "icon": "trophy",
+      "subcategories": [
+        {
+          "id": "sports_ball",
+          "name": "Ball Sports",
+          "topics": ["Basketball", "Soccer/Football", "Baseball", "Softball", "Tennis", "Table Tennis", "Volleyball", "Badminton", "Golf", "Cricket", "Rugby", "Lacrosse", "Field Hockey", "Pickleball", "Racquetball", "Squash", "Handball"]
+        },
+        {
+          "id": "sports_water",
+          "name": "Water Sports",
+          "topics": ["Swimming", "Diving", "Water Polo", "Surfing", "Paddleboarding", "Kayaking", "Canoeing", "Rowing", "Sailing", "Windsurfing", "Kitesurfing", "Wakeboarding", "Waterskiing", "Synchronized Swimming", "Snorkeling", "Scuba Diving"]
+        },
+        {
+          "id": "sports_individual",
+          "name": "Individual Sports",
+          "topics": ["Track & Field", "Cross Country Running", "Marathon Training", "Triathlon Training", "Gymnastics", "Figure Skating", "Ice Skating", "Roller Skating", "Skateboarding", "BMX", "Cycling", "Mountain Biking", "Fencing", "Archery", "Bowling", "Rock Climbing", "Horseback Riding/Equestrian", "Wrestling"]
+        },
+        {
+          "id": "sports_winter",
+          "name": "Winter Sports",
+          "topics": ["Skiing (Downhill)", "Skiing (Cross-Country)", "Snowboarding", "Ice Hockey", "Curling", "Speed Skating", "Snowshoeing"]
+        },
+        {
+          "id": "sports_outdoor",
+          "name": "Outdoor & Adventure Sports",
+          "topics": ["Hiking & Backpacking", "Trail Running", "Orienteering", "Parkour", "Rappelling", "Zip-lining", "White Water Rafting", "Fishing", "Fly Fishing", "Hunting Safety"]
+        },
+        {
+          "id": "sports_coaching",
+          "name": "Sports Performance & Coaching",
+          "topics": ["Sports Coaching (General)", "Athletic Performance Training", "Speed & Agility Training", "Sports Psychology", "Referee/Umpire Training", "Youth Sports Coaching"]
+        }
+      ]
+    },
+    {
+      "id": "martial_arts",
+      "name": "Martial Arts & Self Defense",
+      "icon": "shield",
+      "subcategories": [
+        {
+          "id": "ma_striking",
+          "name": "Striking Arts",
+          "topics": ["Boxing", "Kickboxing", "Muay Thai", "Karate", "Taekwondo", "Wing Chun", "Capoeira"]
+        },
+        {
+          "id": "ma_grappling",
+          "name": "Grappling Arts",
+          "topics": ["Brazilian Jiu-Jitsu (BJJ)", "Judo", "Wrestling (Greco-Roman)", "Wrestling (Freestyle)", "Sambo", "Aikido", "Hapkido"]
+        },
+        {
+          "id": "ma_mixed",
+          "name": "Mixed & Traditional",
+          "topics": ["Mixed Martial Arts (MMA)", "Krav Maga", "Kung Fu", "Tai Chi", "Wushu", "Kendo", "Escrima/Arnis"]
+        },
+        {
+          "id": "ma_self_defense",
+          "name": "Self Defense",
+          "topics": ["Women's Self Defense", "Self Defense for Kids", "Situational Awareness Training", "De-escalation Techniques"]
+        }
+      ]
+    },
+    {
+      "id": "fitness",
+      "name": "Fitness & Personal Training",
+      "icon": "dumbbell",
+      "subcategories": [
+        {
+          "id": "fitness_strength",
+          "name": "Strength & Conditioning",
+          "topics": ["Personal Training", "Weight Training", "Powerlifting", "Olympic Weightlifting", "Bodybuilding", "Calisthenics", "Kettlebell Training", "CrossFit", "Functional Fitness", "TRX/Suspension Training"]
+        },
+        {
+          "id": "fitness_cardio",
+          "name": "Cardio & Endurance",
+          "topics": ["Running Coaching", "Cycling Coaching", "HIIT Training", "Spin/Indoor Cycling", "Jump Rope", "Rowing", "Stair Climbing"]
+        },
+        {
+          "id": "fitness_flexibility",
+          "name": "Flexibility & Mobility",
+          "topics": ["Stretching", "Foam Rolling", "Mobility Training", "Flexibility Training", "PNF Stretching"]
+        },
+        {
+          "id": "fitness_specialized",
+          "name": "Specialized Fitness",
+          "topics": ["Senior Fitness", "Prenatal/Postnatal Fitness", "Kids Fitness", "Adaptive Fitness (Disability)", "Rehabilitation Exercise", "Post-Surgery Recovery Exercise", "Corporate Wellness"]
+        }
+      ]
+    },
+    {
+      "id": "yoga_wellness",
+      "name": "Yoga & Wellness",
+      "icon": "heart",
+      "subcategories": [
+        {
+          "id": "yoga_styles",
+          "name": "Yoga Styles",
+          "topics": ["Hatha Yoga", "Vinyasa Yoga", "Ashtanga Yoga", "Bikram/Hot Yoga", "Yin Yoga", "Restorative Yoga", "Kundalini Yoga", "Iyengar Yoga", "Power Yoga", "Prenatal Yoga", "Kids Yoga", "Chair Yoga", "Aerial Yoga", "Acro Yoga", "Yoga Nidra"]
+        },
+        {
+          "id": "meditation",
+          "name": "Meditation & Mindfulness",
+          "topics": ["Guided Meditation", "Mindfulness Meditation", "Transcendental Meditation", "Breathwork (Pranayama)", "Visualization", "Body Scan Meditation", "Walking Meditation", "Sound Bath/Sound Healing"]
+        },
+        {
+          "id": "holistic_wellness",
+          "name": "Holistic Wellness",
+          "topics": ["Pilates (Mat)", "Pilates (Reformer)", "Tai Chi", "Qigong", "Feldenkrais Method", "Alexander Technique", "Reiki", "Aromatherapy", "Ayurveda Basics", "Herbalism Basics", "Stress Management"]
+        }
+      ]
+    },
+    {
+      "id": "cooking",
+      "name": "Cooking & Culinary Arts",
+      "icon": "chef-hat",
+      "subcategories": [
+        {
+          "id": "cooking_basics",
+          "name": "Cooking Fundamentals",
+          "topics": ["Knife Skills", "Cooking Basics for Beginners", "Meal Prep & Planning", "Kitchen Safety", "Food Presentation/Plating", "Sous Vide Cooking", "Grilling & BBQ", "Smoking & Curing"]
+        },
+        {
+          "id": "cuisine_types",
+          "name": "World Cuisines",
+          "topics": ["Italian Cooking", "French Cooking", "Mexican Cooking", "Chinese Cooking", "Japanese Cooking (Sushi)", "Indian Cooking", "Thai Cooking", "Korean Cooking", "Mediterranean Cooking", "Middle Eastern Cooking", "Ethiopian Cooking", "Vietnamese Cooking", "Cajun/Creole Cooking", "Southern/Soul Food", "American BBQ"]
+        },
+        {
+          "id": "baking",
+          "name": "Baking & Pastry",
+          "topics": ["Bread Baking", "Cake Decorating", "Pastry Making", "Cookie & Dessert Baking", "Sourdough", "Chocolate Making", "Sugar Art", "French Pastry"]
+        },
+        {
+          "id": "dietary",
+          "name": "Dietary & Specialty Cooking",
+          "topics": ["Vegan Cooking", "Vegetarian Cooking", "Gluten-Free Cooking", "Keto Cooking", "Paleo Cooking", "Diabetic-Friendly Cooking", "Allergy-Friendly Cooking", "Low-Sodium Cooking", "Heart-Healthy Cooking"]
+        },
+        {
+          "id": "beverages",
+          "name": "Beverages",
+          "topics": ["Barista/Coffee Making", "Latte Art", "Tea Ceremony", "Cocktail Making/Mixology", "Wine Appreciation", "Beer Brewing (Homebrewing)", "Kombucha Brewing", "Smoothie & Juice Making"]
+        },
+        {
+          "id": "food_preservation",
+          "name": "Food Preservation",
+          "topics": ["Canning", "Fermenting", "Pickling", "Dehydrating", "Jam & Jelly Making", "Cheese Making"]
+        }
+      ]
+    },
+    {
+      "id": "visual_arts",
+      "name": "Visual Arts & Design",
+      "icon": "palette",
+      "subcategories": [
+        {
+          "id": "drawing_painting",
+          "name": "Drawing & Painting",
+          "topics": ["Pencil Drawing", "Charcoal Drawing", "Pen & Ink", "Watercolor Painting", "Acrylic Painting", "Oil Painting", "Pastel Art", "Figure Drawing", "Portrait Drawing", "Landscape Painting", "Abstract Art", "Gouache", "Spray Paint Art"]
+        },
+        {
+          "id": "digital_art",
+          "name": "Digital Art & Illustration",
+          "topics": ["Digital Illustration (Procreate)", "Digital Illustration (Photoshop)", "Digital Illustration (Illustrator)", "Vector Art", "Concept Art", "Character Design", "Comic/Manga Art", "Pixel Art", "NFT Art Creation", "AI Art (Midjourney/DALL-E)"]
+        },
+        {
+          "id": "photography",
+          "name": "Photography",
+          "topics": ["Photography Basics", "Portrait Photography", "Landscape Photography", "Street Photography", "Product Photography", "Food Photography", "Wedding Photography", "Wildlife Photography", "Night Photography", "Drone Photography", "Photo Editing (Lightroom)", "Photo Editing (Photoshop)", "Film Photography"]
+        },
+        {
+          "id": "sculpture_3d",
+          "name": "Sculpture & 3D Art",
+          "topics": ["Clay Sculpting", "Pottery/Ceramics", "Wheel Throwing", "Woodcarving", "Stone Carving", "Metal Sculpture/Welding Art", "Glass Blowing", "Paper Mache", "3D Printing Art"]
+        },
+        {
+          "id": "printmaking",
+          "name": "Printmaking & Mixed Media",
+          "topics": ["Screen Printing", "Linocut/Block Printing", "Etching", "Lithography", "Collage", "Mixed Media Art", "Resin Art", "Encaustic (Wax) Art"]
+        },
+        {
+          "id": "design",
+          "name": "Design",
+          "topics": ["Graphic Design", "Logo Design", "Brand Identity", "Typography", "UI/UX Design", "Web Design", "Interior Design Basics", "Fashion Design/Sketching", "Textile Design", "Architectural Drawing"]
+        }
+      ]
+    },
+    {
+      "id": "crafts",
+      "name": "Crafts & Handmade",
+      "icon": "scissors",
+      "subcategories": [
+        {
+          "id": "fiber_arts",
+          "name": "Fiber Arts & Textiles",
+          "topics": ["Knitting", "Crocheting", "Sewing", "Quilting", "Embroidery", "Cross-Stitch", "Needlepoint", "Weaving", "Macrame", "Tatting", "Lace Making", "Felting", "Dyeing (Tie-Dye, Batik, Shibori)"]
+        },
+        {
+          "id": "paper_crafts",
+          "name": "Paper Crafts",
+          "topics": ["Origami", "Calligraphy", "Hand Lettering", "Bookbinding", "Card Making", "Scrapbooking", "Paper Quilling"]
+        },
+        {
+          "id": "jewelry",
+          "name": "Jewelry & Metalwork",
+          "topics": ["Jewelry Making", "Beading", "Wire Wrapping", "Silversmithing", "Metalworking", "Enameling", "Lapidary (Stone Cutting)"]
+        },
+        {
+          "id": "woodworking",
+          "name": "Woodworking",
+          "topics": ["Woodworking Basics", "Furniture Making", "Wood Turning (Lathe)", "Wood Burning (Pyrography)", "Whittling", "Scroll Saw", "Cabinet Making", "Wood Finishing"]
+        },
+        {
+          "id": "other_crafts",
+          "name": "Other Crafts",
+          "topics": ["Candle Making", "Soap Making", "Leather Working", "Stained Glass", "Mosaic Art", "Basket Weaving", "Floral Arrangement", "Wreath Making", "Upholstery", "Tufting (Rug Making)"]
+        }
+      ]
+    },
+    {
+      "id": "technology",
+      "name": "Technology & Computer Science",
+      "icon": "laptop",
+      "subcategories": [
+        {
+          "id": "programming",
+          "name": "Programming & Software Development",
+          "topics": ["Python", "JavaScript", "Java", "C++", "C#", "Ruby", "Go", "Rust", "Swift", "Kotlin", "TypeScript", "PHP", "R", "SQL", "HTML/CSS", "React", "Angular", "Vue.js", "Node.js", "Django", "Flask", "Spring Boot", "Ruby on Rails", ".NET"]
+        },
+        {
+          "id": "mobile_dev",
+          "name": "Mobile Development",
+          "topics": ["iOS Development (Swift)", "Android Development (Kotlin)", "React Native", "Flutter", "App Design"]
+        },
+        {
+          "id": "data_ai",
+          "name": "Data Science & AI",
+          "topics": ["Data Science", "Machine Learning", "Deep Learning", "Natural Language Processing", "Computer Vision", "Data Analysis", "Data Visualization", "Big Data (Spark/Hadoop)", "AI Prompt Engineering", "ChatGPT/LLM Usage"]
+        },
+        {
+          "id": "cloud_devops",
+          "name": "Cloud & DevOps",
+          "topics": ["AWS", "Google Cloud (GCP)", "Microsoft Azure", "Docker", "Kubernetes", "CI/CD", "Terraform", "Linux Administration", "Networking"]
+        },
+        {
+          "id": "cybersecurity",
+          "name": "Cybersecurity",
+          "topics": ["Ethical Hacking", "Penetration Testing", "Network Security", "Cybersecurity Fundamentals", "CompTIA Security+", "CISSP Prep", "Digital Forensics", "Incident Response"]
+        },
+        {
+          "id": "computer_basics",
+          "name": "Computer Basics & Productivity",
+          "topics": ["Computer Literacy", "Microsoft Office (Word, Excel, PowerPoint)", "Google Workspace", "Typing/Keyboarding", "Email Management", "Internet Safety for Seniors"]
+        },
+        {
+          "id": "databases",
+          "name": "Databases",
+          "topics": ["MySQL", "PostgreSQL", "MongoDB", "Redis", "SQLite", "Oracle DB", "Database Design"]
+        },
+        {
+          "id": "game_dev",
+          "name": "Game Development",
+          "topics": ["Unity (C#)", "Unreal Engine", "Godot", "Game Design", "Level Design", "2D Game Development", "3D Game Development", "VR/AR Development"]
+        }
+      ]
+    },
+    {
+      "id": "business",
+      "name": "Business & Professional Development",
+      "icon": "briefcase",
+      "subcategories": [
+        {
+          "id": "entrepreneurship",
+          "name": "Entrepreneurship",
+          "topics": ["Starting a Business", "Business Plan Writing", "Lean Startup", "E-commerce", "Dropshipping", "Amazon FBA", "Etsy Selling", "Franchise Ownership"]
+        },
+        {
+          "id": "marketing",
+          "name": "Marketing & Sales",
+          "topics": ["Digital Marketing", "Social Media Marketing", "SEO", "Content Marketing", "Email Marketing", "Google Ads", "Facebook/Meta Ads", "TikTok Marketing", "Influencer Marketing", "Affiliate Marketing", "Copywriting", "Sales Techniques", "Cold Calling/Outreach", "Public Relations"]
+        },
+        {
+          "id": "finance_accounting",
+          "name": "Finance & Accounting",
+          "topics": ["Bookkeeping", "QuickBooks", "Accounting Basics", "Financial Modeling", "Excel for Finance", "Personal Finance", "Investing Basics", "Stock Market", "Cryptocurrency", "Real Estate Investing", "Tax Preparation", "CPA Exam Prep"]
+        },
+        {
+          "id": "management_leadership",
+          "name": "Management & Leadership",
+          "topics": ["Project Management", "Agile/Scrum", "Product Management", "Team Leadership", "Conflict Resolution", "Change Management", "Executive Coaching", "PMP Certification Prep"]
+        },
+        {
+          "id": "career",
+          "name": "Career Development",
+          "topics": ["Resume Writing", "Interview Preparation", "LinkedIn Optimization", "Networking Skills", "Career Coaching", "Career Change Guidance", "Salary Negotiation", "Personal Branding"]
+        },
+        {
+          "id": "communication",
+          "name": "Communication & Soft Skills",
+          "topics": ["Public Speaking", "Presentation Skills", "Storytelling", "Negotiation", "Business Communication", "Email Etiquette", "Interpersonal Skills", "Emotional Intelligence", "Active Listening"]
+        }
+      ]
+    },
+    {
+      "id": "creative_media",
+      "name": "Film, Video & Creative Media",
+      "icon": "video",
+      "subcategories": [
+        {
+          "id": "video_production",
+          "name": "Video Production",
+          "topics": ["Filmmaking Basics", "Cinematography", "Video Editing (Premiere Pro)", "Video Editing (Final Cut Pro)", "Video Editing (DaVinci Resolve)", "Motion Graphics (After Effects)", "Color Grading", "Documentary Filmmaking", "Short Film Making"]
+        },
+        {
+          "id": "content_creation",
+          "name": "Content Creation",
+          "topics": ["YouTube Channel Creation", "TikTok Content", "Instagram Reels", "Podcasting", "Streaming (Twitch/YouTube)", "Vlogging", "Content Strategy"]
+        },
+        {
+          "id": "animation",
+          "name": "Animation & VFX",
+          "topics": ["2D Animation", "3D Animation (Blender)", "3D Animation (Maya)", "Stop Motion", "Motion Graphics", "Visual Effects (VFX)", "Character Animation"]
+        },
+        {
+          "id": "writing_creative",
+          "name": "Creative Writing & Storytelling",
+          "topics": ["Fiction Writing", "Novel Writing", "Short Story Writing", "Poetry", "Screenwriting", "Playwriting", "Comedy Writing", "Children's Book Writing", "Memoir Writing", "Blogging"]
+        },
+        {
+          "id": "theater",
+          "name": "Theater & Acting",
+          "topics": ["Acting (Film)", "Acting (Stage)", "Improv Comedy", "Stand-up Comedy", "Voice Acting", "Monologue Preparation", "Audition Coaching", "Stage Combat", "Directing", "Stage Management"]
+        }
+      ]
+    },
+    {
+      "id": "life_skills",
+      "name": "Life Skills & Personal Development",
+      "icon": "user",
+      "subcategories": [
+        {
+          "id": "driving",
+          "name": "Driving & Vehicle",
+          "topics": ["Driving Lessons (Car)", "Motorcycle Training", "Commercial Driver's License (CDL)", "Defensive Driving", "Parallel Parking", "Winter Driving", "Towing/Trailer Driving"]
+        },
+        {
+          "id": "home_skills",
+          "name": "Home & DIY",
+          "topics": ["Basic Home Repair", "Plumbing Basics", "Electrical Basics", "Painting (House)", "Tiling", "Drywall Repair", "Landscaping", "Gardening", "Composting", "Beekeeping", "Chicken Keeping", "Home Organization (KonMari)", "Interior Decorating"]
+        },
+        {
+          "id": "personal_development",
+          "name": "Personal Development",
+          "topics": ["Life Coaching", "Goal Setting", "Time Management", "Productivity", "Habit Building", "Confidence Building", "Public Speaking", "Speed Reading", "Memory Techniques", "Critical Thinking"]
+        },
+        {
+          "id": "financial_literacy",
+          "name": "Financial Literacy",
+          "topics": ["Budgeting", "Debt Management", "Credit Score Improvement", "Retirement Planning", "Estate Planning Basics", "Insurance Basics", "First-Time Home Buying"]
+        },
+        {
+          "id": "parenting",
+          "name": "Parenting & Childcare",
+          "topics": ["Newborn Care", "Infant CPR/First Aid", "Toddler Development", "Potty Training", "Child Nutrition", "Positive Discipline", "Babysitting Training", "Nanny Training"]
+        },
+        {
+          "id": "pet_care",
+          "name": "Pet Care & Training",
+          "topics": ["Dog Training (Obedience)", "Dog Training (Agility)", "Puppy Training", "Cat Behavior", "Horse Training", "Bird Training", "Aquarium Care", "Reptile Care", "Pet First Aid", "Dog Grooming"]
+        },
+        {
+          "id": "survival",
+          "name": "Survival & Safety",
+          "topics": ["First Aid/CPR", "Wilderness Survival", "Fire Safety", "Emergency Preparedness", "Water Safety", "Self-Defense Basics", "Navigation/Map Reading"]
+        }
+      ]
+    },
+    {
+      "id": "fashion_beauty",
+      "name": "Fashion & Beauty",
+      "icon": "sparkle",
+      "subcategories": [
+        {
+          "id": "makeup",
+          "name": "Makeup & Cosmetics",
+          "topics": ["Everyday Makeup", "Bridal Makeup", "Special Effects (SFX) Makeup", "Contouring & Highlighting", "Eye Makeup", "Makeup for Dark Skin", "Makeup for Mature Skin", "Airbrush Makeup", "Editorial/Fashion Makeup"]
+        },
+        {
+          "id": "hair",
+          "name": "Hair Styling",
+          "topics": ["Hair Cutting Basics", "Hair Coloring", "Braiding", "Natural Hair Care", "Updos & Formal Styles", "Barbering", "Wig Making/Styling", "Extensions"]
+        },
+        {
+          "id": "nails",
+          "name": "Nail Art",
+          "topics": ["Manicure", "Gel Nails", "Acrylic Nails", "Nail Art Design", "Pedicure", "Dip Powder"]
+        },
+        {
+          "id": "skincare",
+          "name": "Skincare",
+          "topics": ["Skincare Routines", "Esthetics", "Facial Techniques", "Anti-Aging Skincare", "Acne Treatment", "K-Beauty", "Men's Grooming"]
+        },
+        {
+          "id": "fashion",
+          "name": "Fashion & Styling",
+          "topics": ["Personal Styling", "Wardrobe Consulting", "Color Analysis", "Fashion for Body Types", "Sustainable Fashion", "Thrift/Vintage Styling", "Fashion Illustration"]
+        }
+      ]
+    },
+    {
+      "id": "health_medical",
+      "name": "Health & Medical Education",
+      "icon": "stethoscope",
+      "subcategories": [
+        {
+          "id": "medical_prep",
+          "name": "Medical & Nursing Prep",
+          "topics": ["MCAT Prep", "NCLEX Prep", "USMLE Prep", "Medical Terminology", "Anatomy & Physiology", "Pharmacology", "Clinical Skills"]
+        },
+        {
+          "id": "nutrition",
+          "name": "Nutrition & Dietetics",
+          "topics": ["Nutrition Basics", "Sports Nutrition", "Meal Planning", "Macro Counting", "Intuitive Eating", "Plant-Based Nutrition", "Nutrition for Chronic Conditions"]
+        },
+        {
+          "id": "mental_health_education",
+          "name": "Mental Health Education",
+          "topics": ["Stress Management Techniques", "Anxiety Coping Strategies", "Mindfulness for Mental Health", "Grief Education", "Addiction Awareness", "Mental Health First Aid"]
+        },
+        {
+          "id": "certifications",
+          "name": "Health Certifications",
+          "topics": ["CPR/AED Certification", "First Aid Certification", "Personal Trainer Certification (NASM/ACE)", "Yoga Teacher Training (200hr/500hr)", "Pilates Certification", "Group Fitness Certification", "Nutrition Certification"]
+        }
+      ]
+    },
+    {
+      "id": "trades",
+      "name": "Trades & Vocational Skills",
+      "icon": "wrench",
+      "subcategories": [
+        {
+          "id": "construction",
+          "name": "Construction & Building",
+          "topics": ["Carpentry", "Welding", "Masonry", "Concrete Work", "Framing", "Roofing Basics", "Blueprint Reading", "OSHA Safety"]
+        },
+        {
+          "id": "electrical_plumbing",
+          "name": "Electrical & Plumbing",
+          "topics": ["Electrical Wiring Basics", "Plumbing Basics", "HVAC Basics", "Solar Panel Installation", "Home Inspection"]
+        },
+        {
+          "id": "automotive",
+          "name": "Automotive",
+          "topics": ["Auto Mechanics Basics", "Oil Change & Maintenance", "Brake Repair", "Engine Basics", "Auto Body Repair", "Car Detailing", "Motorcycle Mechanics", "EV Maintenance"]
+        },
+        {
+          "id": "other_trades",
+          "name": "Other Trades",
+          "topics": ["Locksmithing", "Appliance Repair", "Small Engine Repair", "Upholstery", "Glazing (Glass Work)", "Painting & Decorating (Professional)", "Drone Piloting/Part 107"]
+        }
+      ]
+    },
+    {
+      "id": "games_strategy",
+      "name": "Games & Strategy",
+      "icon": "gamepad",
+      "subcategories": [
+        {
+          "id": "board_card",
+          "name": "Board & Card Games",
+          "topics": ["Chess", "Go (Baduk/Weiqi)", "Bridge", "Poker", "Backgammon", "Mahjong", "Dungeons & Dragons", "Warhammer/Miniature Gaming"]
+        },
+        {
+          "id": "esports",
+          "name": "Esports & Video Games",
+          "topics": ["League of Legends Coaching", "Valorant Coaching", "Fortnite Coaching", "CS2 Coaching", "Dota 2 Coaching", "Overwatch Coaching", "Rocket League Coaching", "FIFA Coaching", "Madden Coaching", "Apex Legends Coaching", "Speedrunning"]
+        },
+        {
+          "id": "puzzle_mind",
+          "name": "Puzzles & Mind Games",
+          "topics": ["Rubik's Cube", "Sudoku", "Crossword Construction", "Escape Room Design", "Magic Tricks/Illusions"]
+        }
+      ]
+    },
+    {
+      "id": "religion_philosophy",
+      "name": "Religion, Philosophy & Spirituality",
+      "icon": "book",
+      "subcategories": [
+        {
+          "id": "religious_studies",
+          "name": "Religious Studies",
+          "topics": ["Bible Study", "Quran Study", "Torah Study", "Hindu Scripture Study", "Buddhist Studies", "Comparative Religion", "Church Music/Worship Leading", "Sunday School Teaching"]
+        },
+        {
+          "id": "philosophy",
+          "name": "Philosophy",
+          "topics": ["Ethics", "Logic", "Existentialism", "Stoicism", "Eastern Philosophy", "Western Philosophy", "Political Philosophy", "Philosophy for Kids"]
+        },
+        {
+          "id": "spiritual",
+          "name": "Spiritual Practices",
+          "topics": ["Astrology", "Tarot Reading", "Crystal Healing", "Numerology", "Energy Healing", "Shamanic Practices"]
+        }
+      ]
+    },
+    {
+      "id": "aviation_nautical",
+      "name": "Aviation & Nautical",
+      "icon": "plane",
+      "subcategories": [
+        {
+          "id": "aviation",
+          "name": "Aviation",
+          "topics": ["Private Pilot Ground School", "Instrument Rating Prep", "Drone Pilot (Part 107)", "Aviation Weather", "Flight Simulation"]
+        },
+        {
+          "id": "nautical",
+          "name": "Nautical & Boating",
+          "topics": ["Boating Safety", "Sailing (Beginner)", "Sailing (Advanced/Racing)", "Navigation", "Boat Maintenance", "Captain's License Prep"]
+        }
+      ]
+    },
+    {
+      "id": "event_planning",
+      "name": "Event Planning & Hospitality",
+      "icon": "calendar",
+      "subcategories": [
+        {
+          "id": "events",
+          "name": "Event Planning",
+          "topics": ["Wedding Planning", "Party Planning", "Corporate Event Planning", "Fundraiser Planning", "Festival/Concert Planning", "Event Decoration"]
+        },
+        {
+          "id": "hospitality",
+          "name": "Hospitality",
+          "topics": ["Bartending", "Wine Sommelier", "Beer Cicerone", "Table Setting & Etiquette", "Hotel Management Basics", "Airbnb Hosting"]
+        }
+      ]
+    },
+    {
+      "id": "environmental",
+      "name": "Environmental & Sustainability",
+      "icon": "leaf",
+      "subcategories": [
+        {
+          "id": "sustainability",
+          "name": "Sustainability",
+          "topics": ["Sustainable Living", "Zero Waste Lifestyle", "Composting", "Renewable Energy Basics", "Permaculture", "Urban Farming", "Hydroponics", "Aquaponics"]
+        },
+        {
+          "id": "nature",
+          "name": "Nature & Wildlife",
+          "topics": ["Bird Watching", "Nature Photography", "Foraging", "Mushroom Identification", "Plant Identification", "Wildlife Tracking", "Stargazing/Amateur Astronomy"]
+        }
+      ]
+    },
+    {
+      "id": "legal",
+      "name": "Legal Education",
+      "icon": "scale",
+      "subcategories": [
+        {
+          "id": "legal_prep",
+          "name": "Legal Exam Prep",
+          "topics": ["LSAT Prep", "Bar Exam Prep", "Paralegal Studies"]
+        },
+        {
+          "id": "legal_literacy",
+          "name": "Legal Literacy",
+          "topics": ["Contract Basics", "Intellectual Property Basics", "Small Business Law", "Tenant Rights", "Immigration Process Education", "Citizenship Test Prep"]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "version": "1.0",
+    "total_categories": 24,
+    "total_subcategories": 110,
+    "total_topics": 850,
+    "notes": "Categories should be expanded over time. Allow instructors to suggest new topics via a review system. Topics within each subcategory can serve as searchable tags."
+  }
+}

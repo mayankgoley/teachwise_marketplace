@@ -1,0 +1,464 @@
+{% extends "base.html" %}
+{% block title %}Tutor Dashboard | TeachWise{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/location-picker.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+  <!-- Header -->
+  <div class="flex justify-between items-center mb-8">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-800">Welcome, {{ tutor.name }}!</h1>
+      <p class="text-gray-500 mt-1">Tutor Dashboard</p>
+    </div>
+    <div class="flex items-center space-x-4">
+      <a href="{{ url_for('assignment_bp.tutor_assignments') }}"
+         class="text-orange-600 hover:text-orange-800 font-medium relative">
+        <i class="fas fa-tasks mr-1"></i>Assignments
+        {% if pending_reviews %}
+        <span class="absolute -top-2 -right-3 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{{ pending_reviews }}</span>
+        {% endif %}</a>
+      <a href="{{ url_for('recording_bp.tutor_recordings') }}"
+         class="text-red-600 hover:text-red-800 font-medium">
+        <i class="fas fa-video mr-1"></i>Recordings</a>
+      <a href="{{ url_for('tutor_bp.tutor_availability') }}"
+         class="text-indigo-600 hover:text-indigo-800 font-medium">
+        <i class="fas fa-calendar-alt mr-1"></i>Availability</a>
+      <a href="{{ url_for('tutor_bp.tutor_earnings') }}"
+         class="text-green-600 hover:text-green-800 font-medium">
+        <i class="fas fa-dollar-sign mr-1"></i>Earnings</a>
+      <a href="{{ url_for('reschedule_bp.tutor_reschedule_requests') }}"
+         class="text-purple-600 hover:text-purple-800 font-medium">
+        <i class="fas fa-exchange-alt mr-1"></i>Reschedule Requests</a>
+      <a href="{{ url_for('tutor_bp.tutor_notification_settings') }}"
+         class="text-gray-600 hover:text-blue-600 font-medium">
+        <i class="fas fa-bell mr-1"></i>Notifications</a>
+      <a href="{{ url_for('tutor_bp.location_settings') }}"
+         class="text-green-600 hover:text-green-800 font-medium">
+        <i class="fas fa-map-marker-alt mr-1"></i>Location</a>
+      <a href="{{ url_for('tutor_bp.edit_profile') }}"
+         class="text-blue-600 hover:text-blue-800 font-medium">
+        <i class="fas fa-user-edit mr-1"></i>Edit Profile</a>
+      <a href="{{ url_for('tutor_bp.logout') }}"
+         class="text-red-500 hover:text-red-700 font-medium">
+        <i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
+    </div>
+  </div>
+
+  <!-- Verification Status -->
+  <div class="mb-6 p-4 rounded-lg border
+    {% if tutor.verification_status == 'verified' %}bg-green-50 border-green-200
+    {% elif tutor.verification_status == 'rejected' %}bg-red-50 border-red-200
+    {% else %}bg-yellow-50 border-yellow-200{% endif %}">
+    {% if tutor.verification_status == 'verified' %}
+      <p class="text-green-800 font-medium">
+        <i class="fas fa-check-circle mr-1"></i>
+        Your profile is verified and visible to students.</p>
+    {% elif tutor.verification_status == 'rejected' %}
+      <p class="text-red-800 font-medium">
+        <i class="fas fa-times-circle mr-1"></i>
+        Your application was rejected.
+        {% if tutor.admin_feedback %}Feedback: {{ tutor.admin_feedback }}{% endif %}</p>
+      <a href="{{ url_for('doc_bp.upload_docs') }}"
+         class="inline-block mt-2 text-sm text-red-600 hover:underline">
+        <i class="fas fa-upload mr-1"></i>Upload corrected documents</a>
+    {% elif tutor.verification_status == 'revision_required' %}
+      <p class="text-yellow-800 font-medium">
+        <i class="fas fa-edit mr-1"></i>
+        Revision required.
+        {% if tutor.admin_feedback %}Feedback: {{ tutor.admin_feedback }}{% endif %}</p>
+      <a href="{{ url_for('doc_bp.upload_docs') }}"
+         class="inline-block mt-2 text-sm text-yellow-700 hover:underline">
+        <i class="fas fa-upload mr-1"></i>Upload revised documents</a>
+    {% elif tutor.verification_status == 'documents_submitted' %}
+      <p class="text-yellow-800 font-medium">
+        <i class="fas fa-clock mr-1"></i>
+        Documents submitted and under review. You will be notified within 48 hours.</p>
+    {% elif tutor.verification_status == 'pending_documents' %}
+      <p class="text-yellow-800 font-medium">
+        <i class="fas fa-file-upload mr-1"></i>
+        Please upload your verification documents to complete your profile.</p>
+      <a href="{{ url_for('doc_bp.upload_docs') }}"
+         class="inline-block mt-2 bg-blue-600 text-white text-sm px-4 py-2 rounded-lg
+                hover:bg-blue-700 transition font-semibold">
+        <i class="fas fa-upload mr-1"></i>Upload Documents</a>
+    {% else %}
+      <p class="text-yellow-800 font-medium">
+        <i class="fas fa-hourglass-half mr-1"></i>
+        Your profile is pending verification. An admin will review it shortly.</p>
+      <a href="{{ url_for('doc_bp.upload_docs') }}"
+         class="inline-block mt-2 text-sm text-blue-600 hover:underline">
+        <i class="fas fa-upload mr-1"></i>Upload verification documents</a>
+    {% endif %}
+  </div>
+
+  <!-- Stripe Payouts -->
+  <div class="mb-6 p-4 rounded-lg border
+    {% if tutor.stripe_onboarding_complete %}bg-green-50 border-green-200
+    {% else %}bg-blue-50 border-blue-200{% endif %}">
+    {% if tutor.stripe_onboarding_complete %}
+      <p class="text-green-800 font-medium">
+        <i class="fas fa-check-circle mr-1"></i>
+        Stripe payouts connected. You will receive earnings directly.</p>
+    {% else %}
+      <p class="text-blue-800 font-medium">
+        <i class="fas fa-credit-card mr-1"></i>
+        Set up Stripe to receive payouts for your sessions.</p>
+      <a href="{{ url_for('payment_bp.stripe_onboard') }}"
+         class="inline-block mt-2 bg-purple-600 text-white text-sm px-4 py-2 rounded-lg
+                hover:bg-purple-700 transition font-semibold">
+        <i class="fas fa-link mr-1"></i>Connect Stripe</a>
+    {% endif %}
+  </div>
+
+  <!-- Location Warning -->
+  {% if offline_slots_no_location and offline_slots_no_location > 0 %}
+  <div class="mb-6 p-4 rounded-lg border bg-orange-50 border-orange-200">
+    <p class="text-orange-800 font-medium">
+      <i class="fas fa-exclamation-triangle mr-1"></i>
+      {{ offline_slots_no_location }} upcoming offline slot{{ 's' if offline_slots_no_location > 1 }} ha{{ 've' if offline_slots_no_location > 1 else 's' }} no valid location.
+      <a href="{{ url_for('tutor_bp.location_settings') }}" class="underline">Set your default location</a></p>
+  </div>
+  {% endif %}
+
+  <!-- Stats Cards -->
+  <div class="grid md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
+      <p class="text-3xl font-bold text-blue-600">{{ slots|length }}</p>
+      <p class="text-gray-500 text-sm mt-1">Total Slots</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
+      <p class="text-3xl font-bold text-green-600">
+        {{ slots|selectattr('status', 'equalto', 'booked')|list|length }}</p>
+      <p class="text-gray-500 text-sm mt-1">Booked</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
+      <p class="text-3xl font-bold text-yellow-500">
+        {{ '%.1f'|format(tutor.average_rating) }}</p>
+      <p class="text-gray-500 text-sm mt-1">Rating</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
+      <p class="text-3xl font-bold text-purple-600">{{ reviews|length }}</p>
+      <p class="text-gray-500 text-sm mt-1">Reviews</p>
+    </div>
+  </div>
+
+  <!-- Add Slot Form -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">
+      <i class="fas fa-plus-circle mr-2 text-blue-600"></i>Add Time Slot</h2>
+    <form method="POST" action="{{ url_for('tutor_bp.add_slot') }}"
+          class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+        <input type="date" name="date" required
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                      focus:ring-2 focus:ring-blue-500"></div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+        <input type="time" name="start_time" required
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                      focus:ring-2 focus:ring-blue-500"></div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+        <input type="time" name="end_time" required
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                      focus:ring-2 focus:ring-blue-500"></div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Mode</label>
+        <select name="mode" id="slotMode"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+          <option value="online">Online</option>
+          <option value="in-person">In-Person</option>
+          <option value="both">Both</option>
+        </select></div>
+      <!-- Location Section (for offline/both modes) -->
+      <div id="slotLocationSection" class="hidden md:col-span-2 lg:col-span-4">
+        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-sm text-gray-600">
+              <i class="fas fa-map-marker-alt mr-1 text-green-600"></i>
+              {% if tutor.latitude and tutor.longitude %}
+              Using default: <strong>{{ tutor.default_location_label or tutor.address or tutor.city or 'Your location' }}</strong>
+              ({{ tutor.default_radius_miles|default(10)|int }} mi)
+              {% else %}
+              <span class="text-yellow-600">No default location set.
+                <a href="{{ url_for('tutor_bp.location_settings') }}" class="underline">Set one</a></span>
+              {% endif %}
+            </p>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="customLocationToggle"
+                     class="w-4 h-4 text-blue-600 rounded">
+              <span class="text-xs text-gray-500">Different location</span>
+            </label>
+          </div>
+          <div id="customLocationFields" class="hidden mt-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <input type="text" id="slotSearchAddr" placeholder="Search address..."
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+              </div>
+              <div>
+                <select id="slotRadiusMiles" name="slot_radius_miles"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                  <option value="5">5 miles</option>
+                  <option value="10" selected>10 miles</option>
+                  <option value="15">15 miles</option>
+                  <option value="25">25 miles</option>
+                </select>
+              </div>
+            </div>
+            <div id="slotMap" class="mt-3 rounded-lg" style="height:250px;"></div>
+          </div>
+        </div>
+        <input type="hidden" name="slot_latitude" id="slotLat" value="">
+        <input type="hidden" name="slot_longitude" id="slotLng" value="">
+        <input type="hidden" name="slot_address" id="slotAddr" value="">
+        <input type="hidden" name="slot_location_label" id="slotLocLabel" value="">
+        <input type="hidden" name="location_is_default" id="locIsDefault" value="true">
+        <input type="hidden" name="radius_miles" id="slotRadiusVal" value="{{ tutor.default_radius_miles|default(10) }}">
+        <input type="hidden" name="radius_is_default" id="radiusIsDefault" value="true">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+        <input type="text" name="subject" value="{{ tutor.subject }}"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                      focus:ring-2 focus:ring-blue-500"></div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
+        <input type="number" name="price" step="0.01" min="0" value="0"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                      focus:ring-2 focus:ring-blue-500"></div>
+      <div>
+        <label class="flex items-center space-x-2 mb-1">
+          <input type="checkbox" name="is_group" id="isGroupToggle"
+                 onchange="document.getElementById('maxStudentsField').classList.toggle('hidden')"
+                 class="w-4 h-4 text-purple-600 rounded">
+          <span class="text-sm font-medium text-gray-700">Group Session</span>
+        </label>
+        <div id="maxStudentsField" class="hidden mt-1">
+          <select name="max_students" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            <option value="2">2 students</option>
+            <option value="3">3 students</option>
+            <option value="4">4 students</option>
+            <option value="5">5 students</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex items-end">
+        <button type="submit"
+                class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold
+                       hover:bg-blue-700 transition">
+          <i class="fas fa-plus mr-1"></i>Add Slot</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Slots List -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">
+      <i class="fas fa-calendar mr-2 text-blue-600"></i>Your Slots</h2>
+    {% if slots %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-200">
+              <th class="text-left py-3 px-2 text-gray-600">Date</th>
+              <th class="text-left py-3 px-2 text-gray-600">Time</th>
+              <th class="text-left py-3 px-2 text-gray-600">Subject</th>
+              <th class="text-left py-3 px-2 text-gray-600">Mode</th>
+              <th class="text-left py-3 px-2 text-gray-600">Price</th>
+              <th class="text-left py-3 px-2 text-gray-600">Status</th>
+              <th class="text-left py-3 px-2 text-gray-600">Student</th>
+              <th class="text-left py-3 px-2 text-gray-600">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for slot in slots %}
+            <tr class="border-b border-gray-100 hover:bg-gray-50">
+              <td class="py-3 px-2">{{ slot.date.strftime('%b %d, %Y') }}</td>
+              <td class="py-3 px-2">{{ slot.start_time|local_time(slot.date, user_timezone) }} - {{ slot.end_time|local_time(slot.date, user_timezone) }}</td>
+              <td class="py-3 px-2">{{ slot.subject or tutor.subject }}</td>
+              <td class="py-3 px-2">
+                <span class="px-2 py-1 text-xs rounded-full
+                  {% if slot.mode == 'online' %}bg-blue-100 text-blue-700
+                  {% else %}bg-green-100 text-green-700{% endif %}">
+                  {{ slot.mode }}</span></td>
+              <td class="py-3 px-2">${{ '%.2f'|format(slot.price) }}</td>
+              <td class="py-3 px-2">
+                <span class="px-2 py-1 text-xs rounded-full
+                  {% if slot.status == 'pending' %}bg-gray-100 text-gray-600
+                  {% elif slot.status == 'booked' %}bg-blue-100 text-blue-700
+                  {% elif slot.status == 'completed' %}bg-green-100 text-green-700
+                  {% else %}bg-red-100 text-red-700{% endif %}">
+                  {{ slot.status }}</span>
+                {% if slot.is_group %}
+                <span class="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 ml-1">
+                  <i class="fas fa-users mr-0.5"></i>{{ slot.current_students }}/{{ slot.max_students }}</span>
+                {% endif %}</td>
+              <td class="py-3 px-2">
+                {% if slot.student %}
+                  <div class="flex items-center space-x-2">
+                    <a href="{{ url_for('tutor_bp.view_student_profile', student_id=slot.student.id) }}"
+                       class="text-blue-600 hover:text-blue-800 hover:underline font-medium">
+                      {{ slot.student.name }}</a>
+                    <form method="POST" action="{{ url_for('chat_bp.start_with_student', student_id=slot.student.id) }}" class="inline">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button type="submit" class="text-green-500 hover:text-green-700" title="Message {{ slot.student.name }}">
+                        <i class="fas fa-comment-dots text-sm"></i></button>
+                    </form>
+                  </div>
+                {% else %}—{% endif %}
+              </td>
+              <td class="py-3 px-2">
+                <div class="flex items-center space-x-1">
+                {% if slot.status in ('booked', 'live') and slot.mode in ('online', 'both') and slot.jitsi_room_name %}
+                  <a href="{{ url_for('session_bp.join_session', slot_id=slot.id) }}"
+                     class="px-2 py-1 text-xs font-medium text-white bg-green-600
+                            rounded hover:bg-green-700 transition">
+                    <i class="fas fa-video mr-1"></i>Join</a>
+                {% endif %}
+                {% if slot.status == 'booked' and booking_map.get(slot.id) %}
+                  <a href="{{ url_for('tutor_bp.reschedule_slot', slot_id=slot.id) }}"
+                     class="px-2 py-1 text-xs font-medium text-purple-600 border border-purple-300
+                            rounded hover:bg-purple-50 transition">
+                    <i class="fas fa-calendar-alt mr-1"></i>Reschedule</a>
+                  <form method="POST"
+                        action="{{ url_for('tutor_bp.cancel_booking', booking_id=booking_map[slot.id].id) }}"
+                        onsubmit="return confirm('Cancel this booking? The student will receive a full refund.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit"
+                            class="px-2 py-1 text-xs font-medium text-red-600 border border-red-300
+                                   rounded hover:bg-red-50 transition">
+                      <i class="fas fa-times mr-1"></i>Cancel</button>
+                  </form>
+                {% elif slot.status == 'pending' %}
+                  <a href="{{ url_for('tutor_bp.edit_slot', slot_id=slot.id) }}"
+                     class="px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300
+                            rounded hover:bg-blue-50 transition">
+                    <i class="fas fa-edit mr-1"></i>Edit</a>
+                {% endif %}
+                {% if slot.status in ('booked', 'live', 'completed') and slot.student_id %}
+                  <a href="{{ url_for('note_bp.view_notes', slot_id=slot.id) }}"
+                     class="px-2 py-1 text-xs font-medium text-yellow-600 border border-yellow-300
+                            rounded hover:bg-yellow-50 transition" title="Session Notes">
+                    <i class="fas fa-sticky-note mr-1"></i>Notes</a>
+                {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-gray-400 text-center py-8">
+        No slots created yet. Add your first time slot above.</p>
+    {% endif %}
+  </div>
+
+  <!-- Reviews -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">
+      <i class="fas fa-star mr-2 text-yellow-500"></i>Reviews</h2>
+    {% if reviews %}
+      <div class="space-y-4">
+        {% for review in reviews %}
+        <div class="p-4 bg-gray-50 rounded-lg">
+          <div class="flex items-center justify-between">
+            <p class="font-semibold text-gray-800">{{ review.student.name }}</p>
+            <div class="text-yellow-500">
+              {% for i in range(review.rating) %}&#11088;{% endfor %}
+            </div>
+          </div>
+          {% if review.comment %}
+            <p class="text-gray-600 text-sm mt-2">{{ review.comment }}</p>
+          {% endif %}
+          <p class="text-gray-400 text-xs mt-2">{{ review.created_at.strftime('%B %d, %Y') }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-gray-400 text-center py-8">No reviews yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='js/location-picker.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  let slotPicker = null;
+  const modeSelect = document.getElementById('slotMode');
+  const locSection = document.getElementById('slotLocationSection');
+  const customToggle = document.getElementById('customLocationToggle');
+  const customFields = document.getElementById('customLocationFields');
+
+  if (modeSelect) {
+    modeSelect.addEventListener('change', function() {
+      if (this.value === 'in-person' || this.value === 'both') {
+        locSection.classList.remove('hidden');
+        // Set defaults from tutor profile
+        document.getElementById('locIsDefault').value = 'true';
+        document.getElementById('slotLat').value = '{{ tutor.latitude or "" }}';
+        document.getElementById('slotLng').value = '{{ tutor.longitude or "" }}';
+        document.getElementById('slotAddr').value = '{{ tutor.address|default("", true)|e }}';
+        document.getElementById('slotRadiusVal').value = '{{ tutor.default_radius_miles|default(10) }}';
+      } else {
+        locSection.classList.add('hidden');
+      }
+    });
+  }
+
+  if (customToggle) {
+    customToggle.addEventListener('change', function() {
+      if (this.checked) {
+        customFields.classList.remove('hidden');
+        document.getElementById('locIsDefault').value = 'false';
+        document.getElementById('radiusIsDefault').value = 'false';
+        // Init picker if not already
+        if (!slotPicker) {
+          setTimeout(function() {
+            slotPicker = new LocationPicker({
+              mapContainerId: 'slotMap',
+              searchInputId: 'slotSearchAddr',
+              latFieldId: 'slotLat',
+              lngFieldId: 'slotLng',
+              addressFieldId: 'slotAddr',
+              showRadius: true,
+              radiusFieldId: 'slotRadiusMiles',
+              draggable: true,
+              initialLat: {{ tutor.latitude or 'null' }},
+              initialLng: {{ tutor.longitude or 'null' }}
+            });
+          }, 100);
+        }
+      } else {
+        customFields.classList.add('hidden');
+        document.getElementById('locIsDefault').value = 'true';
+        document.getElementById('radiusIsDefault').value = 'true';
+        document.getElementById('slotLat').value = '{{ tutor.latitude or "" }}';
+        document.getElementById('slotLng').value = '{{ tutor.longitude or "" }}';
+        document.getElementById('slotAddr').value = '{{ tutor.address|default("", true)|e }}';
+        document.getElementById('slotRadiusVal').value = '{{ tutor.default_radius_miles|default(10) }}';
+      }
+    });
+  }
+
+  // Sync radius select to hidden field
+  const radiusSelect = document.getElementById('slotRadiusMiles');
+  if (radiusSelect) {
+    radiusSelect.addEventListener('change', function() {
+      document.getElementById('slotRadiusVal').value = this.value;
+    });
+  }
+});
+</script>
+{% endblock %}

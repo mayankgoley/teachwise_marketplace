@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+{% block title %}Chat | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+       style="height: calc(100vh - 180px);">
+    <div class="flex h-full">
+
+      <!-- Sidebar: Conversation List -->
+      <div class="w-80 border-r border-gray-200 flex flex-col">
+        <div class="p-4 border-b border-gray-200">
+          <h2 class="font-bold text-gray-800">
+            <i class="fas fa-comments mr-2 text-blue-600"></i>Messages</h2>
+        </div>
+        <div id="convList" class="flex-1 overflow-y-auto">
+          {% if conversations %}
+            {% for conv in conversations %}
+            <a href="{{ url_for('chat_bp.chat_room', conv_id=conv.id) }}"
+               id="conv-{{ conv.id }}"
+               class="conv-item block p-4 border-b border-gray-100 hover:bg-gray-50 transition
+                 {% if active_conv and active_conv.id == conv.id %}bg-blue-50 border-l-4 border-l-blue-500{% endif %}">
+              <div class="flex items-center justify-between">
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold text-gray-800 text-sm truncate">
+                    {% if user_type == 'student' %}
+                      <i class="fas fa-chalkboard-teacher text-blue-500 mr-1"></i>{{ conv.tutor.name }}
+                    {% else %}
+                      <i class="fas fa-user-graduate text-green-500 mr-1"></i>{{ conv.student.name }}
+                    {% endif %}
+                  </p>
+                  {% if last_msgs.get(conv.id) %}
+                  <p class="text-xs text-gray-400 mt-1 truncate">
+                    {% if last_msgs[conv.id].sender_type == user_type %}You: {% endif %}
+                    {{ last_msgs[conv.id].text }}</p>
+                  {% endif %}
+                </div>
+                <div class="flex flex-col items-end ml-2 flex-shrink-0">
+                  <p class="text-xs text-gray-400">
+                    {{ conv.last_message_at.strftime('%b %d') if conv.last_message_at else '' }}</p>
+                  {% if unread.get(conv.id, 0) > 0 %}
+                  <span class="conv-badge mt-1 bg-red-500 text-white text-xs rounded-full w-5 h-5
+                               flex items-center justify-center">
+                    {{ unread[conv.id] }}</span>
+                  {% endif %}
+                </div>
+              </div>
+            </a>
+            {% endfor %}
+          {% else %}
+            <div class="text-center py-12 px-4">
+              <i class="fas fa-inbox text-gray-200 text-4xl mb-3"></i>
+              <p class="text-gray-400 text-sm">No conversations yet</p>
+              <p class="text-gray-300 text-xs mt-1">
+                {% if user_type == 'student' %}Visit a tutor's profile to send a message
+                {% else %}Click "Message" next to a student's name{% endif %}</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Main: Chat Area -->
+      <div class="flex-1 flex flex-col">
+        {% if active_conv %}
+          <!-- Chat Header -->
+          <div class="p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center
+                {% if user_type == 'student' %}bg-blue-100{% else %}bg-green-100{% endif %}">
+                {% if user_type == 'student' %}
+                  <i class="fas fa-chalkboard-teacher text-blue-600"></i>
+                {% else %}
+                  <i class="fas fa-user-graduate text-green-600"></i>
+                {% endif %}
+              </div>
+              <div>
+                <p class="font-bold text-gray-800">
+                  {% if user_type == 'student' %}{{ active_conv.tutor.name }}
+                  {% else %}{{ active_conv.student.name }}{% endif %}</p>
+                <p id="typingIndicator" class="text-xs text-green-500 hidden">typing...</p>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2">
+              {% if not active_conv.is_blocked() %}
+              <form method="POST" action="{{ url_for('chat_bp.block_conversation', conv_id=active_conv.id) }}"
+                    onsubmit="return confirm('Block this conversation? You won\'t receive new messages.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="text-gray-400 hover:text-red-500 text-sm"
+                        title="Block conversation">
+                  <i class="fas fa-ban"></i></button>
+              </form>
+              {% else %}
+              <form method="POST" action="{{ url_for('chat_bp.unblock_conversation', conv_id=active_conv.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="text-xs text-red-500 hover:text-red-700 font-medium">
+                  <i class="fas fa-ban mr-1"></i>Unblock</button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Messages Area -->
+          <div id="messageArea" class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/30">
+            {% if messages %}
+              {% set prev_date = namespace(val='') %}
+              {% for msg in messages %}
+                {% set msg_date = msg.created_at.strftime('%B %d, %Y') %}
+                {% if msg_date != prev_date.val %}
+                  <div class="flex justify-center my-2">
+                    <span class="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
+                      {{ msg_date }}</span>
+                  </div>
+                  {% set prev_date.val = msg_date %}
+                {% endif %}
+                <div class="flex {% if msg.sender_type == user_type %}justify-end{% else %}justify-start{% endif %}"
+                     data-msg-id="{{ msg.id }}">
+                  <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-2xl text-sm shadow-sm
+                    {% if msg.sender_type == user_type %}bg-blue-600 text-white rounded-br-md
+                    {% else %}bg-white text-gray-800 border border-gray-200 rounded-bl-md{% endif %}">
+                    <p class="whitespace-pre-wrap break-words">{{ msg.content }}</p>
+                    <div class="flex items-center justify-end space-x-1 mt-1">
+                      <span class="text-xs {% if msg.sender_type == user_type %}text-blue-200{% else %}text-gray-400{% endif %}">
+                        {{ msg.created_at.strftime('%I:%M %p') }}</span>
+                      {% if msg.sender_type == user_type %}
+                        {% if msg.is_read %}
+                        <i class="fas fa-check-double text-blue-200 text-xs" title="Read"></i>
+                        {% else %}
+                        <i class="fas fa-check text-blue-300 text-xs" title="Sent"></i>
+                        {% endif %}
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="flex justify-center py-8">
+                <p class="text-gray-400 text-sm">Start the conversation by sending a message</p>
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Typing / Blocked Banner -->
+          {% if active_conv.is_blocked() %}
+          <div class="p-3 bg-red-50 border-t border-red-200 text-center">
+            <p class="text-red-600 text-sm">
+              <i class="fas fa-ban mr-1"></i>This conversation is blocked.</p>
+          </div>
+          {% else %}
+          <!-- Input Area -->
+          <div class="p-4 border-t border-gray-200 bg-white">
+            <form id="chatForm" class="flex space-x-2"
+                  {% if not active_conv.is_blocked() %}
+                  onsubmit="return sendMessage(event)"
+                  {% endif %}>
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="text" id="msgInput" name="content" maxlength="2000" required
+                     placeholder="Type a message..." autocomplete="off"
+                     class="flex-1 px-4 py-2.5 border border-gray-300 rounded-full
+                            focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+              <button type="submit" id="sendBtn"
+                      class="bg-blue-600 text-white px-5 py-2.5 rounded-full
+                             hover:bg-blue-700 transition flex items-center">
+                <i class="fas fa-paper-plane"></i></button>
+            </form>
+          </div>
+          {% endif %}
+
+        {% else %}
+          <!-- No conversation selected -->
+          <div class="flex-1 flex items-center justify-center bg-gray-50/30">
+            <div class="text-center">
+              <i class="fas fa-comments text-gray-200 text-6xl mb-4"></i>
+              <p class="text-gray-400 text-lg font-medium">Your Messages</p>
+              <p class="text-gray-300 text-sm mt-1">Select a conversation to start chatting</p>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+<script>
+const messageArea = document.getElementById('messageArea');
+const msgInput = document.getElementById('msgInput');
+const typingIndicator = document.getElementById('typingIndicator');
+const userType = '{{ user_type }}';
+const userId = {{ user_id or 0 }};
+const csrfToken = '{{ csrf_token() }}';
+
+{% if active_conv %}
+const convId = {{ active_conv.id }};
+const isBlocked = {{ 'true' if active_conv.is_blocked() else 'false' }};
+{% else %}
+const convId = null;
+const isBlocked = false;
+{% endif %}
+
+// Auto-scroll to bottom
+if (messageArea) messageArea.scrollTop = messageArea.scrollHeight;
+
+// ── SocketIO Setup ──────────────────────────────────────
+let socket;
+try {
+  socket = io({
+    transports: ['websocket', 'polling']
+  });
+
+  socket.on('connect', () => {
+    if (convId) {
+      socket.emit('join_conversation', {
+        conversation_id: convId,
+        user_type: userType,
+        user_id: userId
+      });
+    }
+  });
+
+  // Receive new messages
+  socket.on('new_message', (data) => {
+    if (!messageArea) return;
+    // Don't duplicate own messages (already appended optimistically)
+    if (data.sender_type === userType && data._from_self) return;
+    if (data.sender_type !== userType) {
+      appendMessage(data);
+      // Mark as read since we're viewing
+      fetch(`/api/chat/${convId}/read`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken}
+      });
+    }
+  });
+
+  // Typing indicator
+  socket.on('user_typing', (data) => {
+    if (typingIndicator && data.user_type !== userType) {
+      typingIndicator.textContent = data.user_name + ' is typing...';
+      typingIndicator.classList.remove('hidden');
+      clearTimeout(window._typingTimeout);
+      window._typingTimeout = setTimeout(() => {
+        typingIndicator.classList.add('hidden');
+      }, 3000);
+    }
+  });
+
+  // Read receipts
+  socket.on('read_receipt', (data) => {
+    if (data.read_by !== userType) {
+      // Update our sent message icons to double-check
+      document.querySelectorAll('[data-msg-id] .fa-check').forEach(icon => {
+        icon.classList.remove('fa-check');
+        icon.classList.add('fa-check-double');
+        icon.title = 'Read';
+      });
+    }
+  });
+} catch(e) {
+  console.log('SocketIO not available, using form fallback');
+}
+
+// ── Send Message ────────────────────────────────────────
+function sendMessage(e) {
+  e.preventDefault();
+  if (!msgInput || !msgInput.value.trim() || isBlocked) return false;
+
+  const content = msgInput.value.trim();
+  msgInput.value = '';
+  msgInput.focus();
+
+  // Optimistic append
+  appendMessage({
+    sender_type: userType,
+    content: content,
+    timestamp: new Date().toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'}),
+    is_read: false,
+    _optimistic: true
+  });
+
+  // Send via AJAX
+  fetch(`/api/chat/${convId}/send`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken
+    },
+    body: JSON.stringify({content: content})
+  }).then(r => r.json()).catch(() => {
+    // Fallback: reload on error
+    window.location.reload();
+  });
+
+  return false;
+}
+
+function appendMessage(data) {
+  if (!messageArea) return;
+  const isMe = data.sender_type === userType;
+  const div = document.createElement('div');
+  div.className = `flex ${isMe ? 'justify-end' : 'justify-start'}`;
+  if (data.id) div.setAttribute('data-msg-id', data.id);
+
+  const readIcon = isMe
+    ? (data.is_read
+      ? '<i class="fas fa-check-double text-blue-200 text-xs" title="Read"></i>'
+      : '<i class="fas fa-check text-blue-300 text-xs" title="Sent"></i>')
+    : '';
+
+  div.innerHTML = `
+    <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-2xl text-sm shadow-sm
+      ${isMe ? 'bg-blue-600 text-white rounded-br-md' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-md'}">
+      <p class="whitespace-pre-wrap break-words">${escapeHtml(data.content)}</p>
+      <div class="flex items-center justify-end space-x-1 mt-1">
+        <span class="text-xs ${isMe ? 'text-blue-200' : 'text-gray-400'}">${data.timestamp}</span>
+        ${readIcon}
+      </div>
+    </div>`;
+
+  // Remove "Start the conversation" placeholder
+  const placeholder = messageArea.querySelector('.justify-center.py-8');
+  if (placeholder) placeholder.remove();
+
+  messageArea.appendChild(div);
+  messageArea.scrollTop = messageArea.scrollHeight;
+}
+
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+// ── Typing Indicator ────────────────────────────────────
+if (msgInput && socket && convId) {
+  let lastTyping = 0;
+  msgInput.addEventListener('input', () => {
+    const now = Date.now();
+    if (now - lastTyping > 2000) {
+      lastTyping = now;
+      socket.emit('typing', {
+        conversation_id: convId,
+        user_type: userType,
+        user_name: '{{ (active_conv.student.name if user_type == "student" else active_conv.tutor.name) if active_conv else "" }}'
+      });
+    }
+  });
+
+  // Enter to send
+  msgInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      document.getElementById('chatForm').dispatchEvent(new Event('submit'));
+    }
+  });
+}
+
+// ── Unread Badge Polling ────────────────────────────────
+function updateUnreadBadge() {
+  fetch('/api/chat/unread-count')
+    .then(r => r.json())
+    .then(data => {
+      const badge = document.getElementById('chatUnreadBadge');
+      if (badge) {
+        if (data.count > 0) {
+          badge.textContent = data.count;
+          badge.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+        }
+      }
+    }).catch(() => {});
+}
+setInterval(updateUnreadBadge, 30000);
+</script>
+{% endblock %}

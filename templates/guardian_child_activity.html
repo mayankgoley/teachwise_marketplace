@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}{{ student.name }}'s Activity | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+  <!-- Back + Header -->
+  <a href="{{ url_for('guardian_bp.guardian_dashboard') }}"
+     class="text-purple-600 hover:text-purple-800 text-sm font-medium mb-4 inline-block">
+    <i class="fas fa-arrow-left mr-1"></i>Back to Dashboard</a>
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <div class="flex items-center space-x-4">
+      <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+        <i class="fas fa-user-graduate text-blue-600 text-2xl"></i>
+      </div>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">{{ student.name }}</h1>
+        <p class="text-gray-500">{{ student.email }} &bull; {{ student.grade_level or 'Student' }}</p>
+      </div>
+      <div class="ml-auto text-right">
+        <p class="text-sm text-gray-500">Total Spent</p>
+        <p class="text-2xl font-bold text-green-600">${{ '%.2f'|format(total_spent) }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Booking History -->
+  <h2 class="text-xl font-bold text-gray-800 mb-4">
+    <i class="fas fa-history mr-2 text-blue-600"></i>Session History</h2>
+
+  {% if booking_details %}
+  <div class="space-y-3">
+    {% for bd in booking_details %}
+    {% set b = bd.booking %}
+    {% set slot = bd.slot %}
+    {% set tutor = bd.tutor %}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex-1">
+          <div class="flex items-center space-x-3">
+            <p class="font-semibold text-gray-800">{{ tutor.name if tutor else 'Unknown' }}</p>
+            <span class="text-xs px-2 py-0.5 rounded-full font-medium
+              {% if b.status == 'Booked' %}bg-blue-100 text-blue-700
+              {% elif b.status == 'Completed' %}bg-green-100 text-green-700
+              {% elif b.status == 'Cancelled' %}bg-red-100 text-red-700
+              {% else %}bg-gray-100 text-gray-700{% endif %}">
+              {{ b.status }}</span>
+            {% if b.guardian_approved is none and b.status == 'Booked' %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">
+              Awaiting Approval</span>
+            {% elif b.guardian_approved == true %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+              <i class="fas fa-check-circle mr-1"></i>Approved</span>
+            {% elif b.guardian_approved == false %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
+              <i class="fas fa-times-circle mr-1"></i>Rejected</span>
+            {% endif %}
+          </div>
+          {% if slot %}
+          <p class="text-sm text-gray-500 mt-1">
+            {{ slot.date.strftime('%B %d, %Y') }} &bull;
+            {{ slot.start_time.strftime('%I:%M %p') }} - {{ slot.end_time.strftime('%I:%M %p') }}
+            &bull; {{ slot.mode }}
+            &bull; ${{ '%.2f'|format(slot.price) }}</p>
+          {% endif %}
+          <p class="text-xs text-gray-400 mt-1">Booked {{ b.booked_on.strftime('%b %d, %Y at %I:%M %p') }}</p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex space-x-2 ml-4">
+          {% if b.status == 'Booked' and b.guardian_approved is none %}
+          <form method="POST" action="{{ url_for('guardian_bp.approve_booking', booking_id=b.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-green-700">
+              Approve</button>
+          </form>
+          <form method="POST" action="{{ url_for('guardian_bp.reject_booking', booking_id=b.id) }}"
+                onsubmit="return confirm('Reject this booking?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="bg-red-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-red-700">
+              Reject</button>
+          </form>
+          {% endif %}
+          {% if b.status == 'Booked' %}
+          <form method="POST" action="{{ url_for('guardian_bp.emergency_cancel', booking_id=b.id) }}"
+                onsubmit="return confirm('Emergency cancel? Full refund will be issued.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="bg-yellow-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-yellow-700">
+              <i class="fas fa-exclamation-triangle mr-1"></i>Emergency Cancel</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+    <i class="fas fa-calendar-times text-gray-300 text-4xl mb-4"></i>
+    <p class="text-gray-400">No sessions found for this student.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

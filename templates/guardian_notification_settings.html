@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Guardian Notifications | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-8">
+  <a href="{{ url_for('guardian_bp.guardian_dashboard') }}"
+     class="text-purple-600 hover:text-purple-800 text-sm font-medium mb-4 inline-block">
+    <i class="fas fa-arrow-left mr-1"></i>Back to Dashboard</a>
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6">
+      <i class="fas fa-bell text-purple-600 mr-2"></i>Notification Settings</h1>
+
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% set prefs = guardian.notification_prefs or {} %}
+
+      <div class="space-y-4">
+        <label class="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer">
+          <div>
+            <p class="font-medium text-gray-800">Booking Notifications</p>
+            <p class="text-sm text-gray-500">Get notified when your child books a session</p>
+          </div>
+          <input type="checkbox" name="booking_notifications"
+                 {% if prefs.get('booking_notifications', True) %}checked{% endif %}
+                 class="w-5 h-5 text-purple-600 rounded">
+        </label>
+
+        <label class="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer">
+          <div>
+            <p class="font-medium text-gray-800">Session Reminders</p>
+            <p class="text-sm text-gray-500">Receive reminders before scheduled sessions</p>
+          </div>
+          <input type="checkbox" name="session_reminders"
+                 {% if prefs.get('session_reminders', True) %}checked{% endif %}
+                 class="w-5 h-5 text-purple-600 rounded">
+        </label>
+
+        <label class="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer">
+          <div>
+            <p class="font-medium text-gray-800">Spending Alerts</p>
+            <p class="text-sm text-gray-500">Alerts about spending activity</p>
+          </div>
+          <input type="checkbox" name="spending_alerts"
+                 {% if prefs.get('spending_alerts', True) %}checked{% endif %}
+                 class="w-5 h-5 text-purple-600 rounded">
+        </label>
+      </div>
+
+      <button type="submit"
+              class="w-full mt-6 bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition">
+        Save Preferences</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

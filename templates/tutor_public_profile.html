@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+{% block title %}{{ tutor.name }} | TeachWise{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/location-picker.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <!-- Profile Header -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
+    <div class="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6">
+      <div class="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+        {% if tutor.profile_photo %}
+          <img src="{{ tutor.profile_photo|photo_url }}"
+               class="w-24 h-24 rounded-full object-cover" alt="{{ tutor.name }}">
+        {% else %}
+          <i class="fas fa-user text-blue-600 text-4xl"></i>
+        {% endif %}
+      </div>
+      <div class="text-center md:text-left flex-1">
+        <div class="flex items-center justify-between">
+          <h1 class="text-3xl font-bold text-gray-800">{{ tutor.name }}</h1>
+          {% if current_user is defined and current_user.is_authenticated %}
+          <button id="favBtn" onclick="toggleFavorite({{ tutor.id }})"
+                  class="text-2xl transition {% if is_favorited %}text-red-500{% else %}text-gray-300 hover:text-red-400{% endif %}"
+                  title="{% if is_favorited %}Remove from favorites{% else %}Add to favorites{% endif %}">
+            <i class="{% if is_favorited %}fas{% else %}far{% endif %} fa-heart"></i></button>
+          {% endif %}
+        </div>
+        <p class="text-gray-500 mt-1">
+          {{ tutor.subject }} &bull; {{ tutor.experience or 0 }} years experience</p>
+        <div class="flex items-center justify-center md:justify-start space-x-4 mt-2">
+          <span class="text-yellow-500 text-lg">
+            {% for i in range(tutor.average_rating|int) %}&#11088;{% endfor %}
+            <span class="text-gray-600 text-sm ml-1">
+              ({{ '%.1f'|format(tutor.average_rating) }} / {{ tutor.total_reviews }} reviews)</span>
+          </span>
+        </div>
+        {% if tutor.bio %}
+          <p class="text-gray-600 mt-4">{{ tutor.bio }}</p>
+        {% endif %}
+        {% if tutor.qualification %}
+          <p class="text-gray-500 text-sm mt-2">
+            <i class="fas fa-graduation-cap mr-1"></i>{{ tutor.qualification }}
+            {% if tutor.institution %} &mdash; {{ tutor.institution }}{% endif %}</p>
+        {% endif %}
+        {% if tutor.hourly_rate %}
+          <p class="text-blue-600 font-bold text-lg mt-2">${{ '%.2f'|format(tutor.hourly_rate) }}/hr</p>
+        {% endif %}
+        <!-- Message Tutor Button -->
+        {% if current_user is defined and current_user.is_authenticated %}
+        <div class="mt-4">
+          <form method="POST" action="{{ url_for('chat_bp.start_with_tutor', tutor_id=tutor.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit"
+                    class="inline-flex items-center px-5 py-2.5 bg-green-600 text-white
+                           rounded-lg font-medium hover:bg-green-700 transition text-sm">
+              <i class="fas fa-comment-dots mr-2"></i>Message Tutor</button>
+          </form>
+        </div>
+        {% elif not (current_user is defined and current_user.is_authenticated) %}
+        <div class="mt-4">
+          <a href="{{ url_for('student_bp.login_student') }}"
+             class="inline-flex items-center px-5 py-2.5 bg-gray-200 text-gray-600
+                    rounded-lg font-medium hover:bg-gray-300 transition text-sm">
+            <i class="fas fa-comment-dots mr-2"></i>Login to Message</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Available Slots -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">
+      <i class="fas fa-calendar-alt mr-2 text-blue-600"></i>Available Slots</h2>
+    {% if available_slots %}
+      <div class="space-y-3">
+        {% for slot in available_slots %}
+        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div>
+            <p class="font-semibold text-gray-800">
+              {{ slot.date.strftime('%A, %B %d, %Y') }}</p>
+            <p class="text-gray-500 text-sm">
+              {{ slot.start_time|local_time(slot.date, user_timezone) }} - {{ slot.end_time|local_time(slot.date, user_timezone) }}
+              &bull; {{ slot.mode }}
+              {% if slot.price > 0 %}&bull; ${{ '%.2f'|format(slot.price) }}{% if slot.is_group %}/student{% endif %}{% endif %}
+              {% if slot.is_group %}
+              &bull; <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">
+                <i class="fas fa-users mr-1"></i>Group &bull; {{ slot.max_students - slot.current_students }}/{{ slot.max_students }} spots</span>
+              {% endif %}</p>
+          </div>
+          {% if current_user.is_authenticated and current_user.user_type == 'tutor' and current_user.id == tutor.id %}
+            <span class="text-xs text-gray-400 italic">Your slot</span>
+          {% else %}
+            {% if slot.mode != 'online' %}
+            <button type="button" onclick="openBookingModal({{ slot.id }}, {{ slot.location_latitude or 'null' }}, {{ slot.location_longitude or 'null' }}, {{ slot.radius_miles or 10 }}, '{{ slot.location_label or slot.location_address or "" }}')"
+                    class="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold
+                           hover:bg-blue-700 transition text-sm">
+              Book</button>
+            {% else %}
+            <form method="POST" action="{{ url_for('tutor_bp.book_session', slot_id=slot.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit"
+                      class="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold
+                             hover:bg-blue-700 transition text-sm">
+                Book</button>
+            </form>
+            {% endif %}
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-gray-400 text-center py-8">
+        No available slots at the moment. Check back later!</p>
+    {% endif %}
+  </div>
+
+  <!-- Reviews -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">
+      <i class="fas fa-star mr-2 text-yellow-500"></i>Student Reviews</h2>
+
+    <!-- Dimension Averages -->
+    {% if dim_avgs %}
+    <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+      <h3 class="text-sm font-semibold text-gray-700 mb-3">Rating Breakdown</h3>
+      {% set dim_labels = {'knowledge': 'Knowledge', 'communication': 'Communication', 'punctuality': 'Punctuality', 'value': 'Value'} %}
+      {% for key, label in dim_labels.items() %}
+      <div class="flex items-center mb-2">
+        <span class="text-xs text-gray-600 w-28">{{ label }}</span>
+        <div class="flex-1 bg-gray-200 rounded-full h-2.5 mx-3">
+          <div class="bg-yellow-400 h-2.5 rounded-full" style="width: {{ (dim_avgs.get(key, 0) / 5 * 100) }}%"></div>
+        </div>
+        <span class="text-xs font-bold text-gray-700 w-8">{{ '%.1f'|format(dim_avgs.get(key, 0)) }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if reviews %}
+      <div class="space-y-4">
+        {% for review in reviews %}
+        <div class="p-4 bg-gray-50 rounded-lg">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <p class="font-semibold text-gray-800">{{ review.student.name }}</p>
+              {% if review.is_verified %}
+              <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium
+                           bg-green-100 text-green-700 rounded-full">
+                <i class="fas fa-check-circle mr-1"></i>Verified</span>
+              {% endif %}
+            </div>
+            <div class="text-yellow-500">
+              {% for i in range(review.rating) %}&#11088;{% endfor %}
+            </div>
+          </div>
+          {% if review.rating_knowledge is not none %}
+          <div class="flex flex-wrap gap-2 mt-2">
+            <span class="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">Knowledge: {{ review.rating_knowledge }}/5</span>
+            <span class="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">Communication: {{ review.rating_communication }}/5</span>
+            <span class="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">Punctuality: {{ review.rating_punctuality }}/5</span>
+            <span class="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">Value: {{ review.rating_value }}/5</span>
+          </div>
+          {% endif %}
+          {% if review.comment %}
+            <p class="text-gray-600 text-sm mt-2">{{ review.comment }}</p>
+          {% endif %}
+          <p class="text-gray-400 text-xs mt-2">{{ review.created_at.strftime('%B %d, %Y') }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-gray-400 text-center py-8">No reviews yet.</p>
+    {% endif %}
+  </div>
+
+  <!-- Meeting Location Modal -->
+  <div id="bookingLocationModal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center overflow-y-auto">
+    <div class="bg-white rounded-xl shadow-lg p-6 max-w-lg w-full mx-4 my-8">
+      <h3 class="font-bold text-gray-800 mb-3">
+        <i class="fas fa-map-marker-alt mr-2 text-blue-600"></i>Select Meeting Location</h3>
+      <form method="POST" id="bookingLocationForm" action="">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="meeting_latitude" id="meetLat">
+        <input type="hidden" name="meeting_longitude" id="meetLng">
+        <input type="hidden" name="meeting_address" id="meetAddr">
+        <input type="hidden" name="meeting_location_type" id="meetType" value="">
+        <input type="hidden" name="meeting_location_label" id="meetLabel" value="">
+
+        <!-- Saved Locations -->
+        {% if current_user.is_authenticated and current_user.user_type == 'student' %}
+        <div id="savedLocCards" class="space-y-2 mb-4 max-h-40 overflow-y-auto">
+        </div>
+        {% endif %}
+
+        <!-- New Location -->
+        <div class="mb-3">
+          <button type="button" id="useNewLocBtn"
+                  class="text-sm text-blue-600 hover:underline">
+            <i class="fas fa-plus mr-1"></i>Use a new location</button>
+        </div>
+        <div id="newMeetingLocFields" class="hidden">
+          <div class="mb-3 relative">
+            <input type="text" id="meetSearch" placeholder="Search address..."
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+          </div>
+          <div id="meetMap" style="height:250px;" class="rounded-lg mb-3"></div>
+          <label class="flex items-center space-x-2 text-sm text-gray-600 mb-3">
+            <input type="checkbox" name="save_location" value="1" class="w-4 h-4 rounded">
+            <span>Save this location for future bookings</span>
+          </label>
+        </div>
+
+        <!-- Distance Display -->
+        <div id="distanceDisplay" class="hidden mb-3 p-3 rounded-lg border text-sm">
+        </div>
+
+        <div class="flex space-x-2">
+          <button type="submit" id="bookSubmitBtn" disabled
+                  class="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold
+                         hover:bg-blue-700 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+            Confirm Booking</button>
+          <button type="button" onclick="document.getElementById('bookingLocationModal').classList.add('hidden')"
+                  class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300
+                         rounded-lg hover:bg-gray-50 transition">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='js/location-picker.js') }}"></script>
+<script>
+function toggleFavorite(tutorId) {
+  fetch(`/student/favorite/${tutorId}`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+  }).then(r => r.json()).then(d => {
+    const btn = document.getElementById('favBtn');
+    const icon = btn.querySelector('i');
+    if (d.is_favorited) {
+      btn.classList.remove('text-gray-300');
+      btn.classList.add('text-red-500');
+      icon.classList.remove('far');
+      icon.classList.add('fas');
+    } else {
+      btn.classList.add('text-gray-300');
+      btn.classList.remove('text-red-500');
+      icon.classList.add('far');
+      icon.classList.remove('fas');
+    }
+  });
+}
+
+let meetingPicker = null;
+let currentSlotLat = null;
+let currentSlotLng = null;
+let currentSlotRadius = 10;
+
+function openBookingModal(slotId, slotLat, slotLng, slotRadius, slotLabel) {
+  currentSlotLat = slotLat;
+  currentSlotLng = slotLng;
+  currentSlotRadius = slotRadius || 10;
+
+  document.getElementById('bookingLocationForm').action = '/book/' + slotId;
+  document.getElementById('bookSubmitBtn').disabled = true;
+  document.getElementById('distanceDisplay').classList.add('hidden');
+  document.getElementById('newMeetingLocFields').classList.add('hidden');
+
+  // Load saved locations via API
+  const cardsDiv = document.getElementById('savedLocCards');
+  if (cardsDiv) {
+    cardsDiv.innerHTML = '<p class="text-gray-400 text-sm">Loading saved locations...</p>';
+    fetch('/api/student/saved-locations')
+      .then(r => r.json())
+      .then(locations => {
+        if (locations.length === 0) {
+          cardsDiv.innerHTML = '<p class="text-gray-400 text-sm">No saved locations. Add one below.</p>';
+          return;
+        }
+        const typeIcons = {home:'fa-home',library:'fa-book',cafe:'fa-coffee',school:'fa-school',park:'fa-tree',community_center:'fa-building',other:'fa-map-marker-alt'};
+        cardsDiv.innerHTML = locations.map(loc => `
+          <div class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition ${loc.is_primary ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}"
+               onclick="selectSavedLocation(${loc.latitude}, ${loc.longitude}, '${loc.address.replace(/'/g, "\\'")}', '${loc.location_type}', '${loc.label.replace(/'/g, "\\'")}')">
+            <i class="fas ${typeIcons[loc.location_type]||'fa-map-marker-alt'} text-blue-500 mr-3"></i>
+            <div class="flex-1">
+              <p class="font-medium text-sm text-gray-800">${loc.label}</p>
+              <p class="text-xs text-gray-500">${loc.address}</p>
+            </div>
+            ${loc.is_primary ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Primary</span>' : ''}
+          </div>
+        `).join('');
+        // Auto-select primary
+        const primary = locations.find(l => l.is_primary);
+        if (primary) {
+          selectSavedLocation(primary.latitude, primary.longitude, primary.address, primary.location_type, primary.label);
+        }
+      })
+      .catch(() => {
+        cardsDiv.innerHTML = '<p class="text-gray-400 text-sm">Could not load locations.</p>';
+      });
+  }
+
+  document.getElementById('bookingLocationModal').classList.remove('hidden');
+}
+
+function selectSavedLocation(lat, lng, address, type, label) {
+  document.getElementById('meetLat').value = lat;
+  document.getElementById('meetLng').value = lng;
+  document.getElementById('meetAddr').value = address;
+  document.getElementById('meetType').value = type;
+  document.getElementById('meetLabel').value = label;
+  validateDistance(lat, lng);
+}
+
+function validateDistance(lat, lng) {
+  const display = document.getElementById('distanceDisplay');
+  const btn = document.getElementById('bookSubmitBtn');
+
+  if (!currentSlotLat || !currentSlotLng) {
+    // No slot location set — allow booking
+    display.classList.add('hidden');
+    btn.disabled = false;
+    return;
+  }
+
+  // Haversine in JS
+  const R = 6371;
+  const dLat = (currentSlotLat - lat) * Math.PI / 180;
+  const dLng = (currentSlotLng - lng) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat*Math.PI/180) * Math.cos(currentSlotLat*Math.PI/180) * Math.sin(dLng/2)**2;
+  const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distMiles = (distKm / 1.60934).toFixed(1);
+
+  display.classList.remove('hidden');
+  if (distMiles <= currentSlotRadius) {
+    display.className = 'mb-3 p-3 rounded-lg border text-sm bg-green-50 border-green-200 text-green-800';
+    display.innerHTML = `<i class="fas fa-check-circle mr-1"></i>${distMiles} miles from tutor's location (within ${currentSlotRadius} mi radius)`;
+    btn.disabled = false;
+  } else {
+    display.className = 'mb-3 p-3 rounded-lg border text-sm bg-red-50 border-red-200 text-red-800';
+    display.innerHTML = `<i class="fas fa-exclamation-circle mr-1"></i>${distMiles} miles away — outside tutor's ${currentSlotRadius} mi travel radius`;
+    btn.disabled = true;
+  }
+}
+
+// Show new location fields
+document.getElementById('useNewLocBtn')?.addEventListener('click', function() {
+  const fields = document.getElementById('newMeetingLocFields');
+  fields.classList.toggle('hidden');
+  if (!fields.classList.contains('hidden') && !meetingPicker) {
+    setTimeout(function() {
+      meetingPicker = new LocationPicker({
+        mapContainerId: 'meetMap',
+        searchInputId: 'meetSearch',
+        latFieldId: 'meetLat',
+        lngFieldId: 'meetLng',
+        addressFieldId: 'meetAddr',
+        draggable: true,
+        defaultCenter: [34.0522, -118.2437],
+        onLocationChange: function(lat, lng) {
+          document.getElementById('meetType').value = 'other';
+          document.getElementById('meetLabel').value = '';
+          validateDistance(lat, lng);
+        }
+      });
+    }, 100);
+  }
+});
+</script>
+{% endblock %}

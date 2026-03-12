@@ -1,0 +1,16 @@
+__pycache__
+*.pyc
+.git
+.env
+.env.*
+*.sqlite
+*.db
+venv/
+.venv/
+node_modules/
+tests/
+.pytest_cache/
+*.egg-info/
+.coverage
+htmlcov/
+migrations/versions/__pycache__

@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Booking History | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">Booking History</h1>
+    <div class="flex space-x-3">
+      <a href="{{ url_for('student_bp.booking_export') }}"
+         class="text-sm text-blue-600 hover:underline font-medium">
+        <i class="fas fa-download mr-1"></i>Export CSV</a>
+      <a href="{{ url_for('student_bp.dashboard') }}"
+         class="text-sm text-gray-600 hover:underline font-medium">
+        <i class="fas fa-arrow-left mr-1"></i>Dashboard</a>
+    </div>
+  </div>
+
+  <!-- Summary Stats -->
+  <div class="grid md:grid-cols-2 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-center">
+      <p class="text-3xl font-bold text-blue-600">{{ total_sessions }}</p>
+      <p class="text-gray-500 text-sm">Total Sessions</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-center">
+      <p class="text-3xl font-bold text-green-600">${{ '%.2f'|format(total_spent) }}</p>
+      <p class="text-gray-500 text-sm">Total Spent</p>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+    <form method="GET" class="grid md:grid-cols-6 gap-3 items-end">
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Status</label>
+        <select name="status" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+          <option value="">All</option>
+          <option value="Booked" {{ 'selected' if status == 'Booked' }}>Booked</option>
+          <option value="Confirmed" {{ 'selected' if status == 'Confirmed' }}>Confirmed</option>
+          <option value="Completed" {{ 'selected' if status == 'Completed' }}>Completed</option>
+          <option value="Cancelled" {{ 'selected' if status == 'Cancelled' }}>Cancelled</option>
+          <option value="Pending Payment" {{ 'selected' if status == 'Pending Payment' }}>Pending Payment</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Subject</label>
+        <input type="text" name="subject" value="{{ subject }}" placeholder="e.g. Math"
+               class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Tutor</label>
+        <input type="text" name="tutor_name" value="{{ tutor_name }}" placeholder="Name"
+               class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">From</label>
+        <input type="date" name="date_from" value="{{ date_from }}"
+               class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">To</label>
+        <input type="date" name="date_to" value="{{ date_to }}"
+               class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+      </div>
+      <button type="submit"
+              class="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold
+                     hover:bg-blue-700 transition">Filter</button>
+    </form>
+  </div>
+
+  <!-- Results -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    {% if results.items %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-200">
+              <th class="text-left py-3 px-2 text-gray-600">Date</th>
+              <th class="text-left py-3 px-2 text-gray-600">Time</th>
+              <th class="text-left py-3 px-2 text-gray-600">Tutor</th>
+              <th class="text-left py-3 px-2 text-gray-600">Subject</th>
+              <th class="text-left py-3 px-2 text-gray-600">Mode</th>
+              <th class="text-left py-3 px-2 text-gray-600">Price</th>
+              <th class="text-left py-3 px-2 text-gray-600">Status</th>
+              <th class="text-left py-3 px-2 text-gray-600">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for booking, slot, tutor in results.items %}
+            <tr class="border-b border-gray-100 hover:bg-gray-50">
+              <td class="py-3 px-2">{{ slot.date.strftime('%b %d, %Y') }}</td>
+              <td class="py-3 px-2">{{ slot.start_time|local_time(slot.date, user_timezone) }}</td>
+              <td class="py-3 px-2">
+                <a href="{{ url_for('tutor_bp.view_tutor_profile', tutor_id=tutor.id) }}"
+                   class="text-blue-600 hover:underline">{{ tutor.name }}</a></td>
+              <td class="py-3 px-2">{{ slot.subject or tutor.subject }}</td>
+              <td class="py-3 px-2">
+                <span class="px-2 py-1 text-xs rounded-full
+                  {% if slot.mode == 'online' %}bg-blue-100 text-blue-700
+                  {% else %}bg-green-100 text-green-700{% endif %}">
+                  {{ slot.mode }}</span></td>
+              <td class="py-3 px-2">${{ '%.2f'|format(slot.price) }}</td>
+              <td class="py-3 px-2">
+                <span class="px-2 py-1 text-xs rounded-full
+                  {% if booking.status == 'Booked' or booking.status == 'Confirmed' %}bg-blue-100 text-blue-700
+                  {% elif booking.status == 'Completed' %}bg-green-100 text-green-700
+                  {% elif booking.status == 'Cancelled' %}bg-red-100 text-red-700
+                  {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                  {{ booking.status }}</span></td>
+              <td class="py-3 px-2">
+                <div class="flex items-center space-x-2">
+                {% if booking.status == 'Completed' and booking.id not in reviewed %}
+                  <a href="{{ url_for('student_bp.submit_review', booking_id=booking.id) }}"
+                     class="text-sm text-yellow-600 hover:underline">
+                    <i class="fas fa-star mr-1"></i>Review</a>
+                {% elif booking.id in reviewed %}
+                  <span class="text-xs text-green-600"><i class="fas fa-check mr-1"></i>Reviewed</span>
+                {% endif %}
+                {% if booking.status in ('Completed', 'Booked', 'Confirmed') %}
+                  <a href="{{ url_for('note_bp.view_notes', slot_id=slot.id) }}"
+                     class="text-xs text-yellow-600 hover:underline" title="Session Notes">
+                    <i class="fas fa-sticky-note mr-1"></i>Notes</a>
+                {% endif %}
+                {% if not (booking.status == 'Completed' and booking.id not in reviewed) and not (booking.id in reviewed) and booking.status not in ('Completed', 'Booked', 'Confirmed') %}
+                  —
+                {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      {% if results.pages > 1 %}
+      <div class="flex justify-center mt-6 space-x-2">
+        {% if results.has_prev %}
+          <a href="?page={{ results.prev_num }}&status={{ status }}&subject={{ subject }}&tutor_name={{ tutor_name }}&date_from={{ date_from }}&date_to={{ date_to }}"
+             class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Prev</a>
+        {% endif %}
+        {% for p in results.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if p %}
+            <a href="?page={{ p }}&status={{ status }}&subject={{ subject }}&tutor_name={{ tutor_name }}&date_from={{ date_from }}&date_to={{ date_to }}"
+               class="px-3 py-1 border rounded text-sm
+                 {% if p == results.page %}bg-blue-600 text-white border-blue-600
+                 {% else %}border-gray-300 hover:bg-gray-50{% endif %}">{{ p }}</a>
+          {% else %}
+            <span class="px-2 text-gray-400">...</span>
+          {% endif %}
+        {% endfor %}
+        {% if results.has_next %}
+          <a href="?page={{ results.next_num }}&status={{ status }}&subject={{ subject }}&tutor_name={{ tutor_name }}&date_from={{ date_from }}&date_to={{ date_to }}"
+             class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Next</a>
+        {% endif %}
+      </div>
+      {% endif %}
+    {% else %}
+      <p class="text-gray-400 text-center py-8">
+        No bookings found.
+        <a href="{{ url_for('main.index') }}#tutors" class="text-blue-600 hover:underline">Find a Tutor</a></p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

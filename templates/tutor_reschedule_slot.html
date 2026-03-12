@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Reschedule Slot | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+  <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
+     class="text-blue-600 hover:text-blue-800 text-sm font-medium mb-4 inline-block">
+    <i class="fas fa-arrow-left mr-1"></i>Back to Dashboard</a>
+
+  <!-- Current Booking Info -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+    <h1 class="text-xl font-bold text-gray-800 mb-3">
+      <i class="fas fa-exchange-alt text-purple-600 mr-2"></i>Reschedule Booked Session</h1>
+    <div class="bg-blue-50 rounded-lg p-4">
+      <p class="text-sm font-medium text-blue-800">Current Session</p>
+      <p class="text-blue-700">
+        {{ slot.date.strftime('%A, %B %d, %Y') }} &bull;
+        {{ slot.start_time.strftime('%I:%M %p') }} - {{ slot.end_time.strftime('%I:%M %p') }}
+        &bull; {{ slot.mode }}</p>
+      <p class="text-sm text-blue-600 mt-1">
+        Student: <strong>{{ student.name if student else 'Unknown' }}</strong>
+        &bull; ${{ '%.2f'|format(slot.price) }}</p>
+    </div>
+  </div>
+
+  <!-- Reschedule Form -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <h2 class="text-lg font-bold text-gray-800 mb-2">Pick a New Time</h2>
+    <p class="text-sm text-gray-500 mb-4">
+      The student will be notified and has 48 hours to approve or reject.</p>
+
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <!-- New Date/Time -->
+      <div class="border border-gray-200 rounded-lg p-4 mb-4">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">
+          <i class="fas fa-calendar-plus mr-1 text-purple-500"></i>Enter New Date & Time</h3>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Date</label>
+            <input type="date" name="new_date"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Start Time</label>
+            <input type="time" name="new_start_time"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">End Time</label>
+            <input type="time" name="new_end_time"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
+          </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">
+          A new slot will be created with the same mode, subject, and price as the current session.</p>
+      </div>
+
+      {% if available_slots %}
+      <!-- Or Pick Existing Slot -->
+      <div class="border border-gray-200 rounded-lg p-4 mb-4">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">
+          <i class="fas fa-list mr-1 text-blue-500"></i>Or Pick an Existing Available Slot</h3>
+        <div class="space-y-2 max-h-60 overflow-y-auto">
+          {% for s in available_slots %}
+          <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+            <input type="radio" name="proposed_slot_id" value="{{ s.id }}"
+                   onclick="clearNewDateTime()"
+                   class="w-4 h-4 text-purple-600 mr-3">
+            <div>
+              <p class="font-medium text-gray-800 text-sm">
+                {{ s.date.strftime('%A, %B %d, %Y') }} &bull;
+                {{ s.start_time.strftime('%I:%M %p') }} - {{ s.end_time.strftime('%I:%M %p') }}</p>
+              <p class="text-xs text-gray-500">
+                {{ s.mode }} &bull; ${{ '%.2f'|format(s.price) }}
+                {% if s.subject %} &bull; {{ s.subject }}{% endif %}</p>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Reason (optional)</label>
+        <textarea name="reason" rows="2" maxlength="500"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500"
+                  placeholder="Let the student know why..."></textarea>
+      </div>
+
+      <button type="submit"
+              class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition">
+        <i class="fas fa-paper-plane mr-1"></i>Send Reschedule Request</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function clearNewDateTime() {
+  document.querySelector('input[name="new_date"]').value = '';
+  document.querySelector('input[name="new_start_time"]').value = '';
+  document.querySelector('input[name="new_end_time"]').value = '';
+}
+// If user types in new date/time, deselect any existing slot radio
+document.querySelectorAll('input[name="new_date"], input[name="new_start_time"], input[name="new_end_time"]')
+  .forEach(el => el.addEventListener('input', () => {
+    document.querySelectorAll('input[name="proposed_slot_id"]').forEach(r => r.checked = false);
+  }));
+</script>
+{% endblock %}

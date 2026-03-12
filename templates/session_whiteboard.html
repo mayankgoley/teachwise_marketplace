@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+{% block title %}Whiteboard | TeachWise{% endblock %}
+
+{% block extra_head %}
+<style>
+  #wb-container { position: relative; background: #fff; border-radius: 0.75rem; overflow: hidden; }
+  .wb-toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .wb-btn { padding: 0.375rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem;
+            cursor: pointer; border: 1px solid #e5e7eb; background: #fff; transition: all 0.15s; }
+  .wb-btn:hover { background: #f3f4f6; }
+  .wb-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+  .color-swatch { width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+                  border: 2px solid transparent; transition: border-color 0.15s; }
+  .color-swatch.active { border-color: #1f2937; }
+  #previous-panel { max-height: 300px; overflow-y: auto; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-4">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-xl font-bold text-gray-800">
+        <i class="fas fa-chalkboard mr-2 text-indigo-600"></i>Whiteboard</h1>
+      <p class="text-gray-500 text-sm">
+        {{ tutor.name }} &bull; {{ slot.date.strftime('%B %d, %Y') }}</p>
+    </div>
+    <div class="flex items-center space-x-3">
+      <a href="{{ url_for('session_bp.join_session', slot_id=slot.id) }}"
+         class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition">
+        <i class="fas fa-video mr-1"></i>Back to Video</a>
+      <button onclick="saveSnapshot()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition">
+        <i class="fas fa-camera mr-1"></i>Save Snapshot</button>
+      <span id="saveStatus" class="text-xs text-gray-400"></span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+    <!-- Main Canvas -->
+    <div class="lg:col-span-3">
+      <!-- Toolbar -->
+      <div class="bg-white rounded-t-xl border border-gray-200 border-b-0 p-3">
+        <div class="flex items-center justify-between">
+          <div class="wb-toolbar">
+            <button class="wb-btn active" data-tool="pencil" onclick="setTool('pencil', this)">
+              <i class="fas fa-pencil-alt mr-1"></i>Pen</button>
+            <button class="wb-btn" data-tool="line" onclick="setTool('line', this)">
+              <i class="fas fa-minus mr-1"></i>Line</button>
+            <button class="wb-btn" data-tool="rect" onclick="setTool('rect', this)">
+              <i class="fas fa-square mr-1"></i>Rect</button>
+            <button class="wb-btn" data-tool="circle" onclick="setTool('circle', this)">
+              <i class="fas fa-circle mr-1"></i>Circle</button>
+            <button class="wb-btn" data-tool="text" onclick="setTool('text', this)">
+              <i class="fas fa-font mr-1"></i>Text</button>
+            <button class="wb-btn" data-tool="eraser" onclick="setTool('eraser', this)">
+              <i class="fas fa-eraser mr-1"></i>Eraser</button>
+            <button class="wb-btn" data-tool="select" onclick="setTool('select', this)">
+              <i class="fas fa-mouse-pointer mr-1"></i>Select</button>
+          </div>
+          <div class="flex items-center space-x-3">
+            <!-- Colors -->
+            <div class="flex items-center space-x-1">
+              {% for c in ['#000000','#ef4444','#3b82f6','#22c55e','#eab308','#8b5cf6','#f97316'] %}
+              <div class="color-swatch {% if loop.first %}active{% endif %}"
+                   style="background:{{ c }}" data-color="{{ c }}"
+                   onclick="setColor('{{ c }}', this)"></div>
+              {% endfor %}
+            </div>
+            <!-- Stroke width -->
+            <select id="strokeWidth" onchange="setStrokeWidth(this.value)"
+                    class="border border-gray-300 rounded px-2 py-1 text-xs">
+              <option value="2">Thin</option>
+              <option value="4" selected>Medium</option>
+              <option value="8">Thick</option>
+              <option value="16">Extra</option>
+            </select>
+            <!-- Clear -->
+            <button onclick="clearCanvas()" class="wb-btn text-red-600">
+              <i class="fas fa-trash mr-1"></i>Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canvas (responsive) -->
+      <div id="wb-container" class="border border-gray-200 overflow-auto" style="max-width:100%;">
+        <canvas id="whiteboard" width="1200" height="700"></canvas>
+      </div>
+    </div>
+
+    <!-- Sidebar: Previous Whiteboards -->
+    <div>
+      <div class="bg-white rounded-xl border border-gray-200 p-4">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">
+          <i class="fas fa-history mr-1"></i>Previous Whiteboards</h3>
+        <div id="previous-panel">
+          {% if previous %}
+          {% for pw in previous %}
+          <button onclick="loadPrevious({{ pw.id }})"
+                  class="w-full text-left p-2 rounded hover:bg-gray-50 text-xs text-gray-600 border-b border-gray-100">
+            <i class="fas fa-chalkboard mr-1"></i>
+            Session {{ pw.slot_id }} &bull;
+            {{ pw.updated_at.strftime('%b %d, %Y') }}
+          </button>
+          {% endfor %}
+          {% else %}
+          <p class="text-xs text-gray-400">No previous sessions</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-200 p-4 mt-4">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">
+          <i class="fas fa-camera mr-1"></i>Snapshots</h3>
+        <div id="snapshots-panel">
+          {% if wb.snapshots %}
+          {% for s in wb.snapshots %}
+          <p class="text-xs text-gray-500 mb-1">
+            <i class="fas fa-image mr-1"></i>{{ s.name }}
+            <span class="text-gray-400">{{ s.created_at[:10] }}</span>
+          </p>
+          {% endfor %}
+          {% else %}
+          <p class="text-xs text-gray-400" id="noSnapshots">No snapshots yet</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/fabric.min.js') }}"></script>
+<script>
+const SLOT_ID = {{ slot.id }};
+const CSRF = '{{ csrf_token() }}';
+let currentTool = 'pencil';
+let currentColor = '#000000';
+let strokeWidth = 4;
+let canvas;
+
+// Initialize Fabric.js canvas
+document.addEventListener('DOMContentLoaded', function() {
+  canvas = new fabric.Canvas('whiteboard', {
+    isDrawingMode: true,
+    backgroundColor: '#ffffff'
+  });
+  canvas.freeDrawingBrush.color = currentColor;
+  canvas.freeDrawingBrush.width = strokeWidth;
+
+  // Load saved state
+  fetch(`/api/whiteboard/${SLOT_ID}/load`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.state) {
+        canvas.loadFromJSON(d.state, function() {
+          canvas.renderAll();
+        });
+      }
+    }).catch(() => {});
+
+  // Auto-save every 10 seconds
+  setInterval(autoSave, 10000);
+
+  // Save on changes
+  canvas.on('object:modified', scheduleAutoSave);
+  canvas.on('path:created', scheduleAutoSave);
+});
+
+let saveTimeout;
+function scheduleAutoSave() {
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(autoSave, 3000);
+}
+
+function autoSave() {
+  const state = JSON.stringify(canvas.toJSON());
+  document.getElementById('saveStatus').textContent = 'Saving...';
+  fetch(`/api/whiteboard/${SLOT_ID}/save`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({state: state})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) document.getElementById('saveStatus').textContent = 'Saved';
+  }).catch(() => {
+    document.getElementById('saveStatus').textContent = 'Save failed';
+  });
+}
+
+function setTool(tool, btn) {
+  currentTool = tool;
+  document.querySelectorAll('.wb-btn[data-tool]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  canvas.isDrawingMode = false;
+  canvas.selection = false;
+
+  if (tool === 'pencil') {
+    canvas.isDrawingMode = true;
+    canvas.freeDrawingBrush.color = currentColor;
+    canvas.freeDrawingBrush.width = strokeWidth;
+  } else if (tool === 'eraser') {
+    canvas.isDrawingMode = true;
+    canvas.freeDrawingBrush.color = '#ffffff';
+    canvas.freeDrawingBrush.width = strokeWidth * 4;
+  } else if (tool === 'select') {
+    canvas.selection = true;
+  } else if (tool === 'text') {
+    canvas.isDrawingMode = false;
+    canvas.on('mouse:down', addTextOnce);
+  } else {
+    canvas.isDrawingMode = false;
+    setupShapeTool(tool);
+  }
+}
+
+function addTextOnce(opt) {
+  canvas.off('mouse:down', addTextOnce);
+  const pointer = canvas.getPointer(opt.e);
+  const text = new fabric.IText('Type here', {
+    left: pointer.x, top: pointer.y,
+    fontSize: 20, fill: currentColor,
+    fontFamily: 'Inter, sans-serif'
+  });
+  canvas.add(text);
+  canvas.setActiveObject(text);
+  text.enterEditing();
+}
+
+let shapeStart = null;
+let tempShape = null;
+
+function setupShapeTool(tool) {
+  canvas.on('mouse:down', function onDown(opt) {
+    if (currentTool !== tool) { canvas.off('mouse:down', onDown); return; }
+    shapeStart = canvas.getPointer(opt.e);
+  });
+  canvas.on('mouse:move', function onMove(opt) {
+    if (!shapeStart || currentTool !== tool) return;
+    const pointer = canvas.getPointer(opt.e);
+    if (tempShape) canvas.remove(tempShape);
+
+    const props = {stroke: currentColor, strokeWidth: strokeWidth, fill: 'transparent'};
+    if (tool === 'rect') {
+      tempShape = new fabric.Rect({
+        left: Math.min(shapeStart.x, pointer.x),
+        top: Math.min(shapeStart.y, pointer.y),
+        width: Math.abs(pointer.x - shapeStart.x),
+        height: Math.abs(pointer.y - shapeStart.y), ...props
+      });
+    } else if (tool === 'circle') {
+      const rx = Math.abs(pointer.x - shapeStart.x) / 2;
+      const ry = Math.abs(pointer.y - shapeStart.y) / 2;
+      tempShape = new fabric.Ellipse({
+        left: Math.min(shapeStart.x, pointer.x),
+        top: Math.min(shapeStart.y, pointer.y),
+        rx: rx, ry: ry, ...props
+      });
+    } else if (tool === 'line') {
+      tempShape = new fabric.Line(
+        [shapeStart.x, shapeStart.y, pointer.x, pointer.y],
+        {stroke: currentColor, strokeWidth: strokeWidth}
+      );
+    }
+    if (tempShape) canvas.add(tempShape);
+  });
+  canvas.on('mouse:up', function onUp() {
+    if (currentTool !== tool) return;
+    shapeStart = null;
+    tempShape = null;
+    scheduleAutoSave();
+  });
+}
+
+function setColor(color, el) {
+  currentColor = color;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  if (canvas.isDrawingMode && currentTool !== 'eraser') {
+    canvas.freeDrawingBrush.color = color;
+  }
+}
+
+function setStrokeWidth(val) {
+  strokeWidth = parseInt(val);
+  if (canvas.isDrawingMode) {
+    canvas.freeDrawingBrush.width = currentTool === 'eraser' ? strokeWidth * 4 : strokeWidth;
+  }
+}
+
+function clearCanvas() {
+  if (!confirm('Clear the entire whiteboard?')) return;
+  canvas.clear();
+  canvas.backgroundColor = '#ffffff';
+  canvas.renderAll();
+  autoSave();
+}
+
+function saveSnapshot() {
+  const dataURL = canvas.toDataURL({format: 'png', quality: 1});
+  fetch(`/api/whiteboard/${SLOT_ID}/snapshot`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({image: dataURL})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      document.getElementById('saveStatus').textContent = `Snapshot saved (${d.count})`;
+      const noEl = document.getElementById('noSnapshots');
+      if (noEl) noEl.remove();
+    } else {
+      alert(d.error || 'Failed to save snapshot');
+    }
+  }).catch(() => alert('Failed to save snapshot'));
+}
+
+function loadPrevious(wbId) {
+  if (!confirm('Load previous whiteboard? Current content will be replaced.')) return;
+  fetch(`/api/whiteboard/load-previous/${wbId}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.state) {
+        canvas.loadFromJSON(d.state, function() { canvas.renderAll(); });
+        document.getElementById('saveStatus').textContent = 'Loaded previous';
+      }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Earnings | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">Earnings Dashboard</h1>
+    <div class="flex space-x-3">
+      <a href="{{ url_for('tutor_bp.earnings_export') }}"
+         class="text-sm text-blue-600 hover:underline font-medium">
+        <i class="fas fa-download mr-1"></i>Export CSV</a>
+      <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
+         class="text-sm text-gray-600 hover:underline font-medium">
+        <i class="fas fa-arrow-left mr-1"></i>Dashboard</a>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="grid md:grid-cols-5 gap-4 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-center">
+      <p class="text-2xl font-bold text-green-600">${{ '%.2f'|format(total_all) }}</p>
+      <p class="text-gray-500 text-xs">All Time</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-center">
+      <p class="text-2xl font-bold text-blue-600">${{ '%.2f'|format(total_month) }}</p>
+      <p class="text-gray-500 text-xs">This Month</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-center">
+      <p class="text-2xl font-bold text-purple-600">${{ '%.2f'|format(total_year) }}</p>
+      <p class="text-gray-500 text-xs">This Year</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-center">
+      <p class="text-2xl font-bold text-yellow-600">${{ '%.2f'|format(avg_per_session) }}</p>
+      <p class="text-gray-500 text-xs">Avg/Session</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-center">
+      <p class="text-2xl font-bold text-gray-800">{{ payments|length }}</p>
+      <p class="text-gray-500 text-xs">Paid Sessions</p>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid md:grid-cols-2 gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">Monthly Earnings</h2>
+      <canvas id="monthlyChart" height="200"></canvas>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">By Subject</h2>
+      <canvas id="subjectChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- Stripe Payout Link -->
+  {% if tutor.stripe_account_id and tutor.stripe_onboarding_complete %}
+  <div class="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+    <p class="text-green-800 font-medium">
+      <i class="fas fa-check-circle mr-1"></i>
+      Stripe payouts connected.
+      <a href="https://dashboard.stripe.com/express" target="_blank"
+         class="underline ml-1">Manage Payouts</a></p>
+  </div>
+  {% else %}
+  <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+    <p class="text-blue-800 font-medium">
+      <i class="fas fa-credit-card mr-1"></i>
+      Connect Stripe to receive direct payouts.
+      <a href="{{ url_for('payment_bp.stripe_onboard') }}"
+         class="underline ml-1 font-semibold">Set Up Payouts</a></p>
+  </div>
+  {% endif %}
+
+  <!-- Earnings Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <h2 class="text-lg font-bold text-gray-800 mb-4">Session Earnings</h2>
+    {% if payments %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-200">
+              <th class="text-left py-3 px-2 text-gray-600">Date</th>
+              <th class="text-left py-3 px-2 text-gray-600">Gross</th>
+              <th class="text-left py-3 px-2 text-gray-600">Platform Fee</th>
+              <th class="text-left py-3 px-2 text-gray-600">Net Earnings</th>
+              <th class="text-left py-3 px-2 text-gray-600">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in payments %}
+            <tr class="border-b border-gray-100 hover:bg-gray-50">
+              <td class="py-3 px-2">{{ p.completed_at.strftime('%b %d, %Y') if p.completed_at else '—' }}</td>
+              <td class="py-3 px-2">${{ '%.2f'|format(p.amount) }}</td>
+              <td class="py-3 px-2 text-red-500">-${{ '%.2f'|format(p.platform_fee) }}</td>
+              <td class="py-3 px-2 font-semibold text-green-600">${{ '%.2f'|format(p.tutor_payout) }}</td>
+              <td class="py-3 px-2">
+                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">
+                  {{ p.status }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-gray-400 text-center py-8">No earnings yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script>
+// Monthly earnings chart
+fetch('{{ url_for("tutor_bp.earnings_chart_data") }}')
+  .then(r => r.json())
+  .then(data => {
+    new Chart(document.getElementById('monthlyChart'), {
+      type: 'line',
+      data: {
+        labels: data.months.map(m => m.month),
+        datasets: [{
+          label: 'Earnings ($)',
+          data: data.months.map(m => m.amount),
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.1)',
+          fill: true, tension: 0.3
+        }]
+      },
+      options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+  });
+
+// Subject breakdown chart
+const subjectData = {{ subject_data|tojson }};
+const subjects = Object.keys(subjectData);
+const amounts = Object.values(subjectData);
+if (subjects.length > 0) {
+  new Chart(document.getElementById('subjectChart'), {
+    type: 'bar',
+    data: {
+      labels: subjects,
+      datasets: [{
+        label: 'Earnings ($)',
+        data: amounts,
+        backgroundColor: ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4']
+      }]
+    },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+  });
+} else {
+  document.getElementById('subjectChart').parentElement.innerHTML +=
+    '<p class="text-gray-400 text-center py-4">No data yet</p>';
+}
+</script>
+{% endblock %}

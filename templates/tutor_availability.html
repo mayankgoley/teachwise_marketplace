@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+{% block title %}Availability | TeachWise{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/fullcalendar.min.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/location-picker.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <!-- Header -->
+  <div class="flex justify-between items-center mb-8">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-800">
+        <i class="fas fa-calendar-alt mr-2 text-blue-600"></i>Availability Manager</h1>
+      <p class="text-gray-500 mt-1">Set your weekly template, generate slots, and manage your calendar</p>
+    </div>
+    <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
+       class="text-blue-600 hover:text-blue-800 font-medium">
+      <i class="fas fa-arrow-left mr-1"></i>Back to Dashboard</a>
+  </div>
+
+  <!-- Weekly Template Editor -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">
+      <i class="fas fa-clock mr-2 text-green-600"></i>Weekly Availability Template</h2>
+    <p class="text-gray-500 text-sm mb-4">Define your recurring weekly schedule. Then generate slots for upcoming weeks.</p>
+
+    <div id="templateEditor" class="grid grid-cols-1 md:grid-cols-7 gap-3 mb-4">
+      {% set days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] %}
+      {% set day_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+      {% for day in days %}
+      <div class="border border-gray-200 rounded-lg p-3" data-day="{{ day }}">
+        <h3 class="font-semibold text-sm text-gray-700 mb-2 text-center">{{ day_labels[loop.index0] }}</h3>
+        <div class="space-y-2 day-blocks">
+          {% for block in template.get(day, []) %}
+          <div class="bg-blue-50 rounded p-2 text-xs block-item">
+            <div class="flex justify-between items-center mb-1">
+              <span class="font-medium">{{ block.start }} - {{ block.end }}</span>
+              <button type="button" onclick="this.closest('.block-item').remove()"
+                      class="text-red-400 hover:text-red-600"><i class="fas fa-times"></i></button>
+            </div>
+            <input type="hidden" class="block-start" value="{{ block.start }}">
+            <input type="hidden" class="block-end" value="{{ block.end }}">
+            <input type="hidden" class="block-mode" value="{{ block.mode }}">
+            <input type="hidden" class="block-subject" value="{{ block.subject }}">
+            <input type="hidden" class="block-price" value="{{ block.price }}">
+            <div class="text-gray-500">{{ block.subject }} &bull; ${{ '%.0f'|format(block.price) }} &bull; {{ block.mode }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        <button type="button" onclick="addBlock('{{ day }}')"
+                class="mt-2 w-full text-xs text-blue-600 border border-blue-200 rounded py-1
+                       hover:bg-blue-50 transition">
+          <i class="fas fa-plus mr-1"></i>Add</button>
+      </div>
+      {% endfor %}
+    </div>
+
+    <form method="POST" action="{{ url_for('tutor_bp.save_availability_template') }}" id="templateForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="template_json" id="templateJson">
+      <button type="submit"
+              class="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold
+                     hover:bg-green-700 transition">
+        <i class="fas fa-save mr-1"></i>Save Template</button>
+    </form>
+  </div>
+
+  <!-- Generate Slots -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">
+      <i class="fas fa-magic mr-2 text-purple-600"></i>Generate Slots from Template</h2>
+    <form method="POST" action="{{ url_for('tutor_bp.generate_slots_from_template') }}"
+          class="flex items-center space-x-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="text-sm font-medium text-gray-700">Generate for next</label>
+      <select name="weeks" class="px-3 py-2 border border-gray-300 rounded-lg">
+        {% for w in range(1, 9) %}
+        <option value="{{ w }}">{{ w }} week{{ 's' if w > 1 }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit"
+              class="bg-purple-600 text-white px-5 py-2 rounded-lg font-semibold
+                     hover:bg-purple-700 transition">
+        <i class="fas fa-bolt mr-1"></i>Generate Slots</button>
+    </form>
+  </div>
+
+  <!-- Calendar View -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-bold text-gray-800">
+        <i class="fas fa-calendar mr-2 text-blue-600"></i>Calendar View</h2>
+      <div class="flex items-center space-x-3">
+        <button id="bulkModeBtn" type="button"
+                class="px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300
+                       rounded-lg hover:bg-gray-50 transition">
+          <i class="fas fa-check-square mr-1"></i>Select Mode</button>
+        <button id="bulkDeleteBtn" type="button"
+                class="hidden px-3 py-1.5 text-sm font-medium text-red-600 border border-red-300
+                       rounded-lg hover:bg-red-50 transition">
+          <i class="fas fa-trash mr-1"></i>Delete Selected (<span id="selectedCount">0</span>)</button>
+        <button id="bulkLocationBtn" type="button"
+                class="hidden px-3 py-1.5 text-sm font-medium text-green-600 border border-green-300
+                       rounded-lg hover:bg-green-50 transition">
+          <i class="fas fa-map-marker-alt mr-1"></i>Update Location</button>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-3 mb-4 text-xs">
+      <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-green-500 mr-1"></span>Offline (Default)</span>
+      <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 mr-1"></span>Online / Booked</span>
+      <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-orange-500 mr-1"></span>Offline (Custom)</span>
+      <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-purple-500 mr-1"></span>Live</span>
+      <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-gray-500 mr-1"></span>Completed</span>
+      <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-red-500 mr-1"></span>Cancelled</span>
+    </div>
+    <div id="calendar"></div>
+  </div>
+
+  <!-- Slot Details Modal -->
+  <div id="slotModal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full mx-4">
+      <h3 class="font-bold text-gray-800 mb-3">Slot Details</h3>
+      <div id="slotDetails" class="text-sm text-gray-600 space-y-2"></div>
+      <div class="flex space-x-2 mt-4">
+        <form method="POST" id="deleteSlotForm" action="">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="slot_ids" id="deleteSlotId" value="">
+          <button type="submit" id="deleteSlotBtn"
+                  class="hidden px-4 py-2 text-sm font-medium text-red-600 border border-red-300
+                         rounded-lg hover:bg-red-50 transition">
+            <i class="fas fa-trash mr-1"></i>Delete</button>
+        </form>
+        <button onclick="document.getElementById('slotModal').classList.add('hidden')"
+                class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300
+                       rounded-lg hover:bg-gray-50 transition">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Block Modal -->
+  <div id="addBlockModal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full mx-4">
+      <h3 class="font-bold text-gray-800 mb-3">Add Time Block</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+          <input type="time" id="newBlockStart" value="09:00"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+          <input type="time" id="newBlockEnd" value="10:00"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Mode</label>
+          <select id="newBlockMode" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            <option value="online">Online</option>
+            <option value="in-person">In-Person</option>
+            <option value="both">Both</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+          <input type="text" id="newBlockSubject" value="{{ tutor.subject }}"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
+          <input type="number" id="newBlockPrice" value="0" step="0.01" min="0"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+        </div>
+      </div>
+      <div class="flex space-x-2 mt-4">
+        <button onclick="confirmAddBlock()"
+                class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold
+                       hover:bg-blue-700 transition text-sm">Add</button>
+        <button onclick="document.getElementById('addBlockModal').classList.add('hidden')"
+                class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300
+                       rounded-lg hover:bg-gray-50 transition">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk Location Update Modal -->
+  <div id="bulkLocationModal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-lg p-6 max-w-lg w-full mx-4">
+      <h3 class="font-bold text-gray-800 mb-3">
+        <i class="fas fa-map-marker-alt mr-2 text-green-600"></i>Update Location for Selected Slots</h3>
+      <form method="POST" action="{{ url_for('tutor_bp.bulk_update_location') }}" id="bulkLocationForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div id="bulkLocationSlotIds"></div>
+        <div class="mb-3 relative">
+          <input type="text" id="bulkLocSearch" placeholder="Search address..."
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+        </div>
+        <div id="bulkLocMap" style="height:250px;" class="rounded-lg mb-3"></div>
+        <input type="hidden" name="latitude" id="bulkLocLat">
+        <input type="hidden" name="longitude" id="bulkLocLng">
+        <input type="hidden" name="address" id="bulkLocAddr">
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <input type="text" name="label" placeholder="Label (optional)" maxlength="100"
+                 class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+          <select name="radius_miles" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            <option value="5">5 miles</option>
+            <option value="10" selected>10 miles</option>
+            <option value="15">15 miles</option>
+            <option value="25">25 miles</option>
+          </select>
+        </div>
+        <div class="flex space-x-2">
+          <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold
+                         hover:bg-green-700 transition text-sm">Update Location</button>
+          <button type="button" onclick="document.getElementById('bulkLocationModal').classList.add('hidden')"
+                  class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300
+                         rounded-lg hover:bg-gray-50 transition">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='js/location-picker.js') }}"></script>
+<script src="{{ url_for('static', filename='js/fullcalendar.min.js') }}"></script>
+<script>
+let currentDay = null;
+let bulkMode = false;
+let selectedSlots = new Set();
+
+function addBlock(day) {
+  currentDay = day;
+  document.getElementById('addBlockModal').classList.remove('hidden');
+}
+
+function confirmAddBlock() {
+  const start = document.getElementById('newBlockStart').value;
+  const end = document.getElementById('newBlockEnd').value;
+  const mode = document.getElementById('newBlockMode').value;
+  const subject = document.getElementById('newBlockSubject').value;
+  const price = document.getElementById('newBlockPrice').value;
+
+  const container = document.querySelector(`[data-day="${currentDay}"] .day-blocks`);
+  const div = document.createElement('div');
+  div.className = 'bg-blue-50 rounded p-2 text-xs block-item';
+  div.innerHTML = `
+    <div class="flex justify-between items-center mb-1">
+      <span class="font-medium">${start} - ${end}</span>
+      <button type="button" onclick="this.closest('.block-item').remove()"
+              class="text-red-400 hover:text-red-600"><i class="fas fa-times"></i></button>
+    </div>
+    <input type="hidden" class="block-start" value="${start}">
+    <input type="hidden" class="block-end" value="${end}">
+    <input type="hidden" class="block-mode" value="${mode}">
+    <input type="hidden" class="block-subject" value="${subject}">
+    <input type="hidden" class="block-price" value="${price}">
+    <div class="text-gray-500">${subject} &bull; $${parseFloat(price).toFixed(0)} &bull; ${mode}</div>
+  `;
+  container.appendChild(div);
+  document.getElementById('addBlockModal').classList.add('hidden');
+}
+
+// Serialize template to JSON before submit
+document.getElementById('templateForm').addEventListener('submit', function() {
+  const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  const template = {};
+  days.forEach(day => {
+    const blocks = [];
+    document.querySelectorAll(`[data-day="${day}"] .block-item`).forEach(item => {
+      blocks.push({
+        start: item.querySelector('.block-start').value,
+        end: item.querySelector('.block-end').value,
+        mode: item.querySelector('.block-mode').value,
+        subject: item.querySelector('.block-subject').value,
+        price: parseFloat(item.querySelector('.block-price').value) || 0
+      });
+    });
+    if (blocks.length) template[day] = blocks;
+  });
+  document.getElementById('templateJson').value = JSON.stringify(template);
+});
+
+// FullCalendar
+document.addEventListener('DOMContentLoaded', function() {
+  const calendarEl = document.getElementById('calendar');
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek'
+    },
+    events: {
+      url: '{{ url_for("tutor_bp.api_tutor_slots") }}',
+      failure: function() { console.error('Error loading slots'); }
+    },
+    eventClick: function(info) {
+      const props = info.event.extendedProps;
+      if (bulkMode && props.status === 'pending') {
+        const sid = String(props.slot_id);
+        if (selectedSlots.has(sid)) {
+          selectedSlots.delete(sid);
+          info.el.style.opacity = '1';
+        } else {
+          selectedSlots.add(sid);
+          info.el.style.opacity = '0.5';
+        }
+        document.getElementById('selectedCount').textContent = selectedSlots.size;
+        return;
+      }
+      // Show detail modal
+      const details = document.getElementById('slotDetails');
+      details.innerHTML = `
+        <p><strong>Subject:</strong> ${info.event.title}</p>
+        <p><strong>Date:</strong> ${info.event.start.toLocaleDateString()}</p>
+        <p><strong>Time:</strong> ${info.event.start.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} - ${info.event.end ? info.event.end.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}</p>
+        <p><strong>Status:</strong> ${props.status}</p>
+        <p><strong>Mode:</strong> ${props.mode}</p>
+        ${props.student ? '<p><strong>Student:</strong> ' + props.student + '</p>' : ''}
+      `;
+      const deleteBtn = document.getElementById('deleteSlotBtn');
+      const deleteForm = document.getElementById('deleteSlotForm');
+      if (props.status === 'pending') {
+        deleteBtn.classList.remove('hidden');
+        deleteForm.action = '{{ url_for("tutor_bp.bulk_delete_slots") }}';
+        document.getElementById('deleteSlotId').value = props.slot_id;
+      } else {
+        deleteBtn.classList.add('hidden');
+      }
+      document.getElementById('slotModal').classList.remove('hidden');
+    },
+    height: 'auto'
+  });
+  calendar.render();
+
+  // Bulk mode toggle
+  document.getElementById('bulkModeBtn').addEventListener('click', function() {
+    bulkMode = !bulkMode;
+    selectedSlots.clear();
+    document.getElementById('selectedCount').textContent = '0';
+    this.classList.toggle('bg-blue-100');
+    document.getElementById('bulkDeleteBtn').classList.toggle('hidden', !bulkMode);
+  });
+
+  // Bulk delete
+  document.getElementById('bulkDeleteBtn').addEventListener('click', function() {
+    if (selectedSlots.size === 0) return;
+    if (!confirm(`Delete ${selectedSlots.size} pending slot(s)?`)) return;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("tutor_bp.bulk_delete_slots") }}';
+    const csrf = document.createElement('input');
+    csrf.type = 'hidden'; csrf.name = 'csrf_token'; csrf.value = '{{ csrf_token() }}';
+    form.appendChild(csrf);
+    selectedSlots.forEach(id => {
+      const input = document.createElement('input');
+      input.type = 'hidden'; input.name = 'slot_ids'; input.value = id;
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+  });
+
+  // Bulk location - toggle visibility with bulk mode
+  const origBulkToggle = document.getElementById('bulkModeBtn');
+  const bulkLocBtn = document.getElementById('bulkLocationBtn');
+  if (origBulkToggle && bulkLocBtn) {
+    origBulkToggle.addEventListener('click', function() {
+      bulkLocBtn.classList.toggle('hidden', !bulkMode);
+    });
+  }
+
+  // Bulk location - show modal
+  if (bulkLocBtn) {
+    bulkLocBtn.addEventListener('click', function() {
+      if (selectedSlots.size === 0) return;
+      const container = document.getElementById('bulkLocationSlotIds');
+      container.innerHTML = '';
+      selectedSlots.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden'; input.name = 'slot_ids[]'; input.value = id;
+        container.appendChild(input);
+      });
+      document.getElementById('bulkLocationModal').classList.remove('hidden');
+      // Init map
+      setTimeout(function() {
+        if (!window._bulkLocPicker) {
+          window._bulkLocPicker = new LocationPicker({
+            mapContainerId: 'bulkLocMap',
+            searchInputId: 'bulkLocSearch',
+            latFieldId: 'bulkLocLat',
+            lngFieldId: 'bulkLocLng',
+            addressFieldId: 'bulkLocAddr',
+            draggable: true,
+            defaultCenter: [34.0522, -118.2437]
+          });
+        }
+      }, 200);
+    });
+  }
+});
+</script>
+{% endblock %}

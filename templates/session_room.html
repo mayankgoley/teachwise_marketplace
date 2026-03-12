@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+{% block title %}Live Session | TeachWise{% endblock %}
+
+{% block extra_head %}
+<style>
+  #jitsi-container { width: 100%; transition: width 0.3s; }
+  .session-main { height: calc(100vh - 160px); }
+  #notes-panel { transition: transform 0.3s, opacity 0.3s; }
+  #notes-panel.hidden-panel { transform: translateX(100%); opacity: 0; pointer-events: none; position: absolute; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-4">
+  <!-- Session Header (responsive) -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+    <div>
+      <h1 class="text-lg sm:text-xl font-bold text-gray-800">
+        <i class="fas fa-video mr-2 text-blue-600"></i>Live Session</h1>
+      <p class="text-gray-500 text-xs sm:text-sm">
+        {{ tutor.name }} &bull; {{ slot.subject or tutor.subject }} &bull;
+        {{ slot.date.strftime('%B %d, %Y') }}
+        {{ slot.start_time.strftime('%I:%M %p') }} - {{ slot.end_time.strftime('%I:%M %p') }}
+      </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="{{ url_for('whiteboard_bp.session_whiteboard', slot_id=slot.id) }}"
+         class="bg-indigo-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-semibold hover:bg-indigo-700 transition text-xs sm:text-sm">
+        <i class="fas fa-chalkboard mr-1"></i><span class="hidden sm:inline">Whiteboard</span><span class="sm:hidden">Board</span></a>
+      <button id="notesToggle" onclick="toggleNotesPanel()"
+              class="bg-yellow-500 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-semibold hover:bg-yellow-600 transition text-xs sm:text-sm">
+        <i class="fas fa-sticky-note mr-1"></i><span class="hidden sm:inline">Notes</span><span class="sm:hidden">Notes</span>
+        <span id="notesCount" class="ml-1 bg-white text-yellow-600 rounded-full px-1.5 text-xs font-bold hidden">0</span></button>
+      <a href="{{ url_for('note_bp.view_notes', slot_id=slot.id) }}"
+         class="text-gray-500 hover:text-gray-700 px-2 py-1.5 text-xs" title="Open notes in full page">
+        <i class="fas fa-external-link-alt"></i></a>
+      <button id="recordBtn" onclick="toggleRecording()"
+              class="bg-gray-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-semibold hover:bg-gray-700 transition text-xs sm:text-sm">
+        <i class="fas fa-circle mr-1" id="recordIcon"></i><span id="recordLabel">Record</span></button>
+      <span id="sessionTimer" class="text-xs sm:text-sm font-mono text-gray-600 bg-gray-100 px-2 py-1 sm:px-3 rounded-lg"></span>
+      <form method="POST" action="{{ url_for('session_bp.end_session', slot_id=slot.id) }}"
+            onsubmit="return confirm('End this session? This will mark it as completed.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit"
+                class="bg-red-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-semibold
+                       hover:bg-red-700 transition text-xs sm:text-sm">
+          <i class="fas fa-phone-slash mr-1"></i>End</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main content: Jitsi + Notes Sidebar -->
+  <div class="flex gap-4 session-main">
+    <!-- Jitsi Container -->
+    <div id="jitsi-container" class="flex-1 rounded-xl overflow-hidden border border-gray-200 shadow-sm"></div>
+
+    <!-- Notes Sidebar Panel -->
+    <div id="notes-panel" class="hidden-panel w-80 flex-shrink-0 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden">
+      <!-- Notes Header -->
+      <div class="p-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+        <h3 class="font-bold text-sm text-gray-800">
+          <i class="fas fa-sticky-note mr-1 text-yellow-500"></i>Session Notes</h3>
+        <button onclick="toggleNotesPanel()" class="text-gray-400 hover:text-gray-600">
+          <i class="fas fa-times"></i></button>
+      </div>
+
+      <!-- Notes List (scrollable) -->
+      <div id="notesList" class="flex-1 overflow-y-auto p-3 space-y-3">
+        <p class="text-xs text-gray-400 text-center py-4" id="noNotesMsg">
+          <i class="fas fa-sticky-note text-2xl text-gray-200 block mb-2"></i>
+          No notes yet. Add one below!</p>
+      </div>
+
+      <!-- Add Note Form -->
+      <div class="p-3 border-t border-gray-200 bg-gray-50">
+        <textarea id="noteInput" rows="2" maxlength="5000"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs resize-none
+                         focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                  placeholder="Write a quick note..."></textarea>
+        <div class="flex items-center justify-between mt-2">
+          <label class="flex items-center space-x-1 text-xs text-gray-500">
+            <input type="checkbox" id="notePrivate" class="rounded border-gray-300 text-yellow-500">
+            <span><i class="fas fa-lock text-gray-400"></i> Private</span>
+          </label>
+          <button onclick="addNoteFromPanel()"
+                  class="bg-yellow-500 text-white px-3 py-1 rounded-lg text-xs font-semibold
+                         hover:bg-yellow-600 transition">
+            <i class="fas fa-plus mr-1"></i>Add</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://meet.jit.si/external_api.js"></script>
+<script>
+(function() {
+  const domain = "{{ jitsi_domain }}";
+  const roomName = "{{ room_name }}";
+  const displayName = "{{ display_name }}";
+
+  const api = new JitsiMeetExternalAPI(domain, {
+    roomName: roomName,
+    parentNode: document.getElementById('jitsi-container'),
+    userInfo: { displayName: displayName },
+    configOverwrite: {
+      startWithAudioMuted: false,
+      startWithVideoMuted: false,
+      disableDeepLinking: true
+    },
+    interfaceConfigOverwrite: {
+      SHOW_JITSI_WATERMARK: false,
+      SHOW_WATERMARK_FOR_GUESTS: false,
+      DEFAULT_BACKGROUND: '#f8fafc',
+      TOOLBAR_BUTTONS: [
+        'microphone', 'camera', 'desktop', 'chat',
+        'raisehand', 'tileview', 'fullscreen'
+      ]
+    }
+  });
+
+  // Session countdown timer
+  const endTime = new Date("{{ session_end.isoformat() }}Z");
+  const timerEl = document.getElementById('sessionTimer');
+
+  function updateTimer() {
+    const now = new Date();
+    const diff = endTime - now;
+    if (diff <= 0) {
+      timerEl.textContent = "Session time ended";
+      timerEl.classList.add('text-red-600');
+      return;
+    }
+    const mins = Math.floor(diff / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+    timerEl.textContent = mins + ":" + (secs < 10 ? "0" : "") + secs + " remaining";
+  }
+
+  updateTimer();
+  setInterval(updateTimer, 1000);
+})();
+
+// ── Recording with consent ──────────────────────────────
+const SLOT_ID = {{ slot.id }};
+const CSRF = '{{ csrf_token() }}';
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordingStartTime = null;
+let isRecording = false;
+
+function toggleRecording() {
+  if (isRecording) {
+    stopRecording();
+  } else {
+    startRecordingFlow();
+  }
+}
+
+function startRecordingFlow() {
+  // First give consent
+  if (!confirm('Do you consent to recording this session? Both parties must consent.')) return;
+
+  fetch(`/session/${SLOT_ID}/record/consent`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({consent: true})
+  }).then(r => r.json()).then(d => {
+    if (!d.both_consented) {
+      alert('Waiting for the other party to consent. Your consent has been recorded.');
+      document.getElementById('recordBtn').classList.replace('bg-gray-600', 'bg-yellow-600');
+      document.getElementById('recordLabel').textContent = 'Waiting...';
+      // Poll for consent
+      pollConsent();
+      return;
+    }
+    startActualRecording();
+  }).catch(() => alert('Failed to submit consent'));
+}
+
+function pollConsent() {
+  const interval = setInterval(() => {
+    fetch(`/session/${SLOT_ID}/record/consent`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({consent: true})
+    }).then(r => r.json()).then(d => {
+      if (d.both_consented) {
+        clearInterval(interval);
+        startActualRecording();
+      }
+    });
+  }, 5000);
+}
+
+function startActualRecording() {
+  // Use screen + audio capture
+  navigator.mediaDevices.getDisplayMedia({video: true, audio: true})
+    .then(stream => {
+      recordedChunks = [];
+      mediaRecorder = new MediaRecorder(stream, {mimeType: 'video/webm'});
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = uploadRecording;
+      mediaRecorder.start(1000);
+      recordingStartTime = Date.now();
+      isRecording = true;
+
+      const btn = document.getElementById('recordBtn');
+      btn.classList.remove('bg-gray-600', 'bg-yellow-600');
+      btn.classList.add('bg-red-600');
+      document.getElementById('recordIcon').classList.add('animate-pulse');
+      document.getElementById('recordLabel').textContent = 'Stop';
+    })
+    .catch(() => {
+      alert('Screen capture permission denied. Recording cancelled.');
+      resetRecordButton();
+    });
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+    mediaRecorder.stream.getTracks().forEach(t => t.stop());
+  }
+  isRecording = false;
+}
+
+function uploadRecording() {
+  const blob = new Blob(recordedChunks, {type: 'video/webm'});
+  const duration = Math.round((Date.now() - recordingStartTime) / 1000);
+
+  const formData = new FormData();
+  formData.append('recording', blob, 'recording.webm');
+  formData.append('duration', duration);
+
+  document.getElementById('recordLabel').textContent = 'Uploading...';
+
+  fetch(`/session/${SLOT_ID}/record/upload`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': CSRF},
+    body: formData
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      alert('Recording saved successfully!');
+    } else {
+      alert(d.error || 'Upload failed');
+    }
+    resetRecordButton();
+  }).catch(() => {
+    alert('Upload failed');
+    resetRecordButton();
+  });
+}
+
+function resetRecordButton() {
+  const btn = document.getElementById('recordBtn');
+  btn.classList.remove('bg-red-600', 'bg-yellow-600');
+  btn.classList.add('bg-gray-600');
+  document.getElementById('recordIcon').classList.remove('animate-pulse');
+  document.getElementById('recordLabel').textContent = 'Record';
+  isRecording = false;
+}
+
+// ── Notes Panel ───────────────────────────────────────────
+let notesPanelOpen = false;
+
+function toggleNotesPanel() {
+  const panel = document.getElementById('notes-panel');
+  notesPanelOpen = !notesPanelOpen;
+  if (notesPanelOpen) {
+    panel.classList.remove('hidden-panel');
+    panel.style.position = 'relative';
+    loadNotes();
+  } else {
+    panel.classList.add('hidden-panel');
+    setTimeout(() => { panel.style.position = 'absolute'; }, 300);
+  }
+}
+
+function loadNotes() {
+  fetch(`/api/session/${SLOT_ID}/notes`, {
+    headers: {'X-CSRFToken': CSRF}
+  }).then(r => r.json()).then(d => {
+    const list = document.getElementById('notesList');
+    const noMsg = document.getElementById('noNotesMsg');
+    const countBadge = document.getElementById('notesCount');
+
+    if (d.notes && d.notes.length > 0) {
+      if (noMsg) noMsg.remove();
+      list.innerHTML = '';
+      d.notes.forEach(note => {
+        list.appendChild(createNoteElement(note));
+      });
+      countBadge.textContent = d.notes.length;
+      countBadge.classList.remove('hidden');
+    } else {
+      list.innerHTML = '<p class="text-xs text-gray-400 text-center py-4" id="noNotesMsg">' +
+        '<i class="fas fa-sticky-note text-2xl text-gray-200 block mb-2"></i>No notes yet. Add one below!</p>';
+      countBadge.classList.add('hidden');
+    }
+    // Scroll to bottom
+    list.scrollTop = list.scrollHeight;
+  }).catch(() => {});
+}
+
+function createNoteElement(note) {
+  const div = document.createElement('div');
+  div.className = 'rounded-lg p-2.5 text-xs ' +
+    (note.is_private ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50 border border-gray-200');
+  div.id = `panel-note-${note.id}`;
+
+  const badge = note.author_type === 'tutor'
+    ? '<span class="text-purple-600 font-semibold"><i class="fas fa-chalkboard-teacher mr-1"></i>Tutor</span>'
+    : '<span class="text-blue-600 font-semibold"><i class="fas fa-user-graduate mr-1"></i>Student</span>';
+  const privateBadge = note.is_private
+    ? ' <span class="text-yellow-600"><i class="fas fa-lock"></i></span>' : '';
+  const deleteBtn = note.is_own
+    ? ` <button onclick="deleteNoteFromPanel(${note.id})" class="text-red-400 hover:text-red-600 ml-1" title="Delete"><i class="fas fa-times"></i></button>`
+    : '';
+
+  div.innerHTML = `
+    <div class="flex items-center justify-between mb-1">
+      <div>${badge} <span class="text-gray-600">${note.author_name}</span>${privateBadge}</div>
+      <div class="text-gray-400">${deleteBtn}</div>
+    </div>
+    <div class="text-gray-700 whitespace-pre-wrap leading-relaxed">${escapeHtml(note.content)}</div>
+    <div class="text-gray-400 mt-1">${note.created_at}</div>
+  `;
+  return div;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function addNoteFromPanel() {
+  const input = document.getElementById('noteInput');
+  const content = input.value.trim();
+  if (!content) return;
+
+  const isPrivate = document.getElementById('notePrivate').checked;
+
+  fetch(`/api/session/${SLOT_ID}/notes`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({content: content, is_private: isPrivate})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      input.value = '';
+      document.getElementById('notePrivate').checked = false;
+      loadNotes();
+    } else {
+      alert(d.error || 'Failed to add note');
+    }
+  }).catch(() => alert('Failed to add note'));
+}
+
+function deleteNoteFromPanel(noteId) {
+  if (!confirm('Delete this note?')) return;
+  fetch(`/api/session/notes/${noteId}`, {
+    method: 'DELETE',
+    headers: {'X-CSRFToken': CSRF}
+  }).then(r => r.json()).then(d => {
+    if (d.ok) loadNotes();
+    else alert(d.error || 'Failed to delete');
+  }).catch(() => alert('Failed to delete'));
+}
+
+// Load initial note count on page load
+fetch(`/api/session/${SLOT_ID}/notes`).then(r => r.json()).then(d => {
+  if (d.notes && d.notes.length > 0) {
+    const badge = document.getElementById('notesCount');
+    badge.textContent = d.notes.length;
+    badge.classList.remove('hidden');
+  }
+}).catch(() => {});
+</script>
+{% endblock %}

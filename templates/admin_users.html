@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}User Management | TeachWise Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="flex gap-8">
+    {% include "admin_sidebar.html" %}
+    <div class="flex-1">
+      <h1 class="text-2xl font-bold text-gray-800 mb-6">
+        <i class="fas fa-users mr-2 text-blue-600"></i>User Management</h1>
+
+      <!-- Filters -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+        <form class="flex items-center space-x-4">
+          <input type="text" name="q" value="{{ search }}" placeholder="Search by name or email..."
+                 class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm">
+          <select name="type" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            <option value="all" {% if user_type == 'all' %}selected{% endif %}>All Users</option>
+            <option value="student" {% if user_type == 'student' %}selected{% endif %}>Students</option>
+            <option value="tutor" {% if user_type == 'tutor' %}selected{% endif %}>Tutors</option>
+          </select>
+          <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            <i class="fas fa-search mr-1"></i>Search</button>
+        </form>
+      </div>
+
+      <!-- Students Table -->
+      {% if students %}
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+        <h2 class="font-bold text-gray-800 mb-3">Students ({{ students|length }})</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200">
+                <th class="text-left py-2 px-2 text-gray-600">ID</th>
+                <th class="text-left py-2 px-2 text-gray-600">Name</th>
+                <th class="text-left py-2 px-2 text-gray-600">Email</th>
+                <th class="text-left py-2 px-2 text-gray-600">Joined</th>
+                <th class="text-left py-2 px-2 text-gray-600">Bookings</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in students %}
+              <tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="py-2 px-2">{{ s.id }}</td>
+                <td class="py-2 px-2 font-medium">{{ s.name }}</td>
+                <td class="py-2 px-2 text-gray-500">{{ s.email }}</td>
+                <td class="py-2 px-2 text-gray-500">{{ s.created_at.strftime('%b %d, %Y') if s.created_at else '' }}</td>
+                <td class="py-2 px-2">{{ s.bookings|length }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Tutors Table -->
+      {% if tutors %}
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 class="font-bold text-gray-800 mb-3">Tutors ({{ tutors|length }})</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200">
+                <th class="text-left py-2 px-2 text-gray-600">ID</th>
+                <th class="text-left py-2 px-2 text-gray-600">Name</th>
+                <th class="text-left py-2 px-2 text-gray-600">Email</th>
+                <th class="text-left py-2 px-2 text-gray-600">Subject</th>
+                <th class="text-left py-2 px-2 text-gray-600">Status</th>
+                <th class="text-left py-2 px-2 text-gray-600">Rating</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in tutors %}
+              <tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="py-2 px-2">{{ t.id }}</td>
+                <td class="py-2 px-2 font-medium">{{ t.name }}</td>
+                <td class="py-2 px-2 text-gray-500">{{ t.email }}</td>
+                <td class="py-2 px-2">{{ t.subject }}</td>
+                <td class="py-2 px-2">
+                  <span class="px-2 py-0.5 text-xs rounded-full
+                    {% if t.verification_status == 'verified' %}bg-green-100 text-green-700
+                    {% elif t.verification_status == 'rejected' %}bg-red-100 text-red-700
+                    {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                    {{ t.verification_status }}</span></td>
+                <td class="py-2 px-2">{{ '%.1f'|format(t.average_rating) }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if not students and not tutors %}
+        <p class="text-gray-400 text-center py-8">No users found.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

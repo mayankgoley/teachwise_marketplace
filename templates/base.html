@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}TeachWise{% endblock %}</title>
+
+  <!-- Tailwind CSS (local) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.min.css') }}">
+  <!-- Inter Font (matches mockup) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+  <!-- Font Awesome Icons (local) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fontawesome.min.css') }}">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body class="bg-gray-50 text-gray-800" style="font-family:'Inter',sans-serif;">
+
+  <!-- =============== NAVBAR =============== -->
+  <nav class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Logo -->
+        <a href="{{ url_for('main.index') }}"
+           class="text-2xl font-bold text-blue-600">
+          <i class="fas fa-graduation-cap mr-2"></i>Teachwise</a>
+
+        <!-- Right Nav -->
+        <div class="hidden md:flex items-center space-x-6">
+          <a href="{{ url_for('main.index') }}"
+             class="text-gray-600 hover:text-blue-600 font-medium">Home</a>
+          {% if not current_user.is_authenticated or current_user.user_type != 'tutor' %}
+          <a href="{{ url_for('search_bp.search_page') }}"
+             class="text-gray-600 hover:text-blue-600 font-medium">Find Tutors</a>
+          {% endif %}
+
+          {% if current_user.is_authenticated and current_user.user_type == 'tutor' %}
+            <!-- Tutor logged in -->
+            <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
+               class="text-gray-600 hover:text-blue-600 font-medium">Dashboard</a>
+            <a href="{{ url_for('chat_bp.chat_list') }}"
+               class="text-gray-600 hover:text-blue-600 font-medium relative" id="chatNavTutor">
+              <i class="fas fa-comments"></i>
+              <span id="chatBadgeTutor" class="hidden absolute -top-1 -right-2 bg-red-500 text-white text-xs
+                    rounded-full w-4 h-4 flex items-center justify-center"></span></a>
+            <!-- Notification bell -->
+            <div class="relative" id="notifWrapper">
+              <button id="notifBell" class="text-gray-500 hover:text-blue-600 relative" title="Notifications">
+                <i class="fas fa-bell text-lg"></i>
+                <span id="notifBadge" class="hidden absolute -top-1 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center notif-badge-pulse">0</span>
+              </button>
+              <div id="notifDropdown" class="hidden absolute right-0 mt-2 bg-white border border-gray-200 z-50 notif-dropdown">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                  <h3 class="text-sm font-semibold text-gray-800">Notifications</h3>
+                  <button id="notifMarkRead" class="hidden text-xs text-blue-500 hover:text-blue-700 font-medium">Mark all read</button>
+                </div>
+                <div id="notifList" class="notif-list"></div>
+              </div>
+            </div>
+            <a href="{{ url_for('tutor_bp.logout') }}"
+               class="text-gray-500 hover:text-red-500" title="Logout">
+              <i class="fas fa-sign-out-alt text-lg"></i></a>
+          {% elif current_user.is_authenticated and current_user.user_type == 'guardian' %}
+            <!-- Guardian logged in -->
+            <a href="{{ url_for('guardian_bp.guardian_dashboard') }}"
+               class="text-gray-600 hover:text-purple-600 font-medium">Dashboard</a>
+            <a href="{{ url_for('guardian_bp.guardian_logout') }}"
+               class="text-gray-500 hover:text-red-500" title="Logout">
+              <i class="fas fa-sign-out-alt text-lg"></i></a>
+          {% elif current_user.is_authenticated and current_user.user_type == 'admin' %}
+            <!-- Admin logged in -->
+            <a href="{{ url_for('admin_bp.dashboard') }}"
+               class="text-gray-600 hover:text-blue-600 font-medium">Admin</a>
+            <!-- Notification bell -->
+            <div class="relative" id="notifWrapper">
+              <button id="notifBell" class="text-gray-500 hover:text-blue-600 relative" title="Notifications">
+                <i class="fas fa-bell text-lg"></i>
+                <span id="notifBadge" class="hidden absolute -top-1 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center notif-badge-pulse">0</span>
+              </button>
+              <div id="notifDropdown" class="hidden absolute right-0 mt-2 bg-white border border-gray-200 z-50 notif-dropdown">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                  <h3 class="text-sm font-semibold text-gray-800">Notifications</h3>
+                  <button id="notifMarkRead" class="hidden text-xs text-blue-500 hover:text-blue-700 font-medium">Mark all read</button>
+                </div>
+                <div id="notifList" class="notif-list"></div>
+              </div>
+            </div>
+            <a href="{{ url_for('admin_bp.admin_logout') }}"
+               class="text-gray-500 hover:text-red-500" title="Logout">
+              <i class="fas fa-sign-out-alt text-lg"></i></a>
+          {% elif current_user.is_authenticated %}
+            <!-- Student logged in -->
+            <a href="{{ url_for('student_bp.dashboard') }}"
+               class="text-gray-600 hover:text-blue-600 font-medium">Dashboard</a>
+            <a href="{{ url_for('chat_bp.chat_list') }}"
+               class="text-gray-600 hover:text-blue-600 font-medium relative" id="chatNavStudent">
+              <i class="fas fa-comments"></i>
+              <span id="chatBadgeStudent" class="hidden absolute -top-1 -right-2 bg-red-500 text-white text-xs
+                    rounded-full w-4 h-4 flex items-center justify-center"></span></a>
+            <a href="{{ url_for('notif_center_bp.notification_center') }}"
+               class="text-gray-600 hover:text-blue-600 font-medium" title="Notifications">
+              <i class="fas fa-bell"></i></a>
+            <a href="{{ url_for('student_bp.logout_student') }}"
+               class="text-gray-500 hover:text-red-500" title="Logout">
+              <i class="fas fa-sign-out-alt text-lg"></i></a>
+          {% else %}
+            <!-- Not logged in: Sign Up dropdown -->
+            <div class="relative" id="signupDropdown">
+              <button class="text-gray-600 hover:text-blue-600 font-medium"
+                      onclick="document.getElementById('signupMenu').classList.toggle('hidden')">
+                Sign Up <i class="fas fa-caret-down ml-1 text-xs"></i></button>
+              <div id="signupMenu"
+                   class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg
+                          border border-gray-100 py-2 z-50">
+                <a href="{{ url_for('student_bp.register_student') }}"
+                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">
+                  <i class="fas fa-user-graduate mr-2 text-blue-500"></i>Student Sign Up</a>
+                <a href="{{ url_for('tutor_bp.register') }}"
+                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">
+                  <i class="fas fa-chalkboard-teacher mr-2 text-green-500"></i>Tutor Sign Up</a>
+                <hr class="my-1 border-gray-100">
+                <a href="{{ url_for('student_bp.login_student') }}"
+                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">
+                  <i class="fas fa-sign-in-alt mr-2 text-gray-400"></i>Student Login</a>
+                <a href="{{ url_for('tutor_bp.login') }}"
+                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">
+                  <i class="fas fa-sign-in-alt mr-2 text-gray-400"></i>Tutor Login</a>
+                <a href="{{ url_for('guardian_bp.guardian_login') }}"
+                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">
+                  <i class="fas fa-user-shield mr-2 text-purple-400"></i>Guardian Login</a>
+              </div>
+            </div>
+            <!-- Notification bell (links to login) -->
+            <a href="{{ url_for('student_bp.login_student') }}"
+               class="text-gray-500 hover:text-blue-600" title="Login to see notifications">
+              <i class="fas fa-bell text-lg"></i></a>
+            <!-- Settings (links to login) -->
+            <a href="{{ url_for('student_bp.login_student') }}"
+               class="text-gray-500 hover:text-blue-600" title="Login to access settings">
+              <i class="fas fa-cog text-lg"></i></a>
+          {% endif %}
+        </div>
+
+        <!-- Mobile menu button -->
+        <button id="mobileMenuBtn"
+                class="md:hidden text-gray-500 hover:text-blue-600">
+          <i class="fas fa-bars text-xl"></i></button>
+      </div>
+    </div>
+
+    <!-- Mobile menu (hidden by default) -->
+    <div id="mobileMenu" class="hidden md:hidden bg-white border-t px-4 pb-4">
+      <a href="{{ url_for('main.index') }}" class="block py-2 text-gray-700">Home</a>
+      {% if not current_user.is_authenticated or current_user.user_type != 'tutor' %}
+      <a href="{{ url_for('search_bp.search_page') }}" class="block py-2 text-gray-700">Find Tutors</a>
+      {% endif %}
+      {% if current_user.is_authenticated and current_user.user_type == 'guardian' %}
+        <a href="{{ url_for('guardian_bp.guardian_dashboard') }}" class="block py-2 text-gray-700">Guardian Dashboard</a>
+        <a href="{{ url_for('guardian_bp.guardian_logout') }}" class="block py-2 text-red-500">Logout</a>
+      {% elif current_user.is_authenticated and current_user.user_type == 'tutor' %}
+        <a href="{{ url_for('tutor_bp.tutor_dashboard') }}" class="block py-2 text-gray-700">Dashboard</a>
+        <a href="{{ url_for('chat_bp.chat_list') }}" class="block py-2 text-gray-700">
+          <i class="fas fa-comments mr-1"></i>Messages</a>
+        <a href="{{ url_for('tutor_bp.logout') }}" class="block py-2 text-red-500">Logout</a>
+      {% elif current_user.is_authenticated and current_user.user_type == 'admin' %}
+        <a href="{{ url_for('admin_bp.dashboard') }}" class="block py-2 text-gray-700">Admin</a>
+        <a href="{{ url_for('admin_bp.admin_logout') }}" class="block py-2 text-red-500">Logout</a>
+      {% elif current_user.is_authenticated %}
+        <a href="{{ url_for('student_bp.dashboard') }}" class="block py-2 text-gray-700">Dashboard</a>
+        <a href="{{ url_for('chat_bp.chat_list') }}" class="block py-2 text-gray-700">
+          <i class="fas fa-comments mr-1"></i>Messages</a>
+        <a href="{{ url_for('student_bp.logout_student') }}" class="block py-2 text-red-500">Logout</a>
+      {% else %}
+        <a href="{{ url_for('student_bp.register_student') }}" class="block py-2 text-gray-700">Student Sign Up</a>
+        <a href="{{ url_for('tutor_bp.register') }}" class="block py-2 text-gray-700">Tutor Sign Up</a>
+        <a href="{{ url_for('student_bp.login_student') }}" class="block py-2 text-gray-700">Student Login</a>
+        <a href="{{ url_for('tutor_bp.login') }}" class="block py-2 text-gray-700">Tutor Login</a>
+      {% endif %}
+    </div>
+  </nav>
+
+  <!-- =============== FLASH MESSAGES (rendered as toasts) =============== -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <script id="flash-data" type="application/json">
+        [{% for category, message in messages %}{"category":"{{ category }}","message":"{{ message|e }}"}{% if not loop.last %},{% endif %}{% endfor %}]
+      </script>
+    {% endif %}
+  {% endwith %}
+
+  <!-- =============== PAGE CONTENT =============== -->
+  {% block content %}{% endblock %}
+
+  <!-- =============== FOOTER =============== -->
+  <footer class="bg-gray-800 text-white mt-16">
+    <div class="max-w-7xl mx-auto px-4 py-8">
+      <div class="flex flex-col md:flex-row justify-between items-center">
+        <div class="flex flex-wrap justify-center gap-6 text-sm text-gray-300 mb-4 md:mb-0">
+          <a href="#" class="hover:text-white">About Us</a>
+          <a href="#" class="hover:text-white">FAQ</a>
+          <a href="#" class="hover:text-white">Contact</a>
+          <a href="#" class="hover:text-white">Privacy Policy</a>
+          <a href="#" class="hover:text-white">Terms of Service</a>
+        </div>
+        <div class="flex space-x-3">
+          <a href="#" class="w-10 h-10 bg-gray-700 rounded-full flex items-center
+             justify-center hover:bg-blue-600 transition">
+            <i class="fab fa-facebook-f"></i></a>
+          <a href="#" class="w-10 h-10 bg-gray-700 rounded-full flex items-center
+             justify-center hover:bg-blue-400 transition">
+            <i class="fab fa-twitter"></i></a>
+          <a href="#" class="w-10 h-10 bg-gray-700 rounded-full flex items-center
+             justify-center hover:bg-pink-600 transition">
+            <i class="fab fa-instagram"></i></a>
+          <a href="#" class="w-10 h-10 bg-gray-700 rounded-full flex items-center
+             justify-center hover:bg-blue-700 transition">
+            <i class="fab fa-linkedin-in"></i></a>
+        </div>
+      </div>
+      <p class="text-center text-gray-400 text-sm mt-6">
+        &copy; 2026 TeachWise. All Rights Reserved.</p>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/toast.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <!-- Chatbot Widget -->
+  <script src="/api/chatbot/static/chatbot.js" defer></script>
+  {% if current_user.is_authenticated %}
+  <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+  {% endif %}
+  {% if current_user.is_authenticated and current_user.user_type in ('tutor', 'student') %}
+  <script>
+  (function(){
+    fetch('/api/chat/unread-count').then(r=>r.json()).then(d=>{
+      if(d.count>0){
+        ['chatBadgeTutor','chatBadgeStudent'].forEach(id=>{
+          const el=document.getElementById(id);
+          if(el){el.textContent=d.count;el.classList.remove('hidden');}
+        });
+      }
+    }).catch(()=>{});
+  })();
+  </script>
+  {% endif %}
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Session Recordings | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">
+      <i class="fas fa-video text-red-500 mr-2"></i>Session Recordings</h1>
+    {% if role == 'student' %}
+    <a href="{{ url_for('student_bp.dashboard') }}"
+       class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+      <i class="fas fa-arrow-left mr-1"></i>Dashboard</a>
+    {% else %}
+    <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
+       class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+      <i class="fas fa-arrow-left mr-1"></i>Dashboard</a>
+    {% endif %}
+  </div>
+
+  {% if recordings %}
+  <div class="space-y-3">
+    {% for rec in recordings %}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4 flex items-center justify-between">
+      <div>
+        <div class="flex items-center space-x-3">
+          <i class="fas fa-film text-red-400"></i>
+          <p class="font-semibold text-gray-800">Session {{ rec.slot_id }}</p>
+          {% if rec.is_expired %}
+          <span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Expired</span>
+          {% else %}
+          <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Available</span>
+          {% endif %}
+        </div>
+        <p class="text-sm text-gray-500 mt-1">
+          {{ rec.created_at.strftime('%B %d, %Y at %I:%M %p') }}
+          {% if rec.duration_seconds %}
+          &bull; {{ (rec.duration_seconds // 60) }}m {{ rec.duration_seconds % 60 }}s
+          {% endif %}
+          {% if rec.expires_at %}
+          &bull; Expires {{ rec.expires_at.strftime('%b %d, %Y') }}
+          {% endif %}
+        </p>
+      </div>
+      {% if not rec.is_expired and not rec.is_deleted %}
+      <a href="{{ url_for('recording_bp.view_recording', recording_id=rec.id) }}"
+         class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transition">
+        <i class="fas fa-play mr-1"></i>Play</a>
+      {% else %}
+      <span class="text-gray-400 text-sm italic">Unavailable</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+    <i class="fas fa-video-slash text-gray-300 text-4xl mb-4"></i>
+    <p class="text-gray-400">No recordings found. Recordings are created during live sessions when both parties consent.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

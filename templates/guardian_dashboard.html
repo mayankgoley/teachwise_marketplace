@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Guardian Dashboard | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-800">
+        <i class="fas fa-user-shield text-purple-600 mr-2"></i>Guardian Dashboard</h1>
+      <p class="text-gray-500 mt-1">Welcome back, {{ guardian.name }}</p>
+    </div>
+    <div class="flex space-x-3">
+      <a href="{{ url_for('guardian_bp.guardian_notification_settings') }}"
+         class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition">
+        <i class="fas fa-bell mr-1"></i>Notifications</a>
+      <a href="{{ url_for('guardian_bp.guardian_logout') }}"
+         class="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-100 transition">
+        <i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
+    </div>
+  </div>
+
+  <!-- Pending Approvals -->
+  {% if pending_bookings %}
+  <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mb-8">
+    <h2 class="text-lg font-bold text-yellow-800 mb-4">
+      <i class="fas fa-clock mr-2"></i>Pending Approval ({{ pending_bookings|length }})</h2>
+    <div class="space-y-3">
+      {% for booking in pending_bookings %}
+      {% set slot = booking.slot %}
+      {% set tutor = booking.tutor %}
+      {% set student = booking.student %}
+      <div class="bg-white rounded-lg p-4 flex items-center justify-between border border-yellow-100">
+        <div>
+          <p class="font-semibold text-gray-800">{{ student.name }} &rarr; {{ tutor.name }}</p>
+          <p class="text-sm text-gray-500">
+            {% if slot %}
+            {{ slot.date.strftime('%B %d, %Y') }} &bull;
+            {{ slot.start_time.strftime('%I:%M %p') }} - {{ slot.end_time.strftime('%I:%M %p') }}
+            &bull; ${{ '%.2f'|format(slot.price) }}
+            {% endif %}
+          </p>
+          <p class="text-xs text-gray-400 mt-1">Booked {{ booking.booked_on.strftime('%b %d at %I:%M %p') }}</p>
+        </div>
+        <div class="flex space-x-2">
+          <form method="POST" action="{{ url_for('guardian_bp.approve_booking', booking_id=booking.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit"
+                    class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition">
+              <i class="fas fa-check mr-1"></i>Approve</button>
+          </form>
+          <form method="POST" action="{{ url_for('guardian_bp.reject_booking', booking_id=booking.id) }}"
+                onsubmit="return confirm('Reject this booking? The slot will be released.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit"
+                    class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transition">
+              <i class="fas fa-times mr-1"></i>Reject</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Children Overview -->
+  <h2 class="text-xl font-bold text-gray-800 mb-4">
+    <i class="fas fa-users mr-2 text-blue-600"></i>Your Children</h2>
+
+  {% if children %}
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    {% for child in children %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition">
+      <div class="flex items-center space-x-4 mb-4">
+        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+          <i class="fas fa-user-graduate text-blue-600 text-xl"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-gray-800">{{ child.student.name }}</h3>
+          <p class="text-sm text-gray-500">{{ child.student.grade_level or 'Student' }}</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="text-center p-2 bg-gray-50 rounded-lg">
+          <p class="text-lg font-bold text-blue-600">{{ child.total_bookings }}</p>
+          <p class="text-xs text-gray-500">Sessions</p>
+        </div>
+        <div class="text-center p-2 bg-gray-50 rounded-lg">
+          <p class="text-lg font-bold text-yellow-600">{{ child.pending_approval }}</p>
+          <p class="text-xs text-gray-500">Pending</p>
+        </div>
+        <div class="text-center p-2 bg-gray-50 rounded-lg">
+          <p class="text-lg font-bold text-green-600">${{ '%.0f'|format(child.total_spent) }}</p>
+          <p class="text-xs text-gray-500">Spent</p>
+        </div>
+      </div>
+      <a href="{{ url_for('guardian_bp.child_activity', student_id=child.student.id) }}"
+         class="block text-center bg-purple-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-purple-700 transition">
+        View Activity</a>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center mb-8">
+    <i class="fas fa-user-plus text-gray-300 text-4xl mb-4"></i>
+    <p class="text-gray-400">No children linked to your account yet.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

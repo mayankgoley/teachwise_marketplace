@@ -1,0 +1,56 @@
+/* LocationPicker Component Styles */
+
+.lp-map-container {
+  height: 350px;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.lp-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.lp-suggestion-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #374151;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.15s;
+}
+
+.lp-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.lp-suggestion-item:hover {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.lp-radius-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3b82f6;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  z-index: 500;
+}

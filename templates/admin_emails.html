@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Email Log | TeachWise Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="flex gap-8">
+    {% include "admin_sidebar.html" %}
+    <div class="flex-1">
+      <h1 class="text-2xl font-bold text-gray-800 mb-6">
+        <i class="fas fa-envelope mr-2 text-indigo-600"></i>Email Log</h1>
+
+      <!-- Filters -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+        <form class="flex items-center space-x-4">
+          <select name="status" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            <option value="">All</option>
+            <option value="sent" {% if status == 'sent' %}selected{% endif %}>Sent</option>
+            <option value="failed" {% if status == 'failed' %}selected{% endif %}>Failed</option>
+            <option value="skipped" {% if status == 'skipped' %}selected{% endif %}>Skipped</option>
+            <option value="queued" {% if status == 'queued' %}selected{% endif %}>Queued</option>
+          </select>
+          <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Filter</button>
+        </form>
+      </div>
+
+      <!-- Email Table -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        {% if results.items %}
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200">
+                <th class="text-left py-2 px-2 text-gray-600">ID</th>
+                <th class="text-left py-2 px-2 text-gray-600">To</th>
+                <th class="text-left py-2 px-2 text-gray-600">Type</th>
+                <th class="text-left py-2 px-2 text-gray-600">Subject</th>
+                <th class="text-left py-2 px-2 text-gray-600">Status</th>
+                <th class="text-left py-2 px-2 text-gray-600">Sent At</th>
+                <th class="text-left py-2 px-2 text-gray-600">Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for email in results.items %}
+              <tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="py-2 px-2">{{ email.id }}</td>
+                <td class="py-2 px-2 text-gray-500">{{ email.recipient_email }}</td>
+                <td class="py-2 px-2">{{ email.email_type }}</td>
+                <td class="py-2 px-2 max-w-xs truncate">{{ email.subject_line }}</td>
+                <td class="py-2 px-2">
+                  <span class="px-2 py-0.5 text-xs rounded-full
+                    {% if email.status == 'sent' %}bg-green-100 text-green-700
+                    {% elif email.status == 'failed' %}bg-red-100 text-red-700
+                    {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                    {{ email.status }}</span></td>
+                <td class="py-2 px-2 text-gray-500">{{ email.sent_at.strftime('%b %d %I:%M %p') if email.sent_at else '—' }}</td>
+                <td class="py-2 px-2 text-red-500 text-xs max-w-xs truncate">{{ email.error_message or '' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if results.pages > 1 %}
+        <div class="flex justify-center mt-4 space-x-2">
+          {% if results.has_prev %}
+            <a href="?page={{ results.prev_num }}&status={{ status }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">Prev</a>
+          {% endif %}
+          <span class="px-3 py-1 text-sm text-gray-500">Page {{ results.page }} of {{ results.pages }}</span>
+          {% if results.has_next %}
+            <a href="?page={{ results.next_num }}&status={{ status }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">Next</a>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+          <p class="text-gray-400 text-center py-8">No emails found.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

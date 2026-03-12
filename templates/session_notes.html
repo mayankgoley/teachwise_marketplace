@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Session Notes | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">
+        <i class="fas fa-sticky-note mr-2 text-yellow-500"></i>Session Notes</h1>
+      <p class="text-gray-500 text-sm mt-1">
+        {{ tutor.name }} &bull; {{ slot.subject or tutor.subject }} &bull;
+        {{ slot.date.strftime('%B %d, %Y') }}
+        {{ slot.start_time.strftime('%I:%M %p') }} - {{ slot.end_time.strftime('%I:%M %p') }}
+      </p>
+    </div>
+    <div class="flex items-center space-x-3">
+      {% if slot.status in ('booked', 'live') %}
+      <a href="{{ url_for('session_bp.join_session', slot_id=slot.id) }}"
+         class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition">
+        <i class="fas fa-video mr-1"></i>Back to Session</a>
+      {% endif %}
+      {% if current_user.user_type == 'student' %}
+      <a href="{{ url_for('student_bp.dashboard') }}"
+         class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+        <i class="fas fa-arrow-left mr-1"></i>Dashboard</a>
+      {% elif current_user.user_type == 'tutor' %}
+      <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
+         class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+        <i class="fas fa-arrow-left mr-1"></i>Dashboard</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Add Note Form -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+    <h2 class="text-lg font-bold text-gray-800 mb-3">
+      <i class="fas fa-plus-circle mr-2 text-green-500"></i>Add a Note</h2>
+    <form method="POST" action="{{ url_for('note_bp.add_note', slot_id=slot.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <textarea name="content" rows="4" maxlength="5000"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500
+                       focus:border-transparent resize-y text-sm"
+                placeholder="Write your session notes here... (key points, topics covered, homework reminders, etc.)"
+                required></textarea>
+      <div class="flex items-center justify-between mt-3">
+        <label class="flex items-center space-x-2 text-sm text-gray-600">
+          <input type="checkbox" name="is_private"
+                 class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+          <span><i class="fas fa-lock mr-1 text-gray-400"></i>Private (only you can see this)</span>
+        </label>
+        <button type="submit"
+                class="bg-green-600 text-white px-5 py-2 rounded-lg font-semibold
+                       hover:bg-green-700 transition text-sm">
+          <i class="fas fa-save mr-1"></i>Save Note</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Notes List -->
+  <div class="space-y-4">
+    {% if notes %}
+    {% for note in notes %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5
+                {% if note.is_private %}border-l-4 border-l-yellow-400{% endif %}"
+         id="note-{{ note.id }}">
+      <div class="flex items-start justify-between mb-2">
+        <div class="flex items-center space-x-2">
+          {% if note.author_type == 'tutor' %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                       bg-purple-100 text-purple-700">
+            <i class="fas fa-chalkboard-teacher mr-1"></i>Tutor</span>
+          {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                       bg-blue-100 text-blue-700">
+            <i class="fas fa-user-graduate mr-1"></i>Student</span>
+          {% endif %}
+          <span class="font-medium text-gray-800 text-sm">
+            {{ author_names.get(note.author_type ~ '_' ~ note.author_id, 'Unknown') }}</span>
+          {% if note.is_private %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                       bg-yellow-100 text-yellow-700">
+            <i class="fas fa-lock mr-1"></i>Private</span>
+          {% endif %}
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-xs text-gray-400">{{ note.created_at.strftime('%b %d, %Y %I:%M %p') }}</span>
+          {% if note.updated_at and note.updated_at != note.created_at %}
+          <span class="text-xs text-gray-400">(edited)</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Note content -->
+      <div class="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed"
+           id="note-content-{{ note.id }}">{{ note.content }}</div>
+
+      <!-- Actions: only for own notes -->
+      {% if note.author_type == user_type and note.author_id == user_id %}
+      <div class="flex items-center space-x-3 mt-3 pt-3 border-t border-gray-100">
+        <button onclick="toggleEdit({{ note.id }})"
+                class="text-xs text-blue-600 hover:text-blue-800 font-medium">
+          <i class="fas fa-edit mr-1"></i>Edit</button>
+        <form method="POST" action="{{ url_for('note_bp.delete_note', note_id=note.id) }}"
+              onsubmit="return confirm('Delete this note?');" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="text-xs text-red-600 hover:text-red-800 font-medium">
+            <i class="fas fa-trash mr-1"></i>Delete</button>
+        </form>
+      </div>
+
+      <!-- Edit form (hidden) -->
+      <div id="edit-form-{{ note.id }}" class="hidden mt-3 pt-3 border-t border-gray-100">
+        <form method="POST" action="{{ url_for('note_bp.edit_note', note_id=note.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <textarea name="content" rows="3" maxlength="5000"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                           focus:ring-2 focus:ring-blue-500 resize-y">{{ note.content }}</textarea>
+          <div class="flex items-center justify-between mt-2">
+            <label class="flex items-center space-x-2 text-xs text-gray-600">
+              <input type="checkbox" name="is_private"
+                     {% if note.is_private %}checked{% endif %}
+                     class="rounded border-gray-300 text-blue-600">
+              <span><i class="fas fa-lock mr-1"></i>Private</span>
+            </label>
+            <div class="flex space-x-2">
+              <button type="button" onclick="toggleEdit({{ note.id }})"
+                      class="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded-lg
+                             hover:bg-gray-50">Cancel</button>
+              <button type="submit"
+                      class="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg
+                             hover:bg-blue-700 font-medium">Save</button>
+            </div>
+          </div>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+      <i class="fas fa-sticky-note text-4xl text-gray-300 mb-3"></i>
+      <p class="text-gray-500">No notes yet for this session.</p>
+      <p class="text-gray-400 text-sm mt-1">Add your first note above to get started!</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleEdit(noteId) {
+  const form = document.getElementById(`edit-form-${noteId}`);
+  const content = document.getElementById(`note-content-${noteId}`);
+  form.classList.toggle('hidden');
+  content.classList.toggle('hidden');
+}
+</script>
+{% endblock %}

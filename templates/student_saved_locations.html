@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}My Meeting Locations | TeachWise{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/location-picker.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">
+        <i class="fas fa-map-marked-alt mr-2 text-blue-600"></i>My Meeting Locations</h1>
+      <p class="text-gray-500 text-sm mt-1">Save up to 5 locations for in-person tutoring sessions</p>
+    </div>
+    <a href="{{ url_for('student_bp.dashboard') }}"
+       class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+      <i class="fas fa-arrow-left mr-1"></i>Dashboard</a>
+  </div>
+
+  <!-- Saved Locations -->
+  <div class="space-y-4 mb-8">
+    {% for loc in locations %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          {% set type_icons = {'home': 'fa-home', 'library': 'fa-book', 'cafe': 'fa-coffee', 'school': 'fa-school', 'park': 'fa-tree', 'community_center': 'fa-building', 'other': 'fa-map-marker-alt'} %}
+          <div class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
+            <i class="fas {{ type_icons.get(loc.location_type, 'fa-map-marker-alt') }} text-blue-600"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 class="font-semibold text-gray-800">{{ loc.label }}</h3>
+              {% if loc.is_primary %}
+              <span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">Primary</span>
+              {% endif %}
+            </div>
+            <p class="text-sm text-gray-500">{{ loc.address }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ loc.location_type|replace('_', ' ')|title }}</p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2">
+          {% if not loc.is_primary %}
+          <form method="POST" action="{{ url_for('student_bp.set_primary_location', loc_id=loc.id) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50"
+                    title="Set as primary">
+              <i class="fas fa-star"></i></button>
+          </form>
+          {% endif %}
+          <form method="POST" action="{{ url_for('student_bp.delete_saved_location', loc_id=loc.id) }}" class="inline"
+                onsubmit="return confirm('Delete this location?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50"
+                    title="Delete">
+              <i class="fas fa-trash"></i></button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if not locations %}
+    <div class="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100">
+      <i class="fas fa-map-marker-alt text-4xl text-gray-300 mb-3"></i>
+      <p class="text-gray-400">No saved locations yet. Add your first meeting spot below.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Add Location Form -->
+  {% if locations|length < 5 %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <h2 class="text-lg font-bold text-gray-800 mb-4">
+      <i class="fas fa-plus-circle mr-2 text-green-600"></i>Add Meeting Location</h2>
+    <form method="POST" action="{{ url_for('student_bp.add_saved_location') }}" id="addLocForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="latitude" id="newLocLat">
+      <input type="hidden" name="longitude" id="newLocLng">
+      <input type="hidden" name="address" id="newLocAddr">
+
+      <div class="grid md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Label</label>
+          <input type="text" name="label" required maxlength="100"
+                 placeholder="e.g. City Library, My School"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                        focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+          <select name="location_type"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            <option value="library">Library</option>
+            <option value="cafe">Cafe</option>
+            <option value="school">School</option>
+            <option value="park">Park</option>
+            <option value="community_center">Community Center</option>
+            <option value="home">Home</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mb-4 relative">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Search Address</label>
+        <input type="text" id="newLocSearch" placeholder="Type an address..."
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                      focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <div id="newLocMap" class="lp-map-container mb-4" style="height:300px;"></div>
+
+      <button type="submit"
+              class="w-full bg-green-600 text-white py-2.5 rounded-lg font-semibold
+                     hover:bg-green-700 transition">
+        <i class="fas fa-plus mr-2"></i>Save Location</button>
+    </form>
+  </div>
+  {% else %}
+  <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+    <p class="text-yellow-700 text-sm">
+      <i class="fas fa-info-circle mr-1"></i>
+      You've reached the maximum of 5 saved locations. Delete one to add a new one.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='js/location-picker.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const mapEl = document.getElementById('newLocMap');
+  if (mapEl) {
+    new LocationPicker({
+      mapContainerId: 'newLocMap',
+      searchInputId: 'newLocSearch',
+      latFieldId: 'newLocLat',
+      lngFieldId: 'newLocLng',
+      addressFieldId: 'newLocAddr',
+      draggable: true,
+      defaultCenter: [34.0522, -118.2437],
+      defaultZoom: 11
+    });
+  }
+
+  // Validate on submit
+  const form = document.getElementById('addLocForm');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      if (!document.getElementById('newLocLat').value || !document.getElementById('newLocLng').value) {
+        e.preventDefault();
+        alert('Please select a location on the map.');
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

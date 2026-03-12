@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}Edit Profile | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold text-gray-800">Edit Your Profile</h1>
+    <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
+       class="text-blue-600 hover:underline font-medium">
+      <i class="fas fa-arrow-left mr-1"></i>Back to Dashboard</a>
+  </div>
+
+  <!-- Profile Completion Bar -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-8">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-sm font-medium text-gray-700">Profile Completion</span>
+      <span class="text-sm font-bold
+        {% if profile_completion < 40 %}text-red-600
+        {% elif profile_completion <= 70 %}text-yellow-600
+        {% else %}text-green-600{% endif %}">{{ profile_completion }}%</span>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-3">
+      <div class="h-3 rounded-full transition-all duration-500
+        {% if profile_completion < 40 %}bg-red-500
+        {% elif profile_completion <= 70 %}bg-yellow-500
+        {% else %}bg-green-500{% endif %}"
+        style="width: {{ profile_completion }}%"></div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Left: Edit Form -->
+    <div class="lg:col-span-2" id="editSection">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">
+          <i class="fas fa-user-edit mr-2 text-blue-600"></i>Profile Details</h2>
+        <form method="POST" action="{{ url_for('tutor_bp.edit_profile') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <!-- Bio -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+            <textarea id="bio-input" name="bio" maxlength="500" rows="4"
+                      placeholder="Tell students about your teaching style..."
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                             focus:ring-2 focus:ring-blue-500 resize-none">{{ tutor.bio or '' }}</textarea>
+            <div class="text-right text-xs text-gray-400 mt-1">
+              <span id="bio-counter">{{ (tutor.bio or '')|length }}</span>/500</div>
+          </div>
+
+          <!-- Qualification -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Qualification</label>
+            <input type="text" name="qualification" maxlength="200"
+                   value="{{ tutor.qualification or '' }}"
+                   placeholder="e.g., PhD in Mathematics"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                          focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <!-- Institution -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Institution</label>
+            <input type="text" name="institution" maxlength="200"
+                   value="{{ tutor.institution or '' }}"
+                   placeholder="e.g., MIT, Stanford"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                          focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <!-- Hourly Rate -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($)</label>
+            <input type="number" name="hourly_rate" step="0.01" min="0"
+                   value="{{ tutor.hourly_rate or '' }}"
+                   placeholder="25.00"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                          focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <!-- Teaching Mode -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Teaching Mode</label>
+            <select name="teaching_mode"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                           focus:ring-2 focus:ring-blue-500">
+              <option value="online" {{ 'selected' if tutor.teaching_mode == 'online' }}>Online</option>
+              <option value="in-person" {{ 'selected' if tutor.teaching_mode == 'in-person' }}>In-Person</option>
+              <option value="both" {{ 'selected' if tutor.teaching_mode in ('both', 'Both') }}>Both</option>
+            </select>
+          </div>
+
+          <!-- Additional Subjects -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Additional Subjects</label>
+            <input type="text" name="subjects_additional"
+                   value="{{ (tutor.subjects_additional or [])|join(', ') }}"
+                   placeholder="Algebra, Calculus, Statistics"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                          focus:ring-2 focus:ring-blue-500">
+            <p class="text-xs text-gray-400 mt-1">Comma-separated, max 10</p>
+          </div>
+
+          <!-- Timezone -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+            <select name="timezone"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                           focus:ring-2 focus:ring-blue-500">
+              {% for value, label in timezone_choices %}
+                <option value="{{ value }}" {{ 'selected' if tutor.timezone == value }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Address -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+            <input type="text" name="address"
+                   value="{{ tutor.address or '' }}"
+                   placeholder="Your location for in-person sessions"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                          focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <button type="submit"
+                  class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold
+                         hover:bg-blue-700 transition">
+            <i class="fas fa-save mr-1"></i>Save Changes</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Right: Photo & Preview -->
+    <div class="lg:col-span-1">
+      <!-- Photo Upload -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">
+          <i class="fas fa-camera mr-2 text-blue-600"></i>Profile Photo</h2>
+        <div class="text-center">
+          <div class="w-32 h-32 mx-auto mb-4 rounded-full overflow-hidden bg-blue-50 flex items-center justify-center">
+            {% if tutor.profile_photo %}
+              <img id="photo-preview"
+                   src="{{ tutor.profile_photo|photo_url }}"
+                   class="w-full h-full object-cover" alt="Profile">
+            {% else %}
+              <img id="photo-preview" src="" class="w-full h-full object-cover hidden" alt="Profile">
+              <i id="photo-placeholder" class="fas fa-user text-blue-300 text-5xl"></i>
+            {% endif %}
+          </div>
+          <input type="file" id="photo-input" accept=".jpg,.jpeg,.png" class="hidden">
+          <button type="button" onclick="document.getElementById('photo-input').click()"
+                  class="text-sm text-blue-600 hover:text-blue-800 font-medium mb-2 block mx-auto">
+            <i class="fas fa-upload mr-1"></i>Choose Photo</button>
+          <button type="button" id="upload-btn" class="hidden px-4 py-1.5 bg-blue-600 text-white
+                  text-sm rounded-lg hover:bg-blue-700 transition">Upload</button>
+          <p id="photo-status" class="text-xs text-gray-400 mt-2">JPG or PNG, max 2 MB</p>
+        </div>
+      </div>
+
+      <!-- Preview Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">
+          <i class="fas fa-eye mr-2 text-blue-600"></i>Public Preview</h2>
+        <div class="text-center">
+          <div class="w-20 h-20 mx-auto mb-3 rounded-full overflow-hidden bg-blue-50 flex items-center justify-center">
+            {% if tutor.profile_photo %}
+              <img src="{{ tutor.profile_photo|photo_url }}"
+                   class="w-full h-full object-cover" alt="{{ tutor.name }}">
+            {% else %}
+              <i class="fas fa-user text-blue-300 text-3xl"></i>
+            {% endif %}
+          </div>
+          <h3 class="font-bold text-gray-800">{{ tutor.name }}</h3>
+          <p class="text-sm text-gray-500">{{ tutor.subject }}
+            {% if tutor.experience %} &bull; {{ tutor.experience }} years{% endif %}</p>
+          {% if tutor.hourly_rate %}
+            <p class="text-blue-600 font-bold mt-1">${{ '%.2f'|format(tutor.hourly_rate) }}/hr</p>
+          {% endif %}
+          {% if tutor.bio %}
+            <p class="text-xs text-gray-500 mt-2 line-clamp-3">{{ tutor.bio }}</p>
+          {% endif %}
+          <div class="text-yellow-500 text-sm mt-2">
+            {% for i in range(tutor.average_rating|int) %}&#11088;{% endfor %}
+            <span class="text-gray-400 text-xs">({{ tutor.total_reviews }} reviews)</span>
+          </div>
+        </div>
+        <a href="{{ url_for('tutor_bp.view_tutor_profile', tutor_id=tutor.id) }}"
+           class="block mt-4 text-center text-sm text-blue-600 hover:underline">
+          View Full Public Profile</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Bio character counter
+const bioInput = document.getElementById('bio-input');
+const bioCounter = document.getElementById('bio-counter');
+if (bioInput) {
+  bioInput.addEventListener('input', function() {
+    bioCounter.textContent = this.value.length;
+  });
+}
+
+// Photo preview and upload
+const photoInput = document.getElementById('photo-input');
+const photoPreview = document.getElementById('photo-preview');
+const photoPlaceholder = document.getElementById('photo-placeholder');
+const uploadBtn = document.getElementById('upload-btn');
+const photoStatus = document.getElementById('photo-status');
+
+photoInput.addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    photoStatus.textContent = 'File too large (max 2 MB)';
+    photoStatus.classList.add('text-red-500');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    photoPreview.src = e.target.result;
+    photoPreview.classList.remove('hidden');
+    if (photoPlaceholder) photoPlaceholder.classList.add('hidden');
+    uploadBtn.classList.remove('hidden');
+    photoStatus.textContent = file.name;
+    photoStatus.classList.remove('text-red-500');
+  };
+  reader.readAsDataURL(file);
+});
+
+uploadBtn.addEventListener('click', function() {
+  const file = photoInput.files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('photo', file);
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = 'Uploading...';
+
+  const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+  fetch('{{ url_for("tutor_bp.upload_photo") }}', {
+    method: 'POST',
+    body: fd,
+    headers: { 'X-CSRFToken': csrfToken }
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      photoStatus.textContent = 'Photo uploaded!';
+      photoStatus.classList.remove('text-red-500');
+      photoStatus.classList.add('text-green-600');
+      uploadBtn.classList.add('hidden');
+    } else {
+      photoStatus.textContent = data.error || 'Upload failed';
+      photoStatus.classList.add('text-red-500');
+    }
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = 'Upload';
+  })
+  .catch(() => {
+    photoStatus.textContent = 'Upload failed';
+    photoStatus.classList.add('text-red-500');
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = 'Upload';
+  });
+});
+</script>
+{% endblock %}

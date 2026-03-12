@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Recording | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <a href="javascript:history.back()" class="text-blue-600 hover:text-blue-800 text-sm font-medium mb-4 inline-block">
+    <i class="fas fa-arrow-left mr-1"></i>Back</a>
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+    <h1 class="text-2xl font-bold text-gray-800 mb-2">
+      <i class="fas fa-play-circle text-red-500 mr-2"></i>Session Recording</h1>
+    <p class="text-gray-500 text-sm">
+      {{ tutor.name if tutor else 'Tutor' }}
+      {% if student %} &bull; {{ student.name }}{% endif %}
+      &bull; {{ slot.date.strftime('%B %d, %Y') }}
+      {{ slot.start_time.strftime('%I:%M %p') }} - {{ slot.end_time.strftime('%I:%M %p') }}
+    </p>
+    {% if recording.duration_seconds %}
+    <p class="text-gray-400 text-xs mt-1">
+      Duration: {{ (recording.duration_seconds // 60) }}m {{ recording.duration_seconds % 60 }}s
+      &bull; Expires: {{ recording.expires_at.strftime('%B %d, %Y') if recording.expires_at else 'N/A' }}</p>
+    {% endif %}
+  </div>
+
+  {% if recording.is_deleted or recording.is_expired %}
+  <div class="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
+    <i class="fas fa-exclamation-triangle text-red-400 text-4xl mb-4"></i>
+    <p class="text-red-600 font-medium">This recording has expired or been deleted.</p>
+  </div>
+  {% else %}
+  <div class="bg-black rounded-xl overflow-hidden">
+    <video controls class="w-full" style="max-height: 70vh;">
+      <source src="{{ url_for('recording_bp.playback_recording', slot_id=slot.id, recording_id=recording.id) }}" type="video/webm">
+      Your browser does not support video playback.
+    </video>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

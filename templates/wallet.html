@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}My Wallet | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-10">
+  <div class="flex items-center justify-between mb-8">
+    <h1 class="text-2xl font-bold text-gray-800">
+      <i class="fas fa-wallet text-blue-500 mr-2"></i>My Wallet</h1>
+    <a href="{{ url_for('wallet_bp.wallet_topup') }}"
+       class="bg-green-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-green-700 transition">
+      <i class="fas fa-plus mr-1"></i>Add Funds</a>
+  </div>
+
+  <!-- Balance Card -->
+  <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-xl p-8 mb-8 shadow-lg">
+    <p class="text-sm uppercase tracking-wide opacity-80">Available Balance</p>
+    <p class="text-4xl font-bold mt-1">${{ "%.2f"|format(wallet.balance|float) }}</p>
+    <p class="text-xs opacity-60 mt-2">{{ wallet.currency|upper }}</p>
+  </div>
+
+  <!-- Transaction History -->
+  <h2 class="text-lg font-semibold text-gray-700 mb-4">Recent Transactions</h2>
+  {% if transactions %}
+  <div class="bg-white rounded-xl border border-gray-100 divide-y">
+    {% for txn in transactions %}
+    <div class="flex items-center justify-between px-5 py-4">
+      <div class="flex items-center space-x-3">
+        {% if txn.type == 'topup' %}
+          <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+            <i class="fas fa-arrow-down text-green-600"></i></div>
+        {% elif txn.type == 'refund' %}
+          <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+            <i class="fas fa-undo text-blue-600"></i></div>
+        {% else %}
+          <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+            <i class="fas fa-arrow-up text-red-600"></i></div>
+        {% endif %}
+        <div>
+          <p class="font-medium text-gray-800">{{ txn.description or txn.type|title }}</p>
+          <p class="text-xs text-gray-400">{{ txn.created_at.strftime('%b %d, %Y %I:%M %p') }}</p>
+        </div>
+      </div>
+      <span class="font-semibold {% if txn.type in ('topup', 'refund') %}text-green-600{% else %}text-red-600{% endif %}">
+        {% if txn.type in ('topup', 'refund') %}+{% else %}-{% endif %}${{ "%.2f"|format(txn.amount|float|abs) }}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-12 bg-white rounded-xl border border-gray-100">
+    <i class="fas fa-receipt text-gray-300 text-4xl mb-3"></i>
+    <p class="text-gray-400">No transactions yet.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

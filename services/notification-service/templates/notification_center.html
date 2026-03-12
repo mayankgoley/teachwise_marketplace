@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Notifications | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-10">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">
+      <i class="fas fa-bell text-blue-500 mr-2"></i>Notifications
+      {% if unread_count > 0 %}
+      <span class="ml-2 text-sm bg-red-500 text-white px-2 py-0.5 rounded-full">
+        {{ unread_count }} new</span>
+      {% endif %}
+    </h1>
+    {% if unread_count > 0 %}
+    <button onclick="markAllRead()"
+            class="text-sm text-blue-600 hover:underline font-medium">
+      Mark all as read</button>
+    {% endif %}
+  </div>
+
+  <!-- Filter tabs -->
+  <div class="flex space-x-2 mb-6 overflow-x-auto">
+    {% for t in ['all', 'booking', 'payment', 'review', 'system'] %}
+    <a href="?type={{ t }}"
+       class="px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap
+              {% if filter_type == t %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+      {{ t|title }}</a>
+    {% endfor %}
+  </div>
+
+  <!-- Notification list -->
+  {% if notifications %}
+  <div class="space-y-3">
+    {% for n in notifications %}
+    <div class="bg-white rounded-lg border {% if not n.is_read %}border-blue-200 bg-blue-50{% else %}border-gray-100{% endif %} p-4 flex items-start space-x-3"
+         id="notif-{{ n.id }}">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
+                  bg-{{ n.color }}-100">
+        <i class="{{ n.icon }} text-{{ n.color }}-600"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between">
+          <p class="font-medium text-gray-800 text-sm">{{ n.title }}</p>
+          <span class="text-xs text-gray-400 whitespace-nowrap ml-2">
+            {{ n.created_at.strftime('%b %d, %I:%M %p') }}</span>
+        </div>
+        {% if n.message %}
+        <p class="text-sm text-gray-500 mt-0.5">{{ n.message }}</p>
+        {% endif %}
+        <div class="mt-2 flex items-center space-x-3">
+          {% if n.url %}
+          <a href="{{ n.url }}" class="text-xs text-blue-600 hover:underline">View details</a>
+          {% endif %}
+          {% if not n.is_read %}
+          <button onclick="markRead({{ n.id }})"
+                  class="text-xs text-gray-400 hover:text-gray-600">Mark read</button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Pagination -->
+  {% if pagination.pages > 1 %}
+  <div class="flex justify-center mt-8 space-x-2">
+    {% if pagination.has_prev %}
+    <a href="?page={{ pagination.prev_num }}&type={{ filter_type }}"
+       class="px-3 py-1 bg-white border rounded hover:bg-gray-50 text-sm">Prev</a>
+    {% endif %}
+    <span class="px-3 py-1 text-sm text-gray-500">
+      Page {{ pagination.page }} of {{ pagination.pages }}</span>
+    {% if pagination.has_next %}
+    <a href="?page={{ pagination.next_num }}&type={{ filter_type }}"
+       class="px-3 py-1 bg-white border rounded hover:bg-gray-50 text-sm">Next</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="text-center py-16 bg-white rounded-xl border border-gray-100">
+    <i class="fas fa-bell-slash text-gray-300 text-4xl mb-3"></i>
+    <p class="text-gray-400">No notifications yet.</p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function markRead(id) {
+  fetch('/api/notifications/' + id + '/read', { method: 'POST' })
+    .then(r => r.json())
+    .then(() => {
+      const el = document.getElementById('notif-' + id);
+      if (el) {
+        el.classList.remove('border-blue-200', 'bg-blue-50');
+        el.classList.add('border-gray-100');
+      }
+    });
+}
+function markAllRead() {
+  fetch('/api/notifications/read-all', { method: 'POST' })
+    .then(r => r.json())
+    .then(() => location.reload());
+}
+</script>
+{% endblock %}

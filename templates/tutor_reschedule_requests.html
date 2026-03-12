@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Reschedule Requests | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">Reschedule Requests</h1>
+    <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
+       class="text-blue-600 hover:underline font-medium">
+      <i class="fas fa-arrow-left mr-1"></i>Back to Dashboard</a>
+  </div>
+
+  {% if requests %}
+    <div class="space-y-4">
+      {% for rr in requests %}
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="font-semibold text-gray-800">
+              {{ rr.booking.student.name if rr.booking.student else 'Student' }}</p>
+            <div class="mt-2 text-sm text-gray-600 space-y-1">
+              <p><span class="text-gray-400">Current:</span>
+                {{ rr.original_slot.date.strftime('%b %d, %Y') }}
+                {{ rr.original_slot.start_time|local_time(rr.original_slot.date, user_timezone) }}</p>
+              <p><span class="text-gray-400">Proposed:</span>
+                {{ rr.proposed_slot.date.strftime('%b %d, %Y') }}
+                {{ rr.proposed_slot.start_time|local_time(rr.proposed_slot.date, user_timezone) }}</p>
+              {% if rr.reason %}
+                <p><span class="text-gray-400">Reason:</span> {{ rr.reason }}</p>
+              {% endif %}
+              <p class="text-xs text-gray-400">
+                Expires {{ rr.expires_at.strftime('%b %d at %I:%M %p') }} UTC</p>
+            </div>
+          </div>
+          <div class="flex space-x-2 flex-shrink-0 ml-4">
+            <form method="POST"
+                  action="{{ url_for('reschedule_bp.approve_reschedule', request_id=rr.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit"
+                      class="px-4 py-2 text-sm font-medium text-white bg-green-600
+                             rounded-lg hover:bg-green-700 transition">
+                <i class="fas fa-check mr-1"></i>Approve</button>
+            </form>
+            <form method="POST"
+                  action="{{ url_for('reschedule_bp.reject_reschedule', request_id=rr.id) }}"
+                  onsubmit="return confirm('Reject this reschedule request?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit"
+                      class="px-4 py-2 text-sm font-medium text-red-600 border border-red-300
+                             rounded-lg hover:bg-red-50 transition">
+                <i class="fas fa-times mr-1"></i>Reject</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+      <p class="text-gray-400">No pending reschedule requests.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

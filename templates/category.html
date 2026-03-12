@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ subject }} Tutors | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold text-gray-800 mb-2">{{ subject }} Tutors</h1>
+  <p class="text-gray-500 mb-6">Browse verified tutors specializing in {{ subject }}</p>
+
+  {% if category and category.subcategories %}
+  <div class="mb-8">
+    <h3 class="text-sm font-medium text-gray-500 mb-3">Subcategories</h3>
+    <div class="flex flex-wrap gap-2">
+      {% for sub in category.subcategories %}
+      <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
+        {{ sub.name }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% if tutors %}
+      {% for tutor in tutors %}
+      <a href="{{ url_for('tutor_bp.view_tutor_profile', tutor_id=tutor.id) }}"
+         class="bg-white rounded-xl shadow-sm border border-gray-100 p-6
+                flex items-center space-x-4 hover:shadow-md transition">
+        <div class="w-14 h-14 bg-blue-100 rounded-full flex items-center
+                    justify-center flex-shrink-0">
+          {% if tutor.profile_photo %}
+            <img src="{{ tutor.profile_photo|photo_url }}"
+                 class="w-14 h-14 rounded-full object-cover" alt="{{ tutor.name }}">
+          {% else %}
+            <i class="fas fa-user text-blue-600 text-xl"></i>
+          {% endif %}
+        </div>
+        <div>
+          <h4 class="font-semibold text-gray-800">{{ tutor.name }}</h4>
+          <p class="text-gray-500 text-sm">
+            {{ tutor.subject }} &bull; {{ tutor.experience or 0 }} yrs
+            &bull; &#11088; {{ tutor.average_rating or tutor.rating_avg or 0 }}</p>
+        </div>
+      </a>
+      {% endfor %}
+    {% else %}
+      <div class="col-span-full text-center py-12 bg-white rounded-xl shadow-sm">
+        <i class="fas fa-search text-5xl text-gray-300 mb-4"></i>
+        <p class="text-gray-400 text-lg">No {{ subject }} tutors found yet.</p>
+        <a href="{{ url_for('tutor_bp.register') }}"
+           class="text-blue-600 hover:underline mt-2 inline-block">
+          Register as a {{ subject }} tutor!</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Notification Settings | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-8">
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+    <h1 class="text-2xl font-bold text-gray-800 mb-2">
+      <i class="fas fa-bell mr-2 text-blue-600"></i>Notification Settings</h1>
+    <p class="text-gray-500 text-sm mb-6">Choose which emails you want to receive.</p>
+
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="space-y-4">
+        {% for key, label, desc in pref_options %}
+        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div>
+            <p class="font-medium text-gray-800 text-sm">{{ label }}</p>
+            <p class="text-gray-500 text-xs mt-0.5">{{ desc }}</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="{{ key }}" value="1"
+                   {% if prefs.get(key, True) %}checked{% endif %}
+                   class="sr-only peer">
+            <div class="w-11 h-6 bg-gray-200 rounded-full peer
+                        peer-checked:after:translate-x-full peer-checked:after:border-white
+                        after:content-[''] after:absolute after:top-0.5 after:left-[2px]
+                        after:bg-white after:border-gray-300 after:border after:rounded-full
+                        after:h-5 after:w-5 after:transition-all
+                        peer-checked:bg-blue-600"></div>
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+
+      <button type="submit"
+              class="w-full mt-6 bg-blue-600 text-white py-3 rounded-lg font-semibold
+                     hover:bg-blue-700 transition">
+        <i class="fas fa-save mr-1"></i>Save Preferences</button>
+    </form>
+
+    <a href="{{ back_url }}"
+       class="block text-center mt-4 text-gray-500 hover:text-blue-600 text-sm">
+      <i class="fas fa-arrow-left mr-1"></i>Back to Dashboard</a>
+  </div>
+</div>
+{% endblock %}

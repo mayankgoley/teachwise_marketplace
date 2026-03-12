@@ -1,0 +1,14 @@
+# Learning Service Dependencies
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Werkzeug==2.3.7
+psycopg2-binary==2.9.7
+python-dotenv==1.0.0
+redis==5.0.4
+PyJWT==2.8.0
+requests==2.31.0
+gunicorn==21.2.0
+gevent==24.2.1
+bleach==6.1.0
+boto3==1.34.69
+cryptography==42.0.5

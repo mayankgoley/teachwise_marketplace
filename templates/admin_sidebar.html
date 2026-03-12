@@ -1,0 +1,27 @@
+<!-- Admin Sidebar (include partial) -->
+<div class="w-56 flex-shrink-0">
+  <nav class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sticky top-24">
+    <h3 class="font-bold text-gray-800 text-sm mb-3">Admin Panel</h3>
+    <div class="space-y-1">
+      <a href="{{ url_for('admin_bp.dashboard') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'admin_bp.dashboard' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+        <i class="fas fa-chart-line mr-2 w-4"></i>Dashboard</a>
+      <a href="{{ url_for('admin_bp.admin_users') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'admin_bp.admin_users' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+        <i class="fas fa-users mr-2 w-4"></i>Users</a>
+      <a href="{{ url_for('admin_bp.admin_bookings') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'admin_bp.admin_bookings' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+        <i class="fas fa-calendar-check mr-2 w-4"></i>Bookings</a>
+      <a href="{{ url_for('doc_bp.admin_verification_queue') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
+        <i class="fas fa-file-alt mr-2 w-4"></i>Verifications</a>
+      <a href="{{ url_for('admin_bp.admin_emails') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'admin_bp.admin_emails' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+        <i class="fas fa-envelope mr-2 w-4"></i>Emails</a>
+    </div>
+  </nav>
+</div>
