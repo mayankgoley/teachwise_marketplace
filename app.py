@@ -294,6 +294,45 @@ app.register_blueprint(main)
 
 from flask import jsonify
 
+
+# C4: Custom error pages
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template('500.html'), 500
+
+
+# A5: Sidebar badge counts context processor
+@app.context_processor
+def inject_sidebar_badges():
+    from flask_login import current_user as cu
+    badges = {}
+    if cu.is_authenticated:
+        try:
+            if cu.user_type == 'student':
+                from models.in_app_notification import InAppNotification
+                badges['sidebar_unread_notifs'] = InAppNotification.query.filter_by(
+                    user_id=cu.id, user_role='student', is_read=False
+                ).count()
+            elif cu.user_type == 'tutor':
+                from models.in_app_notification import InAppNotification
+                badges['sidebar_unread_notifs'] = InAppNotification.query.filter_by(
+                    user_id=cu.id, user_role='tutor', is_read=False
+                ).count()
+            elif cu.user_type == 'guardian':
+                from models.guardian_message import GuardianMessage
+                badges['sidebar_unread_msgs'] = GuardianMessage.query.filter_by(
+                    guardian_id=cu.id, is_read=False
+                ).filter(GuardianMessage.sender_type != 'guardian').count()
+        except Exception:
+            pass
+    return badges
+
+
 @app.route('/health')
 def health_check():
     checks = {}

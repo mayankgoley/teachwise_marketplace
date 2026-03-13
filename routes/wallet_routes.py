@@ -7,6 +7,7 @@ from extensions import limiter
 from models.wallet import Wallet
 from models.wallet_transaction import WalletTransaction
 from decimal import Decimal
+from datetime import datetime
 
 wallet_bp = Blueprint('wallet_bp', __name__)
 
@@ -25,15 +26,43 @@ def _get_or_create_wallet(student_id):
 @role_required('student')
 def wallet_dashboard():
     wallet = _get_or_create_wallet(current_user.id)
-    transactions = wallet.transactions.limit(20).all()
+
+    # Item 3: Transaction history date filter
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    txn_type = request.args.get('type', '')
+
+    query = wallet.transactions
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, '%Y-%m-%d')
+            query = query.filter(WalletTransaction.created_at >= dt_from)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, '%Y-%m-%d').replace(
+                hour=23, minute=59, second=59)
+            query = query.filter(WalletTransaction.created_at <= dt_to)
+        except ValueError:
+            pass
+    if txn_type:
+        query = query.filter(WalletTransaction.type == txn_type)
+
+    transactions = query.limit(50).all()
     return render_template('wallet.html', wallet=wallet,
-                           transactions=transactions)
+                           transactions=transactions,
+                           date_from=date_from, date_to=date_to,
+                           txn_type=txn_type)
 
 
 @wallet_bp.route('/student/wallet/topup', methods=['GET', 'POST'])
 @role_required('student')
 @limiter.limit('10 per hour', methods=['POST'])
 def wallet_topup():
+    min_topup = current_app.config.get('WALLET_MIN_TOPUP', 5)
+    max_topup = current_app.config.get('WALLET_MAX_TOPUP', 500)
+
     if request.method == 'POST':
         try:
             amount = Decimal(request.form.get('amount', '0'))
@@ -41,8 +70,8 @@ def wallet_topup():
             flash('Invalid amount.', 'danger')
             return redirect(url_for('wallet_bp.wallet_topup'))
 
-        if amount < Decimal('5.00') or amount > Decimal('500.00'):
-            flash('Amount must be between $5 and $500.', 'warning')
+        if amount < Decimal(str(min_topup)) or amount > Decimal(str(max_topup)):
+            flash(f'Amount must be between ${min_topup} and ${max_topup}.', 'warning')
             return redirect(url_for('wallet_bp.wallet_topup'))
 
         # Create Stripe Checkout for wallet top-up
@@ -79,7 +108,8 @@ def wallet_topup():
             flash('Payment service unavailable. Please try later.', 'danger')
             return redirect(url_for('wallet_bp.wallet_topup'))
 
-    return render_template('wallet_topup.html')
+    return render_template('wallet_topup.html',
+                           min_topup=min_topup, max_topup=max_topup)
 
 
 @wallet_bp.route('/student/wallet/topup-success')

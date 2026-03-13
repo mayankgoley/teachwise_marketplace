@@ -1,7 +1,8 @@
 (function () {
   var CSS_URL = "/api/chatbot/static/chatbot.css";
 
-  var QUICK_ACTIONS = [
+  // D5: Quick replies loaded from server
+  var DEFAULT_QUICK_ACTIONS = [
     "Help with my booking",
     "I want a refund",
     "Find a tutor",
@@ -16,6 +17,7 @@
     isLoading: false,
     isEscalated: false,
     hasUnread: false,
+    quickReplies: null,
   };
 
   var els = {};
@@ -95,7 +97,7 @@
       '<div style="display:flex;align-items:center;gap:8px">' +
       '<i class="fas fa-robot"></i><span style="font-weight:600;font-size:14px">Support Chat</span></div>' +
       '<div style="display:flex;align-items:center;gap:2px">' +
-      // New Chat button
+      // D2: New Chat button
       '<button id="tw-chatbot-newchat" aria-label="New chat" title="New chat" style="width:32px;height:32px;display:flex;' +
       'align-items:center;justify-content:center;border-radius:4px;border:none;background:transparent;' +
       'color:#fff;cursor:pointer;opacity:0.85" onmouseover="this.style.opacity=1;this.style.background=\'rgba(255,255,255,0.15)\'" ' +
@@ -118,6 +120,8 @@
       // Messages area
       '<div id="tw-chatbot-messages" class="tw-chatbot-messages" style="flex:1;overflow-y:auto;' +
       'padding:12px 16px" role="log" aria-live="polite"></div>' +
+      // D3: Follow-up actions area
+      '<div id="tw-chatbot-followups" style="padding:0 16px;display:none"></div>' +
       // Quick actions
       '<div id="tw-chatbot-quick" style="padding:0 16px 8px;display:flex;flex-wrap:wrap;gap:8px"></div>' +
       // Input bar
@@ -140,11 +144,25 @@
       minimize: root.querySelector("#tw-chatbot-minimize"),
       close: root.querySelector("#tw-chatbot-close"),
       messages: root.querySelector("#tw-chatbot-messages"),
+      followups: root.querySelector("#tw-chatbot-followups"),
       quick: root.querySelector("#tw-chatbot-quick"),
       input: root.querySelector("#tw-chatbot-input"),
       send: root.querySelector("#tw-chatbot-send"),
       escalation: root.querySelector("#tw-chatbot-escalation"),
     };
+  }
+
+  // D5: Load quick replies from server
+  function loadQuickReplies() {
+    api("/quick-replies")
+      .then(function (data) {
+        state.quickReplies = data;
+        renderQuickActions();
+      })
+      .catch(function () {
+        state.quickReplies = null;
+        renderQuickActions();
+      });
   }
 
   function renderQuickActions() {
@@ -153,17 +171,28 @@
       return;
     }
     els.quick.style.display = "flex";
-    els.quick.innerHTML = QUICK_ACTIONS.map(function (text) {
-      return (
-        '<button class="tw-chatbot-chip" style="padding:6px 12px;font-size:12px;border-radius:9999px;' +
-        'border:1px solid #93c5fd;color:#2563eb;background:#eff6ff;cursor:pointer">' +
-        escapeHtml(text) +
-        "</button>"
-      );
-    }).join("");
+
+    var actions = state.quickReplies || DEFAULT_QUICK_ACTIONS.map(function (t) {
+      return { text: t, icon: "fa-comment" };
+    });
+
+    els.quick.innerHTML = actions
+      .map(function (item) {
+        var text = typeof item === "string" ? item : item.text;
+        var icon = typeof item === "string" ? "fa-comment" : (item.icon || "fa-comment");
+        return (
+          '<button class="tw-chatbot-chip" style="padding:6px 12px;font-size:12px;border-radius:9999px;' +
+          'border:1px solid #93c5fd;color:#2563eb;background:#eff6ff;cursor:pointer;display:flex;align-items:center;gap:4px">' +
+          '<i class="fas ' + escapeHtml(icon) + '" style="font-size:10px"></i>' +
+          escapeHtml(text) +
+          "</button>"
+        );
+      })
+      .join("");
+
     els.quick.querySelectorAll("button").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        sendMessage(btn.textContent);
+        sendMessage(btn.textContent.trim());
       });
     });
   }
@@ -176,6 +205,24 @@
       "display:flex;" +
       (isUser ? "justify-content:flex-end" : "justify-content:flex-start") +
       ";margin-bottom:12px";
+
+    var feedbackHtml = "";
+    // D6: Feedback buttons for assistant messages
+    if (!isUser && msg.id) {
+      feedbackHtml =
+        '<div class="tw-feedback" style="display:flex;gap:4px;margin-top:4px;padding:0 4px" data-msg-id="' +
+        msg.id + '">' +
+        '<button onclick="twChatbotFeedback(\'' + msg.id + '\', \'helpful\')" ' +
+        'style="background:none;border:none;cursor:pointer;font-size:12px;color:' +
+        (msg.feedback === "helpful" ? "#22c55e" : "#9ca3af") + '" title="Helpful">' +
+        '<i class="fas fa-thumbs-up"></i></button>' +
+        '<button onclick="twChatbotFeedback(\'' + msg.id + '\', \'unhelpful\')" ' +
+        'style="background:none;border:none;cursor:pointer;font-size:12px;color:' +
+        (msg.feedback === "unhelpful" ? "#ef4444" : "#9ca3af") + '" title="Not helpful">' +
+        '<i class="fas fa-thumbs-down"></i></button>' +
+        "</div>";
+    }
+
     div.innerHTML =
       '<div style="max-width:80%">' +
       '<div style="' +
@@ -185,7 +232,8 @@
       ';padding:8px 14px;font-size:14px;line-height:1.5">' +
       formatMessage(msg.content) +
       "</div>" +
-      '<div style="font-size:10px;color:#9ca3af;margin-top:4px;' +
+      feedbackHtml +
+      '<div style="font-size:10px;color:#9ca3af;margin-top:2px;' +
       (isUser ? "text-align:right" : "text-align:left") +
       ';padding:0 4px">' +
       timeStr(msg.created_at) +
@@ -193,12 +241,34 @@
     els.messages.appendChild(div);
   }
 
+  // D6: Global feedback handler
+  window.twChatbotFeedback = function (msgId, feedback) {
+    if (!state.conversationId) return;
+    api(
+      "/conversations/" + state.conversationId + "/messages/" + msgId + "/feedback",
+      {
+        method: "POST",
+        body: JSON.stringify({ feedback: feedback }),
+      }
+    ).then(function () {
+      var container = document.querySelector(
+        '.tw-feedback[data-msg-id="' + msgId + '"]'
+      );
+      if (container) {
+        var btns = container.querySelectorAll("button");
+        btns[0].style.color = feedback === "helpful" ? "#22c55e" : "#9ca3af";
+        btns[1].style.color = feedback === "unhelpful" ? "#ef4444" : "#9ca3af";
+      }
+    });
+  };
+
   function renderMessages() {
     els.messages.innerHTML = "";
     state.messages.forEach(addMessageEl);
     scrollBottom();
   }
 
+  // D1: Typing indicator
   function showTyping() {
     var div = document.createElement("div");
     div.id = "tw-chatbot-typing";
@@ -206,8 +276,10 @@
     div.style.cssText = "display:flex;justify-content:flex-start;margin-bottom:12px";
     div.innerHTML =
       '<div style="background:#f3f4f6;border-radius:16px 16px 16px 4px;padding:12px 16px">' +
-      '<div class="tw-chatbot-typing" style="display:flex;gap:4px">' +
-      "<span></span><span></span><span></span></div></div>";
+      '<div class="tw-chatbot-typing" style="display:flex;gap:4px;align-items:center">' +
+      "<span></span><span></span><span></span>" +
+      '<span style="margin-left:8px;font-size:11px;color:#9ca3af">Thinking...</span>' +
+      "</div></div>";
     els.messages.appendChild(div);
     scrollBottom();
   }
@@ -215,6 +287,35 @@
   function hideTyping() {
     var t = document.getElementById("tw-chatbot-typing");
     if (t) t.remove();
+  }
+
+  // D3: Render follow-up action cards
+  function renderFollowUps(followUps) {
+    if (!followUps || followUps.length === 0) {
+      els.followups.style.display = "none";
+      return;
+    }
+    els.followups.style.display = "flex";
+    els.followups.style.cssText +=
+      ";display:flex;flex-wrap:wrap;gap:6px;padding:4px 16px 8px";
+    els.followups.innerHTML = followUps
+      .map(function (fu) {
+        return (
+          '<button class="tw-chatbot-chip" style="padding:6px 10px;font-size:11px;border-radius:8px;' +
+          'border:1px solid #dbeafe;color:#2563eb;background:#eff6ff;cursor:pointer;display:flex;align-items:center;gap:4px">' +
+          '<i class="fas ' + escapeHtml(fu.icon || "fa-arrow-right") + '" style="font-size:10px"></i>' +
+          escapeHtml(fu.text) +
+          "</button>"
+        );
+      })
+      .join("");
+
+    els.followups.querySelectorAll("button").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        els.followups.style.display = "none";
+        sendMessage(btn.textContent.trim());
+      });
+    });
   }
 
   function scrollBottom() {
@@ -258,21 +359,21 @@
     }
   }
 
+  // D2: New chat
   function newChat() {
-    // Resolve the current conversation if one exists
     if (state.conversationId) {
       api("/conversations/" + state.conversationId + "/resolve", {
         method: "PATCH",
         body: JSON.stringify({}),
       }).catch(function () {});
     }
-    // Reset state
     state.conversationId = null;
     state.messages = [];
     state.isEscalated = false;
     updateEscalation();
     renderMessages();
     renderQuickActions();
+    renderFollowUps([]);
     els.input.value = "";
     els.input.focus();
   }
@@ -316,6 +417,7 @@
       state.messages.push(userMsg);
       addMessageEl(userMsg);
       renderQuickActions();
+      renderFollowUps([]);
       scrollBottom();
       els.input.value = "";
       autoResize();
@@ -332,11 +434,17 @@
             role: "assistant",
             content: data.reply.content || data.reply,
             created_at: data.reply.created_at || new Date().toISOString(),
+            id: data.reply.id || null,
           };
           state.messages.push(botMsg);
           addMessageEl(botMsg);
           notifyUnread();
           scrollBottom();
+
+          // D3: Show follow-up actions
+          if (data.follow_ups) {
+            renderFollowUps(data.follow_ups);
+          }
         }
         if (data && data.status === "escalated") {
           state.isEscalated = true;
@@ -411,7 +519,7 @@
     loadCSS();
     buildDOM();
     bindEvents();
-    renderQuickActions();
+    loadQuickReplies();
     applyMobileStyles();
     if (state.isOpen) togglePanel(true);
     loadConversation();

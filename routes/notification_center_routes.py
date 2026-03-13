@@ -18,6 +18,7 @@ def notification_center():
         user_type=current_user.user_type
     ).order_by(InAppNotification.created_at.desc())
 
+    # A3: Type filter
     if filter_type != 'all':
         query = query.filter_by(type=filter_type)
 
@@ -31,11 +32,38 @@ def notification_center():
         is_read=False
     ).count()
 
+    # A2: Group notifications by group_key for display
+    grouped = {}
+    ungrouped = []
+    for n in notifications:
+        if n.group_key:
+            if n.group_key not in grouped:
+                grouped[n.group_key] = n
+            else:
+                existing = grouped[n.group_key]
+                existing.count = (existing.count or 1) + 1
+        else:
+            ungrouped.append(n)
+    display_notifications = list(grouped.values()) + ungrouped
+    display_notifications.sort(key=lambda n: n.created_at, reverse=True)
+
+    # A1: Sound preference
+    notification_sound = getattr(current_user, 'notification_sound', True)
+
+    # A5: Email digest frequency
+    email_digest = getattr(current_user, 'email_digest_frequency', 'instant')
+
+    # A6: Reminder timing
+    reminder_times = getattr(current_user, 'reminder_times', {}) or {}
+
     return render_template('notification_center.html',
-                           notifications=notifications,
+                           notifications=display_notifications,
                            pagination=pagination,
                            filter_type=filter_type,
-                           unread_count=unread_count)
+                           unread_count=unread_count,
+                           notification_sound=notification_sound,
+                           email_digest=email_digest,
+                           reminder_times=reminder_times)
 
 
 @notif_center_bp.route('/api/notifications/<int:notif_id>/read', methods=['POST'])
@@ -51,6 +79,7 @@ def mark_read(notif_id):
     return jsonify(success=True)
 
 
+# A4: Mark all read
 @notif_center_bp.route('/api/notifications/read-all', methods=['POST'])
 @login_required
 def mark_all_read():
@@ -72,3 +101,116 @@ def unread_count():
         is_read=False
     ).count()
     return jsonify(count=count)
+
+
+# A1: Toggle notification sound
+@notif_center_bp.route('/api/notifications/sound', methods=['POST'])
+@login_required
+def toggle_sound():
+    data = request.get_json(silent=True) or {}
+    enabled = data.get('enabled', True)
+
+    if current_user.user_type == 'student':
+        from models.student import Student
+        user = Student.query.get(current_user.id)
+    elif current_user.user_type == 'tutor':
+        from models.tutor import Tutor
+        user = Tutor.query.get(current_user.id)
+    else:
+        return jsonify(error='Not supported'), 400
+
+    if user:
+        user.notification_sound = bool(enabled)
+        db.session.commit()
+    return jsonify(success=True, enabled=bool(enabled))
+
+
+# A5: Email digest preferences
+@notif_center_bp.route('/api/notifications/email-digest', methods=['POST'])
+@login_required
+def set_email_digest():
+    data = request.get_json(silent=True) or {}
+    freq = data.get('frequency', 'instant')
+    if freq not in ('instant', 'daily', 'weekly', 'none'):
+        return jsonify(error='Invalid frequency'), 400
+
+    if current_user.user_type == 'student':
+        from models.student import Student
+        user = Student.query.get(current_user.id)
+    elif current_user.user_type == 'tutor':
+        from models.tutor import Tutor
+        user = Tutor.query.get(current_user.id)
+    else:
+        return jsonify(error='Not supported'), 400
+
+    if user:
+        user.email_digest_frequency = freq
+        db.session.commit()
+    return jsonify(success=True, frequency=freq)
+
+
+# A6: Reminder timing
+@notif_center_bp.route('/api/notifications/reminder-timing', methods=['POST'])
+@login_required
+def set_reminder_timing():
+    data = request.get_json(silent=True) or {}
+    times = data.get('times', {})
+    # Validate: must be dict with valid keys
+    valid_keys = {'24h', '12h', '1h', '30m'}
+    cleaned = {k: bool(v) for k, v in times.items() if k in valid_keys}
+
+    if current_user.user_type == 'student':
+        from models.student import Student
+        user = Student.query.get(current_user.id)
+    elif current_user.user_type == 'tutor':
+        from models.tutor import Tutor
+        user = Tutor.query.get(current_user.id)
+    else:
+        return jsonify(error='Not supported'), 400
+
+    if user:
+        user.reminder_times = cleaned
+        db.session.commit()
+    return jsonify(success=True, times=cleaned)
+
+
+# A7: Push subscription
+@notif_center_bp.route('/api/notifications/push-subscribe', methods=['POST'])
+@login_required
+def push_subscribe():
+    data = request.get_json(silent=True) or {}
+    subscription = data.get('subscription')
+    if not subscription:
+        return jsonify(error='Subscription data required'), 400
+
+    if current_user.user_type == 'student':
+        from models.student import Student
+        user = Student.query.get(current_user.id)
+    elif current_user.user_type == 'tutor':
+        from models.tutor import Tutor
+        user = Tutor.query.get(current_user.id)
+    else:
+        return jsonify(error='Not supported'), 400
+
+    if user:
+        user.push_subscription = subscription
+        db.session.commit()
+    return jsonify(success=True)
+
+
+@notif_center_bp.route('/api/notifications/push-unsubscribe', methods=['POST'])
+@login_required
+def push_unsubscribe():
+    if current_user.user_type == 'student':
+        from models.student import Student
+        user = Student.query.get(current_user.id)
+    elif current_user.user_type == 'tutor':
+        from models.tutor import Tutor
+        user = Tutor.query.get(current_user.id)
+    else:
+        return jsonify(error='Not supported'), 400
+
+    if user:
+        user.push_subscription = None
+        db.session.commit()
+    return jsonify(success=True)

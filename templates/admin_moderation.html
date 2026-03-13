@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Moderation Queue | TeachWise Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="flex gap-8">
+    {% include "admin_sidebar.html" %}
+    <div class="flex-1">
+      <h1 class="text-2xl font-bold text-gray-800 mb-6">
+        <i class="fas fa-shield-alt mr-2 text-red-600"></i>Moderation Queue</h1>
+
+      <!-- Filter Tabs -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-2 mb-6">
+        <div class="flex space-x-1">
+          <a href="{{ url_for('admin_bp.moderation_queue', status='pending') }}"
+             class="px-4 py-2 rounded-lg text-sm font-medium transition
+                    {% if status_filter == 'pending' %}bg-blue-600 text-white{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+            <i class="fas fa-clock mr-1"></i>Pending</a>
+          <a href="{{ url_for('admin_bp.moderation_queue', status='reviewed') }}"
+             class="px-4 py-2 rounded-lg text-sm font-medium transition
+                    {% if status_filter == 'reviewed' %}bg-blue-600 text-white{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+            <i class="fas fa-check mr-1"></i>Reviewed</a>
+          <a href="{{ url_for('admin_bp.moderation_queue', status='removed') }}"
+             class="px-4 py-2 rounded-lg text-sm font-medium transition
+                    {% if status_filter == 'removed' %}bg-blue-600 text-white{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+            <i class="fas fa-trash mr-1"></i>Removed</a>
+        </div>
+      </div>
+
+      <!-- Content Reports -->
+      {% if content_reports %}
+      <h2 class="text-lg font-bold text-gray-800 mb-3">
+        <i class="fas fa-flag mr-2 text-orange-500"></i>Content Reports ({{ content_reports|length }})</h2>
+      <div class="space-y-4 mb-8">
+        {% for report in content_reports %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <div class="flex items-center space-x-2 mb-1">
+                <span class="px-2 py-0.5 text-xs rounded-full
+                  {% if report.status == 'pending' %}bg-yellow-100 text-yellow-700
+                  {% elif report.status == 'reviewed' %}bg-green-100 text-green-700
+                  {% else %}bg-red-100 text-red-700{% endif %}">
+                  {{ report.status }}</span>
+                <span class="text-xs text-gray-400">Report #{{ report.id }}</span>
+              </div>
+              <p class="text-sm text-gray-800 font-medium">Type: {{ report.content_type }}</p>
+              <p class="text-sm text-gray-500">Reason: {{ report.reason or 'No reason provided' }}</p>
+            </div>
+            <span class="text-xs text-gray-400">{{ report.created_at.strftime('%b %d, %Y %I:%M %p') if report.created_at else '' }}</span>
+          </div>
+
+          <!-- Content Preview -->
+          {% if report.content_preview %}
+          <div class="bg-gray-50 rounded-lg p-3 mb-3 text-sm text-gray-600 border border-gray-100">
+            {{ report.content_preview|truncate(300) }}
+          </div>
+          {% endif %}
+
+          {% if report.status == 'pending' %}
+          <div class="flex items-center space-x-3 pt-2 border-t border-gray-100">
+            <form method="POST" action="{{ url_for('admin_bp.moderate_content', report_id=report.id) }}" class="inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="dismiss">
+              <button type="submit"
+                      class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition">
+                <i class="fas fa-times mr-1"></i>Dismiss</button>
+            </form>
+            <form method="POST" action="{{ url_for('admin_bp.moderate_content', report_id=report.id) }}" class="inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="remove">
+              <button type="submit"
+                      class="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition"
+                      onclick="return confirm('Remove this content?')">
+                <i class="fas fa-trash mr-1"></i>Remove</button>
+            </form>
+          </div>
+          {% elif report.reviewed_by %}
+          <p class="text-xs text-gray-400 pt-2 border-t border-gray-100">
+            Reviewed by {{ report.reviewed_by }}
+            {% if report.reviewed_at %} on {{ report.reviewed_at.strftime('%b %d, %Y') }}{% endif %}
+          </p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Review Reports -->
+      {% if review_reports %}
+      <h2 class="text-lg font-bold text-gray-800 mb-3">
+        <i class="fas fa-star mr-2 text-yellow-500"></i>Review Reports ({{ review_reports|length }})</h2>
+      <div class="space-y-4 mb-8">
+        {% for report in review_reports %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <div class="flex items-center space-x-2 mb-1">
+                <span class="px-2 py-0.5 text-xs rounded-full
+                  {% if report.status == 'pending' %}bg-yellow-100 text-yellow-700
+                  {% elif report.status == 'reviewed' %}bg-green-100 text-green-700
+                  {% else %}bg-red-100 text-red-700{% endif %}">
+                  {{ report.status }}</span>
+                <span class="text-xs text-gray-400">Review Report #{{ report.id }}</span>
+              </div>
+              <p class="text-sm text-gray-500">Reason: {{ report.reason or 'No reason provided' }}</p>
+            </div>
+            <span class="text-xs text-gray-400">{{ report.created_at.strftime('%b %d, %Y %I:%M %p') if report.created_at else '' }}</span>
+          </div>
+
+          {% if report.status == 'pending' %}
+          <div class="flex items-center space-x-3 pt-2 border-t border-gray-100">
+            <form method="POST" action="{{ url_for('admin_bp.moderate_review_report', report_id=report.id) }}" class="inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="dismiss">
+              <button type="submit"
+                      class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition">
+                <i class="fas fa-times mr-1"></i>Dismiss</button>
+            </form>
+            <form method="POST" action="{{ url_for('admin_bp.moderate_review_report', report_id=report.id) }}" class="inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="remove">
+              <button type="submit"
+                      class="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition"
+                      onclick="return confirm('Remove this review?')">
+                <i class="fas fa-trash mr-1"></i>Remove</button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if not content_reports and not review_reports %}
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+        <i class="fas fa-check-double text-5xl text-green-300 mb-4"></i>
+        <p class="text-gray-400 text-lg">No {{ status_filter }} reports found.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

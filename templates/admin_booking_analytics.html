@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Booking Analytics | TeachWise Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="flex gap-8">
+    {% include "admin_sidebar.html" %}
+    <div class="flex-1">
+      <h1 class="text-2xl font-bold text-gray-800 mb-6">
+        <i class="fas fa-chart-bar mr-2 text-purple-600"></i>Booking Analytics</h1>
+
+      <!-- KPI Stat Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+              <i class="fas fa-calendar-check text-blue-600"></i></div>
+            <div>
+              <p class="text-2xl font-bold text-gray-800">{{ total }}</p>
+              <p class="text-gray-500 text-xs">Total Bookings</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
+              <i class="fas fa-calendar-day text-purple-600"></i></div>
+            <div>
+              <p class="text-2xl font-bold text-gray-800">{{ this_month }}</p>
+              <p class="text-gray-500 text-xs">This Month</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+              <i class="fas fa-check-circle text-green-600"></i></div>
+            <div>
+              <p class="text-2xl font-bold text-gray-800">{{ completion_rate }}%</p>
+              <p class="text-gray-500 text-xs">Completion Rate ({{ completed }})</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
+              <i class="fas fa-times-circle text-red-600"></i></div>
+            <div>
+              <p class="text-2xl font-bold text-gray-800">{{ cancellation_rate }}%</p>
+              <p class="text-gray-500 text-xs">Cancellation Rate ({{ cancelled }})</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid lg:grid-cols-2 gap-6 mb-8">
+        <!-- Popular Subjects Bar Chart -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 class="font-bold text-gray-800 text-sm mb-4">Popular Subjects</h3>
+          {% if popular_subjects %}
+          <canvas id="subjectsChart" height="250"></canvas>
+          {% else %}
+          <p class="text-gray-400 text-center py-8">No booking data yet.</p>
+          {% endif %}
+        </div>
+
+        <!-- Top Tutors Horizontal Bar Chart -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 class="font-bold text-gray-800 text-sm mb-4">Top Tutors by Bookings</h3>
+          {% if popular_tutors %}
+          <canvas id="tutorsChart" height="250"></canvas>
+          {% else %}
+          <p class="text-gray-400 text-center py-8">No booking data yet.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Day of Week Chart -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+        <h3 class="font-bold text-gray-800 text-sm mb-4">Bookings by Day of Week</h3>
+        {% if dow_stats %}
+        <canvas id="dowChart" height="150"></canvas>
+        {% else %}
+        <p class="text-gray-400 text-center py-8">No booking data yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+<script>
+{% if popular_subjects %}
+// Popular Subjects Bar Chart
+new Chart(document.getElementById('subjectsChart'), {
+  type: 'bar',
+  data: {
+    labels: [{% for s in popular_subjects %}'{{ s[0]|e }}'{% if not loop.last %},{% endif %}{% endfor %}],
+    datasets: [{
+      label: 'Bookings',
+      data: [{% for s in popular_subjects %}{{ s[1] }}{% if not loop.last %},{% endif %}{% endfor %}],
+      backgroundColor: ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#22c55e','#06b6d4','#6366f1','#f43f5e','#14b8a6','#a855f7']
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+  }
+});
+{% endif %}
+
+{% if popular_tutors %}
+// Top Tutors Horizontal Bar Chart
+new Chart(document.getElementById('tutorsChart'), {
+  type: 'bar',
+  data: {
+    labels: [{% for t in popular_tutors %}'{{ t[0]|e }}'{% if not loop.last %},{% endif %}{% endfor %}],
+    datasets: [{
+      label: 'Bookings',
+      data: [{% for t in popular_tutors %}{{ t[1] }}{% if not loop.last %},{% endif %}{% endfor %}],
+      backgroundColor: '#8b5cf6'
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+  }
+});
+{% endif %}
+
+{% if dow_stats %}
+// Day of Week Chart
+var dowLabels = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var dowData = [0,0,0,0,0,0,0];
+{% for stat in dow_stats %}
+dowData[{{ stat[0]|int }}] = {{ stat[1] }};
+{% endfor %}
+new Chart(document.getElementById('dowChart'), {
+  type: 'bar',
+  data: {
+    labels: dowLabels,
+    datasets: [{
+      label: 'Bookings',
+      data: dowData,
+      backgroundColor: '#6366f1'
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+  }
+});
+{% endif %}
+</script>
+{% endblock %}

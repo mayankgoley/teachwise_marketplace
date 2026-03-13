@@ -20,7 +20,8 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-.tw-chatbot-typing span {
+/* D1: Enhanced typing indicator */
+.tw-chatbot-typing span:not(:last-child) {
   display: inline-block;
   width: 6px;
   height: 6px;
@@ -64,7 +65,13 @@
 }
 
 .tw-chatbot-chip:hover {
-  background: #2563eb;
-  color: #fff;
+  background: #2563eb !important;
+  color: #fff !important;
   transform: translateY(-1px);
+}
+
+/* D6: Feedback button hover */
+.tw-feedback button:hover {
+  opacity: 0.8;
+  transform: scale(1.2);
 }

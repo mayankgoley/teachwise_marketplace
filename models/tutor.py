@@ -29,6 +29,12 @@ class Tutor(UserMixin, db.Model):
         'review_alerts': True, 'marketing_emails': True, 'email_digest': False
     })
 
+    notification_sound = db.Column(db.Boolean, default=True)  # A1
+    email_digest_frequency = db.Column(db.String(20), default='instant')  # A5
+    reminder_times = db.Column(db.JSON, default=lambda: {})  # A6
+    push_subscription = db.Column(db.JSON, nullable=True)  # A7
+    verification_checklist = db.Column(db.JSON, default=lambda: {})  # C2
+
     weekly_availability_template = db.Column(db.JSON, nullable=True)
 
     stripe_account_id = db.Column(db.String(255), nullable=True)
@@ -61,6 +67,9 @@ class Tutor(UserMixin, db.Model):
 
     failed_login_attempts = db.Column(db.Integer, default=0)
     locked_until = db.Column(db.DateTime, nullable=True)
+
+    onboarding_step = db.Column(db.Integer, default=0)
+    has_seen_tour = db.Column(db.Boolean, default=False)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

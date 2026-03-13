@@ -1,7 +1,54 @@
 {% extends "base.html" %}
 {% block title %}My Progress | TeachWise{% endblock %}
 
+{% block extra_head %}
+<style>
+  @keyframes bounce-in {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.05); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .animate-bounce-in {
+    animation: bounce-in 0.6s ease-out;
+  }
+  #celebrationOverlay {
+    transition: opacity 0.5s ease-out;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
+<!-- Celebration Overlay (shown when a goal is completed) -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    {% if category == 'celebration' %}
+    <div id="celebrationOverlay"
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div class="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm animate-bounce-in">
+        <div class="text-6xl mb-4">&#127881;</div>
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">Goal Completed!</h2>
+        <p class="text-gray-500">Congratulations on reaching your learning goal!</p>
+        <div class="mt-4">
+          <div class="inline-block w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+            <i class="fas fa-trophy text-green-600 text-3xl"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      setTimeout(function() {
+        var overlay = document.getElementById('celebrationOverlay');
+        if (overlay) {
+          overlay.style.opacity = '0';
+          setTimeout(function() { overlay.remove(); }, 500);
+        }
+      }, 3000);
+    </script>
+    {% endif %}
+  {% endfor %}
+{% endwith %}
+
 <div class="max-w-5xl mx-auto px-4 py-8">
   <!-- Header -->
   <div class="flex justify-between items-center mb-6">
@@ -31,6 +78,47 @@
     </div>
   </div>
 
+  <!-- Goal Template Quick-Create Buttons -->
+  {% if tutors and goal_templates %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <h2 class="text-lg font-bold text-gray-800 mb-3">
+      <i class="fas fa-magic mr-2 text-purple-500"></i>Quick Start from Template</h2>
+    <p class="text-sm text-gray-500 mb-4">Choose a template to pre-fill the goal form below.</p>
+    <div class="grid md:grid-cols-3 gap-3">
+      {% for tpl in goal_templates %}
+      <button type="button"
+              onclick="applyTemplate('{{ tpl.title }}', '{{ tpl.description }}')"
+              class="text-left p-3 border border-gray-200 rounded-lg hover:border-green-400
+                     hover:bg-green-50 transition group">
+        <p class="font-medium text-gray-800 group-hover:text-green-700 text-sm">
+          <i class="fas fa-lightbulb mr-1 text-yellow-400"></i>{{ tpl.title }}</p>
+        <p class="text-xs text-gray-500 mt-1">{{ tpl.description }}</p>
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Tag Filter Bar -->
+  {% if all_tags %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+    <div class="flex items-center flex-wrap gap-2">
+      <span class="text-sm text-gray-500 font-medium mr-2">
+        <i class="fas fa-tags mr-1"></i>Filter by tag:</span>
+      <button onclick="filterByTag('')"
+              class="tag-filter-btn px-3 py-1 text-xs rounded-full font-medium
+                     bg-blue-600 text-white transition"
+              data-tag="">All</button>
+      {% for tag in all_tags %}
+      <button onclick="filterByTag('{{ tag }}')"
+              class="tag-filter-btn px-3 py-1 text-xs rounded-full font-medium
+                     bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-700 transition"
+              data-tag="{{ tag }}">{{ tag }}</button>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Create New Goal -->
   {% if tutors %}
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
@@ -40,17 +128,19 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="grid md:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Goal Title *</label>
-          <input type="text" name="title" maxlength="200" required
+          <label for="goal-title" class="block text-sm font-medium text-gray-700 mb-1">Goal Title *</label>
+          <input type="text" name="title" id="goal-title" maxlength="200" required
                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
                         focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                 placeholder="e.g., Master Python fundamentals">
+                 placeholder="e.g., Master Python fundamentals"
+                 aria-label="Goal title">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Tutor *</label>
-          <select name="tutor_id" required
+          <label for="goal-tutor" class="block text-sm font-medium text-gray-700 mb-1">Tutor *</label>
+          <select name="tutor_id" id="goal-tutor" required
                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
-                         focus:ring-2 focus:ring-green-500">
+                         focus:ring-2 focus:ring-green-500"
+                  aria-label="Select tutor">
             <option value="">Select a tutor...</option>
             {% for t in tutors %}
             <option value="{{ t.id }}">{{ t.name }} ({{ t.subject }})</option>
@@ -58,17 +148,28 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-          <textarea name="description" rows="2" maxlength="2000"
+          <label for="goal-desc" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <textarea name="description" id="goal-desc" rows="2" maxlength="2000"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y
                            focus:ring-2 focus:ring-green-500"
-                    placeholder="What do you want to achieve?"></textarea>
+                    placeholder="What do you want to achieve?"
+                    aria-label="Goal description"></textarea>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Target Date</label>
-          <input type="date" name="target_date"
+          <label for="goal-target" class="block text-sm font-medium text-gray-700 mb-1">Target Date</label>
+          <input type="date" name="target_date" id="goal-target"
                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
-                        focus:ring-2 focus:ring-green-500">
+                        focus:ring-2 focus:ring-green-500"
+                 aria-label="Target date">
+        </div>
+        <div class="md:col-span-2">
+          <label for="goal-tags" class="block text-sm font-medium text-gray-700 mb-1">
+            Skill Tags <span class="text-gray-400 font-normal">(comma-separated, max 10)</span></label>
+          <input type="text" name="skill_tags" id="goal-tags" maxlength="500"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                        focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                 placeholder="e.g., algebra, calculus, problem-solving"
+                 aria-label="Skill tags">
         </div>
       </div>
       <button type="submit"
@@ -80,15 +181,16 @@
   {% endif %}
 
   <!-- Goals List -->
-  <div class="space-y-4">
+  <div class="space-y-4" id="goalsContainer">
     {% if goals %}
     {% for goal in goals %}
     <a href="{{ url_for('progress_bp.goal_detail', goal_id=goal.id) }}"
-       class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md
-              transition group">
+       class="goal-card block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md
+              transition group"
+       data-tags="{{ goal.skill_tags|join(',') if goal.skill_tags else '' }}">
       <div class="flex items-start justify-between">
         <div class="flex-1">
-          <div class="flex items-center space-x-2 mb-1">
+          <div class="flex items-center space-x-2 mb-1 flex-wrap gap-y-1">
             {% if goal.status == 'active' %}
             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                          bg-green-100 text-green-700">
@@ -103,6 +205,12 @@
               <i class="fas fa-pause mr-1"></i>Paused</span>
             {% endif %}
             <span class="text-xs text-gray-400">{{ goal.created_at.strftime('%b %d, %Y') }}</span>
+            <!-- Skill Tag Badges -->
+            {% if goal.skill_tags %}
+              {% for tag in goal.skill_tags %}
+              <span class="px-2 py-0.5 text-xs rounded-full bg-indigo-50 text-indigo-600 font-medium">{{ tag }}</span>
+              {% endfor %}
+            {% endif %}
           </div>
           <h3 class="text-lg font-semibold text-gray-800 group-hover:text-green-600 transition">
             {{ goal.title }}</h3>
@@ -150,4 +258,50 @@
     {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Template quick-create: fill in the goal form with template values */
+function applyTemplate(title, description) {
+  var titleInput = document.getElementById('goal-title');
+  var descInput = document.getElementById('goal-desc');
+  if (titleInput) titleInput.value = title;
+  if (descInput) descInput.value = description;
+  /* Scroll to the form */
+  titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  titleInput.focus();
+}
+
+/* Tag filter: show/hide goal cards based on selected tag */
+function filterByTag(tag) {
+  var cards = document.querySelectorAll('.goal-card');
+  var buttons = document.querySelectorAll('.tag-filter-btn');
+
+  /* Update active button styles */
+  buttons.forEach(function(btn) {
+    if (btn.getAttribute('data-tag') === tag) {
+      btn.classList.add('bg-blue-600', 'text-white');
+      btn.classList.remove('bg-gray-100', 'text-gray-600');
+    } else {
+      btn.classList.remove('bg-blue-600', 'text-white');
+      btn.classList.add('bg-gray-100', 'text-gray-600');
+    }
+  });
+
+  /* Filter cards */
+  cards.forEach(function(card) {
+    if (!tag) {
+      card.style.display = '';
+      return;
+    }
+    var cardTags = card.getAttribute('data-tags') || '';
+    if (cardTags.split(',').indexOf(tag) !== -1) {
+      card.style.display = '';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+}
+</script>
 {% endblock %}

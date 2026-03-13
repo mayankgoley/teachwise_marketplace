@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Audit Log | TeachWise Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="flex gap-8">
+    {% include "admin_sidebar.html" %}
+    <div class="flex-1">
+      <h1 class="text-2xl font-bold text-gray-800 mb-6">
+        <i class="fas fa-history mr-2 text-gray-600"></i>Audit Log</h1>
+
+      <!-- Filter -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+        <form class="flex items-center space-x-4">
+          <input type="text" name="action" value="{{ action_filter }}"
+                 placeholder="Filter by action (e.g. bulk_verify, tutor_approve)..."
+                 class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
+            <i class="fas fa-filter mr-1"></i>Filter</button>
+          {% if action_filter %}
+          <a href="{{ url_for('admin_bp.audit_log') }}" class="text-gray-500 hover:text-gray-700 text-sm">Clear</a>
+          {% endif %}
+        </form>
+      </div>
+
+      <!-- Audit Log Table -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        {% if results.items %}
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200">
+                <th class="text-left py-3 px-2 text-gray-600">Time</th>
+                <th class="text-left py-3 px-2 text-gray-600">Admin</th>
+                <th class="text-left py-3 px-2 text-gray-600">Action</th>
+                <th class="text-left py-3 px-2 text-gray-600">Target</th>
+                <th class="text-left py-3 px-2 text-gray-600">Details</th>
+                <th class="text-left py-3 px-2 text-gray-600">IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in results.items %}
+              <tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="py-3 px-2 text-gray-500 text-xs whitespace-nowrap">
+                  {{ entry.created_at.strftime('%b %d, %Y %I:%M %p') if entry.created_at else '' }}</td>
+                <td class="py-3 px-2 font-medium whitespace-nowrap">{{ entry.admin_name or 'System' }}</td>
+                <td class="py-3 px-2">
+                  <span class="px-2 py-0.5 text-xs rounded-full font-medium
+                    {% if 'approve' in entry.action or 'verify' in entry.action %}bg-green-100 text-green-700
+                    {% elif 'reject' in entry.action or 'suspend' in entry.action or 'remove' in entry.action %}bg-red-100 text-red-700
+                    {% elif 'update' in entry.action or 'save' in entry.action %}bg-blue-100 text-blue-700
+                    {% elif 'bulk' in entry.action %}bg-purple-100 text-purple-700
+                    {% elif 'moderate' in entry.action %}bg-orange-100 text-orange-700
+                    {% else %}bg-gray-100 text-gray-700{% endif %}">
+                    {{ entry.action }}</span></td>
+                <td class="py-3 px-2 text-gray-500 text-xs">
+                  {% if entry.target_type %}{{ entry.target_type }}{% if entry.target_id %} #{{ entry.target_id }}{% endif %}{% else %}&mdash;{% endif %}</td>
+                <td class="py-3 px-2 text-gray-500 text-xs max-w-xs truncate">
+                  {% if entry.details %}{{ entry.details|string|truncate(80) }}{% else %}&mdash;{% endif %}</td>
+                <td class="py-3 px-2 text-gray-400 text-xs font-mono">{{ entry.ip_address or '' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if results.pages > 1 %}
+        <div class="flex justify-center mt-6 space-x-2">
+          {% if results.has_prev %}
+            <a href="?page={{ results.prev_num }}{% if action_filter %}&action={{ action_filter }}{% endif %}"
+               class="px-3 py-1 border rounded text-sm hover:bg-gray-50">Prev</a>
+          {% endif %}
+          {% for p in results.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if p %}
+              <a href="?page={{ p }}{% if action_filter %}&action={{ action_filter }}{% endif %}"
+                 class="px-3 py-1 border rounded text-sm {% if p == results.page %}bg-blue-600 text-white border-blue-600{% else %}hover:bg-gray-50{% endif %}">
+                {{ p }}</a>
+            {% else %}
+              <span class="px-2 py-1 text-gray-400">...</span>
+            {% endif %}
+          {% endfor %}
+          {% if results.has_next %}
+            <a href="?page={{ results.next_num }}{% if action_filter %}&action={{ action_filter }}{% endif %}"
+               class="px-3 py-1 border rounded text-sm hover:bg-gray-50">Next</a>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+          <p class="text-gray-400 text-center py-8">No audit log entries found.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

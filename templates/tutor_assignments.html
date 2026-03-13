@@ -1,6 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Assignments | TeachWise{% endblock %}
 
+{% block extra_head %}
+<!-- Quill.js -->
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+<style>
+  .ql-editor { min-height: 120px; font-size: 14px; }
+  .rubric-row { transition: all 0.2s; }
+  .rubric-row:hover { background-color: #f9fafb; }
+  .due-warning-red { border-left: 3px solid #ef4444; }
+  .due-warning-yellow { border-left: 3px solid #f59e0b; }
+  .due-warning-green { border-left: 3px solid #22c55e; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-5xl mx-auto px-4 py-8">
   <div class="flex items-center justify-between mb-6">
@@ -14,8 +27,10 @@
   <!-- Create Assignment -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
     <h2 class="text-lg font-bold text-gray-800 mb-4">Create New Assignment</h2>
-    <form method="POST" action="{{ url_for('assignment_bp.create_assignment') }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ url_for('assignment_bp.create_assignment') }}"
+          enctype="multipart/form-data" id="createForm">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="rubric_json" id="rubricJsonInput" value="">
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
@@ -38,24 +53,100 @@
         </div>
       </div>
 
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
-        <input type="text" name="title" required maxlength="200"
-               class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-               placeholder="Assignment title">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+          <input type="text" name="title" required maxlength="200"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                 placeholder="Assignment title">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+          <input type="text" name="subject" maxlength="100"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                 placeholder="e.g. Mathematics, Physics">
+        </div>
       </div>
 
+      <!-- Quill rich text editor for description -->
       <div class="mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-        <textarea name="description" rows="3"
-                  class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                  placeholder="Instructions for the student..."></textarea>
+        <div id="quillEditor"></div>
+        <textarea name="description" id="descriptionHidden" class="hidden"></textarea>
       </div>
 
+      <!-- Rubric Builder -->
+      <div class="mb-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-bold text-gray-700">
+            <i class="fas fa-clipboard-list mr-1 text-purple-500"></i>Rubric (optional)</h3>
+          <div class="flex gap-2">
+            <button type="button" id="addCriterionBtn"
+                    class="text-xs bg-purple-50 text-purple-600 px-3 py-1 rounded hover:bg-purple-100 font-medium">
+              <i class="fas fa-plus mr-1"></i>Add Criterion</button>
+            <div class="relative">
+              <button type="button" id="rubricTemplateBtn"
+                      class="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded hover:bg-gray-200 font-medium">
+                <i class="fas fa-copy mr-1"></i>Templates</button>
+              <div id="rubricTemplateMenu" class="hidden absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-10">
+                <button type="button" class="rubric-template block w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50"
+                        data-template="essay">Essay Rubric</button>
+                <button type="button" class="rubric-template block w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50"
+                        data-template="problem_set">Problem Set Rubric</button>
+                <button type="button" class="rubric-template block w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50"
+                        data-template="project">Project Rubric</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="rubricRows" class="space-y-2"></div>
+        <div id="rubricTotalDisplay" class="hidden mt-2 text-right text-xs text-gray-500">
+          Total points: <span id="rubricTotalPts">0</span>
+        </div>
+      </div>
+
+      <!-- Late Submission Policy -->
+      <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4 bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+        <div>
+          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" name="allow_late_submission" id="allowLateCheck"
+                   class="rounded text-yellow-600">
+            <span class="font-medium">Allow late submissions</span>
+          </label>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Grace Period (hours)</label>
+          <input type="number" name="grace_period_hours" min="0" max="168" value="0"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" disabled id="graceInput">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Late Penalty (%)</label>
+          <input type="number" name="late_penalty_percent" min="0" max="100" value="0"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" disabled id="penaltyInput">
+        </div>
+      </div>
+
+      <!-- Resubmission Config -->
+      <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 rounded-lg p-4 border border-blue-200">
+        <div>
+          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" name="allow_resubmission" id="allowResubCheck"
+                   class="rounded text-blue-600">
+            <span class="font-medium">Allow resubmission</span>
+          </label>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Max Resubmissions</label>
+          <input type="number" name="max_resubmissions" min="1" max="5" value="1"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" disabled id="maxResubInput">
+        </div>
+      </div>
+
+      <!-- Attachments -->
       <div class="mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-1">
-          Attachments <span class="text-gray-400">(PDF, JPG, PNG, DOC, DOCX - max 5MB each)</span></label>
-        <input type="file" name="files" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+          Attachments <span class="text-gray-400">({{ allowed_ext }} - max {{ max_file_mb }}MB each)</span></label>
+        <input type="file" name="files" multiple accept="{{ allowed_accept }}"
                class="w-full border border-gray-300 rounded-lg px-3 py-2">
       </div>
 
@@ -65,22 +156,68 @@
     </form>
   </div>
 
+  <!-- Filter Bar -->
+  <div class="flex flex-wrap items-center gap-3 mb-4 bg-white rounded-lg border border-gray-100 p-3">
+    <select id="filterSubject" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white"
+            onchange="applyFilters()">
+      <option value="">All Subjects</option>
+      {% for s in subjects %}
+      <option value="{{ s }}" {{ 'selected' if filter_subject == s }}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <select id="filterStatus" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white"
+            onchange="applyFilters()">
+      <option value="">All Status</option>
+      <option value="assigned" {{ 'selected' if filter_status == 'assigned' }}>Assigned</option>
+      <option value="submitted" {{ 'selected' if filter_status == 'submitted' }}>Submitted</option>
+      <option value="reviewed" {{ 'selected' if filter_status == 'reviewed' }}>Reviewed</option>
+      <option value="returned" {{ 'selected' if filter_status == 'returned' }}>Returned</option>
+      <option value="overdue" {{ 'selected' if filter_status == 'overdue' }}>Overdue</option>
+    </select>
+    <select id="filterSort" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white"
+            onchange="applyFilters()">
+      <option value="created" {{ 'selected' if sort_by == 'created' }}>Newest First</option>
+      <option value="due_soonest" {{ 'selected' if sort_by == 'due_soonest' }}>Due Soonest</option>
+      <option value="due_latest" {{ 'selected' if sort_by == 'due_latest' }}>Due Latest</option>
+    </select>
+    <span class="text-xs text-gray-400 ml-auto">{{ assignments|length }} assignment(s)</span>
+  </div>
+
   <!-- Assignment List -->
   <h2 class="text-lg font-bold text-gray-800 mb-4">All Assignments</h2>
   {% if assignments %}
   <div class="space-y-3">
     {% for a in assignments %}
-    <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+    {% set hours_until_due = ((a.due_date - now).total_seconds() / 3600)|int %}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4
+                {% if a.status == 'assigned' and hours_until_due < 0 %}due-warning-red
+                {% elif a.status == 'assigned' and hours_until_due < 24 %}due-warning-yellow
+                {% elif a.status == 'assigned' %}due-warning-green{% endif %}">
       <div class="flex items-center justify-between">
         <div class="flex-1">
-          <div class="flex items-center space-x-3">
+          <div class="flex items-center space-x-3 flex-wrap gap-y-1">
             <h3 class="font-semibold text-gray-800">{{ a.title }}</h3>
             <span class="text-xs px-2 py-0.5 rounded-full font-medium
               {% if a.status == 'assigned' %}bg-blue-100 text-blue-700
               {% elif a.status == 'submitted' %}bg-yellow-100 text-yellow-700
               {% elif a.status == 'reviewed' %}bg-green-100 text-green-700
+              {% elif a.status == 'returned' %}bg-orange-100 text-orange-700
               {% elif a.status == 'overdue' %}bg-red-100 text-red-700
               {% endif %}">{{ a.status|capitalize }}</span>
+            {% if a.subject %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{{ a.subject }}</span>
+            {% endif %}
+            {% if a.status == 'assigned' and hours_until_due < 0 %}
+            <span class="text-xs text-red-500 font-medium"><i class="fas fa-exclamation-circle mr-1"></i>Overdue</span>
+            {% elif a.status == 'assigned' and hours_until_due < 24 %}
+            <span class="text-xs text-yellow-600 font-medium"><i class="fas fa-clock mr-1"></i>Due soon</span>
+            {% endif %}
+            {% if a.allow_late_submission %}
+            <span class="text-xs text-gray-400"><i class="fas fa-hourglass-half mr-1"></i>Late OK</span>
+            {% endif %}
+            {% if a.allow_resubmission %}
+            <span class="text-xs text-gray-400"><i class="fas fa-redo mr-1"></i>Resub</span>
+            {% endif %}
           </div>
           <p class="text-sm text-gray-500 mt-1">
             <i class="fas fa-user mr-1"></i>{{ a.student.name }}
@@ -104,6 +241,9 @@
           {% elif a.status == 'reviewed' %}
           <span class="text-sm text-green-600 font-medium">
             <i class="fas fa-check mr-1"></i>{{ a.submission.grade or 'Reviewed' }}</span>
+          {% elif a.status == 'returned' %}
+          <span class="text-sm text-orange-600 font-medium">
+            <i class="fas fa-undo mr-1"></i>Awaiting resubmission</span>
           {% endif %}
         </div>
       </div>
@@ -117,4 +257,167 @@
   </div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Quill.js -->
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+<script>
+(function() {
+  // Initialize Quill editor
+  var quill = new Quill('#quillEditor', {
+    theme: 'snow',
+    placeholder: 'Instructions for the student...',
+    modules: {
+      toolbar: [
+        [{ 'header': [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        ['blockquote', 'code-block'],
+        ['link'],
+        ['clean']
+      ]
+    }
+  });
+
+  // Sync Quill content to hidden textarea on form submit
+  document.getElementById('createForm').addEventListener('submit', function() {
+    document.getElementById('descriptionHidden').value = quill.root.innerHTML;
+    // Sync rubric JSON
+    syncRubricJson();
+  });
+
+  // Rubric builder
+  var rubricRows = document.getElementById('rubricRows');
+  var rubricData = [];
+
+  var RUBRIC_TEMPLATES = {
+    essay: [
+      { criterion: 'Content & Understanding', max_points: 30, description: 'Demonstrates thorough understanding of the topic' },
+      { criterion: 'Organization & Structure', max_points: 25, description: 'Logical flow, clear introduction and conclusion' },
+      { criterion: 'Grammar & Mechanics', max_points: 20, description: 'Proper grammar, spelling, and punctuation' },
+      { criterion: 'Analysis & Critical Thinking', max_points: 25, description: 'Original insights and analytical depth' }
+    ],
+    problem_set: [
+      { criterion: 'Correct Answers', max_points: 50, description: 'Accuracy of final answers' },
+      { criterion: 'Work Shown', max_points: 30, description: 'Clear and complete work for each problem' },
+      { criterion: 'Method & Process', max_points: 20, description: 'Appropriate methods and problem-solving approach' }
+    ],
+    project: [
+      { criterion: 'Functionality', max_points: 30, description: 'Project works as intended' },
+      { criterion: 'Code/Work Quality', max_points: 25, description: 'Clean, organized, well-documented' },
+      { criterion: 'Creativity', max_points: 20, description: 'Original approach and creative solutions' },
+      { criterion: 'Presentation', max_points: 25, description: 'Clear explanation and documentation' }
+    ]
+  };
+
+  function addCriterion(criterion, maxPoints, description) {
+    criterion = criterion || '';
+    maxPoints = maxPoints || 10;
+    description = description || '';
+    var idx = rubricData.length;
+    rubricData.push({ criterion: criterion, max_points: maxPoints, description: description });
+
+    var row = document.createElement('div');
+    row.className = 'rubric-row flex items-center gap-2 p-2 bg-white rounded border border-gray-200';
+    row.dataset.idx = idx;
+    row.innerHTML =
+      '<input type="text" class="rb-criterion flex-1 border border-gray-300 rounded px-2 py-1 text-sm" placeholder="Criterion name" value="' + criterion + '">' +
+      '<input type="text" class="rb-desc flex-1 border border-gray-300 rounded px-2 py-1 text-sm text-gray-500" placeholder="Description (optional)" value="' + description + '">' +
+      '<input type="number" class="rb-points w-16 border border-gray-300 rounded px-2 py-1 text-sm text-center" min="1" max="100" value="' + maxPoints + '" placeholder="Pts">' +
+      '<button type="button" class="rb-remove text-red-400 hover:text-red-600 text-sm"><i class="fas fa-times"></i></button>';
+
+    rubricRows.appendChild(row);
+    updateRubricTotal();
+
+    row.querySelector('.rb-criterion').addEventListener('input', function() {
+      rubricData[idx].criterion = this.value;
+    });
+    row.querySelector('.rb-desc').addEventListener('input', function() {
+      rubricData[idx].description = this.value;
+    });
+    row.querySelector('.rb-points').addEventListener('input', function() {
+      rubricData[idx].max_points = parseInt(this.value) || 0;
+      updateRubricTotal();
+    });
+    row.querySelector('.rb-remove').addEventListener('click', function() {
+      row.remove();
+      rubricData[idx] = null;
+      updateRubricTotal();
+    });
+  }
+
+  function updateRubricTotal() {
+    var total = 0;
+    rubricData.forEach(function(r) { if (r) total += (r.max_points || 0); });
+    var display = document.getElementById('rubricTotalDisplay');
+    var pts = document.getElementById('rubricTotalPts');
+    if (rubricData.filter(function(r) { return r !== null; }).length > 0) {
+      display.classList.remove('hidden');
+      pts.textContent = total;
+    } else {
+      display.classList.add('hidden');
+    }
+  }
+
+  function syncRubricJson() {
+    var valid = rubricData.filter(function(r) { return r && r.criterion; });
+    document.getElementById('rubricJsonInput').value = valid.length > 0 ? JSON.stringify(valid) : '';
+  }
+
+  document.getElementById('addCriterionBtn').addEventListener('click', function() {
+    addCriterion();
+  });
+
+  // Template menu toggle
+  document.getElementById('rubricTemplateBtn').addEventListener('click', function() {
+    document.getElementById('rubricTemplateMenu').classList.toggle('hidden');
+  });
+
+  document.querySelectorAll('.rubric-template').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var template = RUBRIC_TEMPLATES[this.dataset.template];
+      if (!template) return;
+      rubricRows.innerHTML = '';
+      rubricData = [];
+      template.forEach(function(t) {
+        addCriterion(t.criterion, t.max_points, t.description);
+      });
+      document.getElementById('rubricTemplateMenu').classList.add('hidden');
+    });
+  });
+
+  // Close template menu on outside click
+  document.addEventListener('click', function(e) {
+    var menu = document.getElementById('rubricTemplateMenu');
+    var btn = document.getElementById('rubricTemplateBtn');
+    if (!menu.contains(e.target) && e.target !== btn) {
+      menu.classList.add('hidden');
+    }
+  });
+
+  // Late submission toggle
+  document.getElementById('allowLateCheck').addEventListener('change', function() {
+    document.getElementById('graceInput').disabled = !this.checked;
+    document.getElementById('penaltyInput').disabled = !this.checked;
+  });
+
+  // Resubmission toggle
+  document.getElementById('allowResubCheck').addEventListener('change', function() {
+    document.getElementById('maxResubInput').disabled = !this.checked;
+  });
+
+  // Filter navigation
+  window.applyFilters = function() {
+    var subject = document.getElementById('filterSubject').value;
+    var status = document.getElementById('filterStatus').value;
+    var sort = document.getElementById('filterSort').value;
+    var url = '{{ url_for("assignment_bp.tutor_assignments") }}?';
+    if (subject) url += 'subject=' + encodeURIComponent(subject) + '&';
+    if (status) url += 'status=' + encodeURIComponent(status) + '&';
+    url += 'sort=' + sort;
+    window.location.href = url;
+  };
+})();
+</script>
 {% endblock %}

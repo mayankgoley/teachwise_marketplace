@@ -128,7 +128,8 @@ def register_student():
                 verify_url = current_app.config['APP_URL'] + f'/student/verify/{token}'
                 subj, html = email_welcome_student(student.name, verify_url)
                 send_email(student.email, subj, html, 'welcome_student', 'student')
-            except Exception:
+            except Exception as e:
+                current_app.logger.error(f'Failed to send welcome email to student {student.email}: {e}')
                 pass  # Email failure should not block registration
 
             # Send guardian verification if minor
@@ -145,8 +146,8 @@ def register_student():
                         student.guardian.name, student.name, g_url)
                     send_email(student.guardian.email, subj, html,
                                'guardian_verify', 'guardian')
-                except Exception:
-                    pass
+                except Exception as e:
+                    current_app.logger.error(f'Failed to send guardian verification email for student {student.id}: {e}')
 
             flash('Account created! Please check your email.', 'success')
             return redirect(url_for('student_bp.login_student'))
@@ -195,7 +196,8 @@ def login_student():
                           secure=False, samesite='Lax', max_age=86400)
             flash(f'Welcome back, {student.name}!', 'success')
             return resp
-        except Exception:
+        except Exception as e:
+            current_app.logger.error(f'Failed to create JWT token for student {student.email}: {e}')
             pass  # JWT failure should not block login
 
         flash(f'Welcome back, {student.name}!', 'success')
@@ -209,6 +211,8 @@ def login_student():
 def dashboard():
     from models.favorite import FavoriteTutor
     from models.tutor import Tutor
+    from models.payment import Payment
+    from sqlalchemy import func
 
     now = datetime.utcnow()
     upcoming = TutorSlot.query.filter(
@@ -220,6 +224,19 @@ def dashboard():
         student_id=current_user.id).filter(
         Booking.status.in_(['Booked', 'Confirmed'])).all()
     booking_map = {b.slot_id: b for b in bookings}
+
+    # Quick-stats
+    total_completed = db.session.query(func.count(Booking.id)).filter(
+        Booking.student_id == current_user.id,
+        Booking.status == 'Completed'
+    ).scalar()
+    total_spent = db.session.query(
+        func.coalesce(func.sum(Payment.amount), 0)
+    ).filter(
+        Payment.student_id == current_user.id,
+        Payment.status == 'completed'
+    ).scalar()
+    upcoming_count = len(upcoming)
 
     # Favorite tutors (up to 4 for dashboard)
     fav_records = FavoriteTutor.query.filter_by(
@@ -248,7 +265,10 @@ def dashboard():
                            booking_map=booking_map, now=now,
                            fav_tutors=fav_tutors,
                            pending_assignments=pending_assignments,
-                           pending_reschedules=pending_reschedules)
+                           pending_reschedules=pending_reschedules,
+                           total_completed=total_completed,
+                           total_spent=float(total_spent),
+                           upcoming_count=upcoming_count)
 
 
 @student_bp.route('/student/cancel-booking/<int:booking_id>', methods=['POST'])
@@ -264,6 +284,10 @@ def cancel_booking(booking_id):
         if not slot:
             flash('Associated slot not found.', 'danger')
             return redirect(url_for('student_bp.dashboard'))
+
+        booking.cancellation_reason = request.form.get('cancellation_reason', '')
+        db.session.add(booking)
+        db.session.flush()
 
         result = do_cancel_booking(booking, 'student', slot=slot)
 
@@ -355,17 +379,82 @@ def booking_export():
     from models.tutor import Tutor
     import io, csv
 
+    export_format = request.args.get('format', 'csv')
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+
     query = db.session.query(Booking, TutorSlot, Tutor).join(
         TutorSlot, Booking.slot_id == TutorSlot.id
     ).join(
         Tutor, Booking.tutor_id == Tutor.id
-    ).filter(Booking.student_id == current_user.id
-    ).order_by(TutorSlot.date.desc()).all()
+    ).filter(Booking.student_id == current_user.id)
 
+    if date_from:
+        try:
+            df = datetime.strptime(date_from, '%Y-%m-%d').date()
+            query = query.filter(TutorSlot.date >= df)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt = datetime.strptime(date_to, '%Y-%m-%d').date()
+            query = query.filter(TutorSlot.date <= dt)
+        except ValueError:
+            pass
+
+    rows = query.order_by(TutorSlot.date.desc()).all()
+
+    if export_format == 'pdf':
+        from fpdf import FPDF
+
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font('Helvetica', 'B', 16)
+        pdf.cell(0, 10, 'TeachWise - Session History', ln=True, align='C')
+        pdf.set_font('Helvetica', '', 10)
+        pdf.cell(0, 8, f'{current_user.name} | Generated {datetime.utcnow().strftime("%B %d, %Y")}', ln=True, align='C')
+        pdf.ln(5)
+
+        # Table header
+        pdf.set_font('Helvetica', 'B', 9)
+        col_widths = [25, 30, 35, 30, 20, 20, 25]
+        headers = ['Date', 'Time', 'Tutor', 'Subject', 'Mode', 'Price', 'Status']
+        for i, h in enumerate(headers):
+            pdf.cell(col_widths[i], 8, h, border=1, align='C')
+        pdf.ln()
+
+        # Table rows
+        pdf.set_font('Helvetica', '', 8)
+        for booking, slot, tutor in rows:
+            vals = [
+                slot.date.strftime('%Y-%m-%d'),
+                f"{slot.start_time.strftime('%I:%M %p')}",
+                tutor.name[:18],
+                (slot.subject or tutor.subject)[:16],
+                slot.mode,
+                f"${float(slot.price or 0):.2f}",
+                booking.status
+            ]
+            for i, v in enumerate(vals):
+                pdf.cell(col_widths[i], 7, v, border=1, align='C')
+            pdf.ln()
+
+        pdf.ln(10)
+        pdf.set_font('Helvetica', 'I', 8)
+        pdf.cell(0, 8, 'TeachWise - Online Tutoring Marketplace', align='C')
+
+        pdf_bytes = pdf.output()
+        return Response(
+            pdf_bytes,
+            mimetype='application/pdf',
+            headers={'Content-Disposition': f'attachment; filename=session_history_{datetime.utcnow().strftime("%Y-%m-%d")}.pdf'}
+        )
+
+    # Default: CSV
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['Date', 'Time', 'Tutor', 'Subject', 'Mode', 'Price', 'Status'])
-    for booking, slot, tutor in query:
+    for booking, slot, tutor in rows:
         writer.writerow([
             slot.date.strftime('%Y-%m-%d'),
             f"{slot.start_time.strftime('%I:%M %p')} - {slot.end_time.strftime('%I:%M %p')}",
@@ -376,8 +465,44 @@ def booking_export():
     return Response(
         output.getvalue(),
         mimetype='text/csv',
-        headers={'Content-Disposition': 'attachment; filename=booking_history.csv'}
+        headers={'Content-Disposition': f'attachment; filename=session_history_{datetime.utcnow().strftime("%Y-%m-%d")}.csv'}
     )
+
+
+@student_bp.route('/student/bookings/calendar-data')
+@role_required('student')
+def booking_calendar_data():
+    from models.tutor import Tutor
+    from flask import jsonify
+
+    rows = db.session.query(Booking, TutorSlot, Tutor).join(
+        TutorSlot, Booking.slot_id == TutorSlot.id
+    ).join(
+        Tutor, Booking.tutor_id == Tutor.id
+    ).filter(Booking.student_id == current_user.id).all()
+
+    status_colors = {
+        'Booked': '#3B82F6', 'Confirmed': '#3B82F6',
+        'Completed': '#10B981', 'Cancelled': '#EF4444',
+        'Pending Payment': '#F59E0B'
+    }
+    events = []
+    for booking, slot, tutor in rows:
+        start_dt = datetime.combine(slot.date, slot.start_time)
+        end_dt = datetime.combine(slot.date, slot.end_time)
+        events.append({
+            'id': booking.id,
+            'title': f"{slot.subject or tutor.subject} with {tutor.name}",
+            'start': start_dt.isoformat(),
+            'end': end_dt.isoformat(),
+            'color': status_colors.get(booking.status, '#6B7280'),
+            'extendedProps': {
+                'status': booking.status,
+                'tutor_name': tutor.name,
+                'mode': slot.mode
+            }
+        })
+    return jsonify(events)
 
 
 @student_bp.route('/student/favorite/<int:tutor_id>', methods=['POST'])
@@ -405,11 +530,45 @@ def favorites_page():
     from models.favorite import FavoriteTutor
     from models.tutor import Tutor
 
-    favs = FavoriteTutor.query.filter_by(
-        student_id=current_user.id).order_by(FavoriteTutor.created_at.desc()).all()
-    tutors = [Tutor.query.get(f.tutor_id) for f in favs]
-    tutors = [t for t in tutors if t]  # Filter out None
-    return render_template('student_favorites.html', tutors=tutors)
+    sort = request.args.get('sort', 'recently_added')
+    category = request.args.get('category', '')
+
+    query = db.session.query(Tutor).join(
+        FavoriteTutor, FavoriteTutor.tutor_id == Tutor.id
+    ).filter(FavoriteTutor.student_id == current_user.id)
+
+    # Category filter
+    if category:
+        query = query.filter(Tutor.subject == category)
+
+    # Sorting
+    if sort == 'name_asc':
+        query = query.order_by(Tutor.name.asc())
+    elif sort == 'name_desc':
+        query = query.order_by(Tutor.name.desc())
+    elif sort == 'rating_desc':
+        query = query.order_by(Tutor.rating_avg.desc())
+    elif sort == 'price_asc':
+        query = query.order_by(Tutor.hourly_rate.asc())
+    elif sort == 'price_desc':
+        query = query.order_by(Tutor.hourly_rate.desc())
+    else:
+        sort = 'recently_added'
+        query = query.order_by(FavoriteTutor.created_at.desc())
+
+    tutors = query.all()
+
+    # Get unique categories from all favorited tutors (unfiltered)
+    categories = db.session.query(Tutor.subject).join(
+        FavoriteTutor, FavoriteTutor.tutor_id == Tutor.id
+    ).filter(
+        FavoriteTutor.student_id == current_user.id
+    ).distinct().order_by(Tutor.subject.asc()).all()
+    categories = [c[0] for c in categories if c[0]]
+
+    return render_template('student_favorites.html', tutors=tutors,
+                           categories=categories, current_sort=sort,
+                           current_category=category)
 
 
 @student_bp.route('/student/notification-settings', methods=['GET', 'POST'])
@@ -436,6 +595,15 @@ def notification_settings():
     return render_template('notification_settings.html',
                            pref_options=pref_options, prefs=prefs,
                            back_url=url_for('student_bp.dashboard'))
+
+
+@student_bp.route('/student/onboarding/complete', methods=['POST'])
+@role_required('student')
+def complete_onboarding():
+    from flask import jsonify
+    current_user.has_seen_tour = True
+    db.session.commit()
+    return jsonify(success=True)
 
 
 @student_bp.route('/student/review/<int:booking_id>', methods=['GET', 'POST'])
@@ -489,6 +657,11 @@ def submit_review(booking_id):
             flash('Please provide ratings for all dimensions.', 'warning')
             return redirect(url_for('student_bp.submit_review', booking_id=booking_id))
 
+        # D3: Minimum character requirement for comments
+        if comment and len(comment.strip()) < 20:
+            flash('Please write at least 20 characters in your comment.', 'warning')
+            return redirect(url_for('student_bp.submit_review', booking_id=booking_id))
+
         review = Review(
             student_id=current_user.id,
             tutor_id=booking.tutor_id,
@@ -504,6 +677,12 @@ def submit_review(booking_id):
         db.session.add(review)
         db.session.commit()
 
+        try:
+            from services.search_service import invalidate_search_cache
+            invalidate_search_cache()
+        except Exception as e:
+            current_app.logger.error(f'Failed to invalidate search cache after review: {e}')
+
         # Publish review.created event for search-service & notification-service
         try:
             from shared.event_bus import publish_event
@@ -515,7 +694,8 @@ def submit_review(booking_id):
                 'student_name': current_user.name,
                 'booking_id': booking_id,
             })
-        except Exception:
+        except Exception as e:
+            current_app.logger.error(f'Failed to publish review.created event for review {review.id}: {e}')
             pass  # Event failure must not block review submission
 
         flash('Review submitted! Thank you for your feedback.', 'success')
@@ -714,7 +894,8 @@ def resend_verification():
         subj, html = email_welcome_student(current_user.name, verify_url)
         send_email(current_user.email, subj, html, 'welcome_student', 'student')
         flash('Verification email resent! Please check your inbox.', 'success')
-    except Exception:
+    except Exception as e:
+        current_app.logger.error(f'Failed to resend verification email to {current_user.email}: {e}')
         flash('Could not send verification email. Please try again later.', 'danger')
 
     return redirect(url_for('student_bp.dashboard'))
@@ -737,8 +918,8 @@ def forgot_password():
                 reset_url = current_app.config['APP_URL'] + f'/student/reset-password/{token}'
                 subj, html = email_password_reset(student.name, reset_url)
                 send_email(student.email, subj, html, 'password_reset', 'student')
-            except Exception:
-                pass
+            except Exception as e:
+                current_app.logger.error(f'Failed to send password reset email to student {student.email}: {e}')
 
         return redirect(url_for('student_bp.login_student'))
 

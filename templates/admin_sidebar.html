@@ -16,12 +16,40 @@
                 {% if request.endpoint == 'admin_bp.admin_bookings' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
         <i class="fas fa-calendar-check mr-2 w-4"></i>Bookings</a>
       <a href="{{ url_for('doc_bp.admin_verification_queue') }}"
-         class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'doc_bp.admin_verification_queue' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
         <i class="fas fa-file-alt mr-2 w-4"></i>Verifications</a>
       <a href="{{ url_for('admin_bp.admin_emails') }}"
          class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
                 {% if request.endpoint == 'admin_bp.admin_emails' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
         <i class="fas fa-envelope mr-2 w-4"></i>Emails</a>
+
+      <hr class="my-2 border-gray-100">
+
+      <a href="{{ url_for('admin_bp.booking_analytics') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'admin_bp.booking_analytics' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+        <i class="fas fa-chart-bar mr-2 w-4"></i>Booking Analytics</a>
+      <a href="{{ url_for('admin_bp.system_analytics') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'admin_bp.system_analytics' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+        <i class="fas fa-server mr-2 w-4"></i>System Analytics</a>
+      <a href="{{ url_for('admin_bp.revenue_dashboard') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'admin_bp.revenue_dashboard' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+        <i class="fas fa-dollar-sign mr-2 w-4"></i>Revenue Dashboard</a>
+      <a href="{{ url_for('admin_bp.moderation_queue') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'admin_bp.moderation_queue' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+        <i class="fas fa-shield-alt mr-2 w-4"></i>Moderation</a>
+      <a href="{{ url_for('admin_bp.audit_log') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'admin_bp.audit_log' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+        <i class="fas fa-history mr-2 w-4"></i>Audit Log</a>
+      <a href="{{ url_for('admin_bp.platform_settings') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'admin_bp.platform_settings' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+        <i class="fas fa-cog mr-2 w-4"></i>Platform Settings</a>
     </div>
   </nav>
 </div>

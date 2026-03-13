@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Revenue Dashboard | TeachWise Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="flex gap-8">
+    {% include "admin_sidebar.html" %}
+    <div class="flex-1">
+      <h1 class="text-2xl font-bold text-gray-800 mb-6">
+        <i class="fas fa-dollar-sign mr-2 text-yellow-600"></i>Revenue Dashboard</h1>
+
+      <!-- Revenue KPI Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+              <i class="fas fa-clock text-blue-600"></i></div>
+            <div>
+              <p class="text-2xl font-bold text-gray-800">${{ '%.2f'|format(revenue_today) }}</p>
+              <p class="text-gray-500 text-xs">Today</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
+              <i class="fas fa-calendar text-purple-600"></i></div>
+            <div>
+              <p class="text-2xl font-bold text-gray-800">${{ '%.2f'|format(revenue_month) }}</p>
+              <p class="text-gray-500 text-xs">This Month</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+              <i class="fas fa-calendar-alt text-green-600"></i></div>
+            <div>
+              <p class="text-2xl font-bold text-gray-800">${{ '%.2f'|format(revenue_year) }}</p>
+              <p class="text-gray-500 text-xs">This Year</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-yellow-50 rounded-lg flex items-center justify-center">
+              <i class="fas fa-coins text-yellow-600"></i></div>
+            <div>
+              <p class="text-2xl font-bold text-gray-800">${{ '%.2f'|format(total_revenue) }}</p>
+              <p class="text-gray-500 text-xs">All-Time Total</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Platform Revenue & Transaction Stats -->
+      <div class="grid lg:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 class="font-bold text-gray-800 text-sm mb-4">
+            <i class="fas fa-building mr-2 text-indigo-500"></i>Platform Revenue</h3>
+          <div class="text-center py-4">
+            <p class="text-4xl font-bold text-indigo-600">${{ '%.2f'|format(platform_revenue) }}</p>
+            <p class="text-gray-500 text-sm mt-2">at {{ platform_fee_pct }}% fee</p>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 class="font-bold text-gray-800 text-sm mb-4">
+            <i class="fas fa-exchange-alt mr-2 text-teal-500"></i>Transactions</h3>
+          <div class="text-center py-4">
+            <p class="text-4xl font-bold text-teal-600">{{ total_transactions }}</p>
+            <p class="text-gray-500 text-sm mt-2">Completed payments</p>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 class="font-bold text-gray-800 text-sm mb-4">
+            <i class="fas fa-receipt mr-2 text-orange-500"></i>Average Transaction</h3>
+          <div class="text-center py-4">
+            <p class="text-4xl font-bold text-orange-600">${{ '%.2f'|format(avg_transaction) }}</p>
+            <p class="text-gray-500 text-sm mt-2">Per completed payment</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Revenue Trend Chart -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+        <h3 class="font-bold text-gray-800 text-sm mb-3">Revenue Trend (12 months)</h3>
+        <canvas id="revTrendChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+<script>
+// Revenue Trend Line Chart
+fetch('{{ url_for("admin_bp.api_stats_revenue") }}')
+  .then(r=>r.json()).then(data=>{
+    new Chart(document.getElementById('revTrendChart'), {
+      type: 'line',
+      data: {
+        labels: data.map(d=>d.month),
+        datasets: [{
+          label: 'Revenue ($)',
+          data: data.map(d=>d.amount),
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245,158,11,0.1)',
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  });
+</script>
+{% endblock %}

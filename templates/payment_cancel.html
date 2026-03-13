@@ -2,22 +2,86 @@
 {% block title %}Payment Cancelled | TeachWise{% endblock %}
 
 {% block content %}
-<div class="max-w-lg mx-auto px-4 py-16 text-center">
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-    <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-      <i class="fas fa-times text-yellow-600 text-3xl"></i>
+<div class="max-w-lg mx-auto px-4 py-12">
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <!-- Header -->
+    <div class="text-center p-8 pb-4">
+      <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="fas fa-times text-yellow-600 text-3xl"></i>
+      </div>
+      <h1 class="text-2xl font-bold text-gray-800 mb-2">Payment Cancelled</h1>
+      <p class="text-gray-500">Your payment was not processed. No charges were made.</p>
     </div>
-    <h1 class="text-2xl font-bold text-gray-800 mb-2">Payment Cancelled</h1>
-    <p class="text-gray-500 mb-6">Your session was not booked. No charges were made.</p>
-    <div class="flex justify-center space-x-4">
-      <a href="{{ url_for('main.index') }}"
-         class="inline-block bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold
+
+    <!-- Info Banner -->
+    <div class="mx-6 mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+      <div class="flex items-start space-x-3">
+        <i class="fas fa-info-circle text-amber-500 mt-0.5"></i>
+        <div>
+          <p class="text-amber-800 text-sm font-medium">Time slot released</p>
+          <p class="text-amber-700 text-xs mt-1">
+            The time slot has been released back to the tutor's availability so other students can book it.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {% if booking and slot and tutor %}
+    <!-- Session Details Card -->
+    <div class="mx-6 mb-6 bg-gray-50 rounded-lg p-4">
+      <h3 class="text-sm font-semibold text-gray-600 mb-3">
+        <i class="fas fa-calendar mr-1"></i>Session Details</h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between">
+          <span class="text-gray-500">Tutor</span>
+          <span class="text-gray-800 font-medium">{{ tutor.name }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-500">Subject</span>
+          <span class="text-gray-800 font-medium">{{ slot.subject or tutor.subject or 'General' }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-500">Date</span>
+          <span class="text-gray-800 font-medium">{{ slot.date.strftime('%B %d, %Y') }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-500">Time</span>
+          <span class="text-gray-800 font-medium">
+            {{ slot.start_time.strftime('%I:%M %p') }} - {{ slot.end_time.strftime('%I:%M %p') }}
+          </span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    <div class="px-6 pb-8 space-y-3">
+      {% if can_retry and booking %}
+      <form method="POST" action="{{ url_for('payment_bp.payment_retry', booking_id=booking.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit"
+                class="w-full bg-green-600 text-white py-2.5 rounded-lg font-semibold
+                       hover:bg-green-700 transition">
+          <i class="fas fa-redo mr-1"></i>Try Payment Again</button>
+      </form>
+      {% endif %}
+
+      {% if tutor %}
+      <a href="{{ url_for('tutor_bp.view_tutor_profile', tutor_id=tutor.id) }}"
+         class="block w-full text-center bg-blue-600 text-white py-2.5 rounded-lg font-semibold
+                hover:bg-blue-700 transition">
+        <i class="fas fa-calendar-alt mr-1"></i>View Other Time Slots</a>
+      {% else %}
+      <a href="{{ url_for('search_bp.search_page') }}"
+         class="block w-full text-center bg-blue-600 text-white py-2.5 rounded-lg font-semibold
                 hover:bg-blue-700 transition">
         <i class="fas fa-search mr-1"></i>Find a Tutor</a>
+      {% endif %}
+
       <a href="{{ url_for('student_bp.dashboard') }}"
-         class="inline-block border border-gray-300 text-gray-700 px-6 py-2.5 rounded-lg
+         class="block w-full text-center border border-gray-300 text-gray-700 py-2.5 rounded-lg
                 font-semibold hover:bg-gray-50 transition">
-        Dashboard</a>
+        <i class="fas fa-home mr-1"></i>Dashboard</a>
     </div>
   </div>
 </div>

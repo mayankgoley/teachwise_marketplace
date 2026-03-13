@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Edit Profile | TeachWise{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.css">
+{% endblock %}
+
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
   <div class="flex justify-between items-center mb-6">
@@ -39,9 +43,10 @@
 
           <!-- Bio -->
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="bio-input">Bio</label>
             <textarea id="bio-input" name="bio" maxlength="500" rows="4"
                       placeholder="Tell students about your teaching style..."
+                      aria-label="Bio"
                       class="w-full px-3 py-2 border border-gray-300 rounded-lg
                              focus:ring-2 focus:ring-blue-500 resize-none">{{ tutor.bio or '' }}</textarea>
             <div class="text-right text-xs text-gray-400 mt-1">
@@ -50,38 +55,41 @@
 
           <!-- Qualification -->
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Qualification</label>
-            <input type="text" name="qualification" maxlength="200"
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="qualInput">Qualification</label>
+            <input type="text" name="qualification" id="qualInput" maxlength="200"
                    value="{{ tutor.qualification or '' }}"
                    placeholder="e.g., PhD in Mathematics"
+                   aria-label="Qualification"
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg
                           focus:ring-2 focus:ring-blue-500">
           </div>
 
           <!-- Institution -->
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Institution</label>
-            <input type="text" name="institution" maxlength="200"
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="instInput">Institution</label>
+            <input type="text" name="institution" id="instInput" maxlength="200"
                    value="{{ tutor.institution or '' }}"
                    placeholder="e.g., MIT, Stanford"
+                   aria-label="Institution"
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg
                           focus:ring-2 focus:ring-blue-500">
           </div>
 
           <!-- Hourly Rate -->
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($)</label>
-            <input type="number" name="hourly_rate" step="0.01" min="0"
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="rateInput">Hourly Rate ($)</label>
+            <input type="number" name="hourly_rate" id="rateInput" step="0.01" min="0"
                    value="{{ tutor.hourly_rate or '' }}"
                    placeholder="25.00"
+                   aria-label="Hourly rate"
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg
                           focus:ring-2 focus:ring-blue-500">
           </div>
 
           <!-- Teaching Mode -->
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Teaching Mode</label>
-            <select name="teaching_mode"
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="modeSelect">Teaching Mode</label>
+            <select name="teaching_mode" id="modeSelect" aria-label="Teaching mode"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg
                            focus:ring-2 focus:ring-blue-500">
               <option value="online" {{ 'selected' if tutor.teaching_mode == 'online' }}>Online</option>
@@ -92,10 +100,11 @@
 
           <!-- Additional Subjects -->
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Additional Subjects</label>
-            <input type="text" name="subjects_additional"
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="subjectsInput">Additional Subjects</label>
+            <input type="text" name="subjects_additional" id="subjectsInput"
                    value="{{ (tutor.subjects_additional or [])|join(', ') }}"
                    placeholder="Algebra, Calculus, Statistics"
+                   aria-label="Additional subjects"
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg
                           focus:ring-2 focus:ring-blue-500">
             <p class="text-xs text-gray-400 mt-1">Comma-separated, max 10</p>
@@ -103,8 +112,8 @@
 
           <!-- Timezone -->
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
-            <select name="timezone"
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="tzSelect">Timezone</label>
+            <select name="timezone" id="tzSelect" aria-label="Timezone"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg
                            focus:ring-2 focus:ring-blue-500">
               {% for value, label in timezone_choices %}
@@ -115,10 +124,11 @@
 
           <!-- Address -->
           <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
-            <input type="text" name="address"
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="addressInput">Address</label>
+            <input type="text" name="address" id="addressInput"
                    value="{{ tutor.address or '' }}"
                    placeholder="Your location for in-person sessions"
+                   aria-label="Address"
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg
                           focus:ring-2 focus:ring-blue-500">
           </div>
@@ -133,7 +143,7 @@
 
     <!-- Right: Photo & Preview -->
     <div class="lg:col-span-1">
-      <!-- Photo Upload -->
+      <!-- Photo Upload with Crop -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
         <h2 class="text-lg font-bold text-gray-800 mb-4">
           <i class="fas fa-camera mr-2 text-blue-600"></i>Profile Photo</h2>
@@ -148,7 +158,8 @@
               <i id="photo-placeholder" class="fas fa-user text-blue-300 text-5xl"></i>
             {% endif %}
           </div>
-          <input type="file" id="photo-input" accept=".jpg,.jpeg,.png" class="hidden">
+          <input type="file" id="photo-input" accept=".jpg,.jpeg,.png" class="hidden"
+                 aria-label="Choose profile photo">
           <button type="button" onclick="document.getElementById('photo-input').click()"
                   class="text-sm text-blue-600 hover:text-blue-800 font-medium mb-2 block mx-auto">
             <i class="fas fa-upload mr-1"></i>Choose Photo</button>
@@ -192,9 +203,30 @@
     </div>
   </div>
 </div>
+
+<!-- Cropper.js Modal -->
+<div id="cropModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-xl shadow-lg p-6 max-w-md w-full mx-4">
+    <h3 class="font-bold text-gray-800 mb-3">
+      <i class="fas fa-crop-alt mr-2 text-blue-600"></i>Crop Photo</h3>
+    <div class="overflow-hidden rounded-lg" style="max-height:400px;">
+      <img id="cropImage" src="" alt="Crop preview" style="max-width:100%;">
+    </div>
+    <div class="flex space-x-2 mt-4">
+      <button type="button" id="cropConfirmBtn"
+              class="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold
+                     hover:bg-blue-700 transition text-sm">
+        <i class="fas fa-check mr-1"></i>Crop & Upload</button>
+      <button type="button" id="cropCancelBtn"
+              class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300
+                     rounded-lg hover:bg-gray-50 transition">Cancel</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.js"></script>
 <script>
 // Bio character counter
 const bioInput = document.getElementById('bio-input');
@@ -205,68 +237,117 @@ if (bioInput) {
   });
 }
 
-// Photo preview and upload
+// Cropper.js setup
+let cropper = null;
 const photoInput = document.getElementById('photo-input');
 const photoPreview = document.getElementById('photo-preview');
 const photoPlaceholder = document.getElementById('photo-placeholder');
 const uploadBtn = document.getElementById('upload-btn');
 const photoStatus = document.getElementById('photo-status');
+const cropModal = document.getElementById('cropModal');
+const cropImage = document.getElementById('cropImage');
+const cropConfirmBtn = document.getElementById('cropConfirmBtn');
+const cropCancelBtn = document.getElementById('cropCancelBtn');
 
 photoInput.addEventListener('change', function() {
   const file = this.files[0];
   if (!file) return;
   if (file.size > 2 * 1024 * 1024) {
     photoStatus.textContent = 'File too large (max 2 MB)';
-    photoStatus.classList.add('text-red-500');
+    photoStatus.className = 'text-xs text-red-500 mt-2';
     return;
   }
+
   const reader = new FileReader();
   reader.onload = function(e) {
-    photoPreview.src = e.target.result;
-    photoPreview.classList.remove('hidden');
-    if (photoPlaceholder) photoPlaceholder.classList.add('hidden');
-    uploadBtn.classList.remove('hidden');
-    photoStatus.textContent = file.name;
-    photoStatus.classList.remove('text-red-500');
+    cropImage.src = e.target.result;
+    cropModal.classList.remove('hidden');
+
+    // Destroy previous cropper instance
+    if (cropper) {
+      cropper.destroy();
+    }
+
+    // Initialize cropper after image loads
+    cropImage.onload = function() {
+      cropper = new Cropper(cropImage, {
+        aspectRatio: 1,
+        viewMode: 1,
+        dragMode: 'move',
+        autoCropArea: 0.9,
+        responsive: true,
+        restore: false,
+        guides: true,
+        center: true,
+        highlight: false,
+        cropBoxMovable: true,
+        cropBoxResizable: true,
+        toggleDragModeOnDblclick: false,
+      });
+    };
   };
   reader.readAsDataURL(file);
 });
 
-uploadBtn.addEventListener('click', function() {
-  const file = photoInput.files[0];
-  if (!file) return;
-  const fd = new FormData();
-  fd.append('photo', file);
-  uploadBtn.disabled = true;
-  uploadBtn.textContent = 'Uploading...';
+cropCancelBtn.addEventListener('click', function() {
+  cropModal.classList.add('hidden');
+  if (cropper) { cropper.destroy(); cropper = null; }
+  photoInput.value = '';
+});
 
-  const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+cropConfirmBtn.addEventListener('click', function() {
+  if (!cropper) return;
 
-  fetch('{{ url_for("tutor_bp.upload_photo") }}', {
-    method: 'POST',
-    body: fd,
-    headers: { 'X-CSRFToken': csrfToken }
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.success) {
-      photoStatus.textContent = 'Photo uploaded!';
-      photoStatus.classList.remove('text-red-500');
-      photoStatus.classList.add('text-green-600');
-      uploadBtn.classList.add('hidden');
-    } else {
-      photoStatus.textContent = data.error || 'Upload failed';
-      photoStatus.classList.add('text-red-500');
-    }
-    uploadBtn.disabled = false;
-    uploadBtn.textContent = 'Upload';
-  })
-  .catch(() => {
-    photoStatus.textContent = 'Upload failed';
-    photoStatus.classList.add('text-red-500');
-    uploadBtn.disabled = false;
-    uploadBtn.textContent = 'Upload';
+  cropConfirmBtn.disabled = true;
+  cropConfirmBtn.textContent = 'Processing...';
+
+  const canvas = cropper.getCroppedCanvas({
+    width: 400,
+    height: 400,
+    imageSmoothingEnabled: true,
+    imageSmoothingQuality: 'high',
   });
+
+  canvas.toBlob(function(blob) {
+    cropModal.classList.add('hidden');
+    if (cropper) { cropper.destroy(); cropper = null; }
+    cropConfirmBtn.disabled = false;
+    cropConfirmBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Crop & Upload';
+
+    // Show preview
+    const url = URL.createObjectURL(blob);
+    photoPreview.src = url;
+    photoPreview.classList.remove('hidden');
+    if (photoPlaceholder) photoPlaceholder.classList.add('hidden');
+
+    // Upload via AJAX
+    const fd = new FormData();
+    fd.append('photo', blob, 'profile.jpg');
+    photoStatus.textContent = 'Uploading...';
+    photoStatus.className = 'text-xs text-blue-500 mt-2';
+
+    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+    fetch('{{ url_for("tutor_bp.upload_photo") }}', {
+      method: 'POST',
+      body: fd,
+      headers: { 'X-CSRFToken': csrfToken }
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        photoStatus.textContent = 'Photo uploaded!';
+        photoStatus.className = 'text-xs text-green-600 mt-2';
+      } else {
+        photoStatus.textContent = data.error || 'Upload failed';
+        photoStatus.className = 'text-xs text-red-500 mt-2';
+      }
+    })
+    .catch(() => {
+      photoStatus.textContent = 'Upload failed';
+      photoStatus.className = 'text-xs text-red-500 mt-2';
+    });
+  }, 'image/jpeg', 0.9);
 });
 </script>
 {% endblock %}

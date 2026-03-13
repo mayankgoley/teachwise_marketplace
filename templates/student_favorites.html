@@ -11,19 +11,59 @@
       <i class="fas fa-arrow-left mr-1"></i>Back to Dashboard</a>
   </div>
 
+  <!-- Sort & Filter Bar -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+    <form method="GET" class="flex flex-wrap items-end gap-4" aria-label="Sort and filter favorites">
+      <div>
+        <label for="sort-select" class="block text-xs text-gray-500 mb-1">Sort By</label>
+        <select name="sort" id="sort-select"
+                class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm
+                       focus:ring-2 focus:ring-blue-500"
+                onchange="this.form.submit()" aria-label="Sort favorites">
+          <option value="recently_added" {{ 'selected' if current_sort == 'recently_added' }}>Recently Added</option>
+          <option value="name_asc" {{ 'selected' if current_sort == 'name_asc' }}>Name (A-Z)</option>
+          <option value="name_desc" {{ 'selected' if current_sort == 'name_desc' }}>Name (Z-A)</option>
+          <option value="rating_desc" {{ 'selected' if current_sort == 'rating_desc' }}>Rating (High to Low)</option>
+          <option value="rating_asc" {{ 'selected' if current_sort == 'rating_asc' }}>Rating (Low to High)</option>
+          <option value="price_asc" {{ 'selected' if current_sort == 'price_asc' }}>Price (Low to High)</option>
+          <option value="price_desc" {{ 'selected' if current_sort == 'price_desc' }}>Price (High to Low)</option>
+        </select>
+      </div>
+      <div>
+        <label for="category-select" class="block text-xs text-gray-500 mb-1">Subject / Category</label>
+        <select name="category" id="category-select"
+                class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm
+                       focus:ring-2 focus:ring-blue-500"
+                onchange="this.form.submit()" aria-label="Filter by subject">
+          <option value="">All Subjects</option>
+          {% for cat in categories %}
+          <option value="{{ cat }}" {{ 'selected' if current_category == cat }}>{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if current_sort != 'recently_added' or current_category %}
+      <a href="{{ url_for('student_bp.favorites_page') }}"
+         class="text-sm text-red-500 hover:text-red-700 font-medium self-end pb-1.5">
+        <i class="fas fa-times mr-1"></i>Clear Filters</a>
+      {% endif %}
+    </form>
+  </div>
+
   {% if tutors %}
   <div class="grid md:grid-cols-3 gap-6">
     {% for tutor in tutors %}
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 relative">
       <button onclick="toggleFav({{ tutor.id }}, this)"
               class="absolute top-4 right-4 text-red-500 hover:text-red-600 text-xl fav-btn"
-              data-favorited="true">
+              data-favorited="true"
+              aria-label="Remove {{ tutor.name }} from favorites">
         <i class="fas fa-heart"></i></button>
       <div class="flex items-center space-x-4 mb-4">
         <div class="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
           {% if tutor.profile_photo %}
             <img src="{{ tutor.profile_photo|photo_url }}"
-                 class="w-14 h-14 rounded-full object-cover">
+                 class="w-14 h-14 rounded-full object-cover"
+                 alt="{{ tutor.name }}">
           {% else %}
             <i class="fas fa-user text-blue-600 text-xl"></i>
           {% endif %}
@@ -51,7 +91,11 @@
   {% else %}
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
       <i class="far fa-heart text-gray-200 text-6xl mb-4"></i>
-      <p class="text-gray-400">No favorite tutors yet. Browse tutors and click the heart icon to save them!</p>
+      {% if current_category %}
+        <p class="text-gray-400">No favorite tutors in "{{ current_category }}". Try a different filter.</p>
+      {% else %}
+        <p class="text-gray-400">No favorite tutors yet. Browse tutors and click the heart icon to save them!</p>
+      {% endif %}
       <a href="{{ url_for('search_bp.search_page') }}"
          class="inline-block mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold
                 hover:bg-blue-700 transition">Find Tutors</a>
@@ -63,10 +107,10 @@
 {% block extra_js %}
 <script>
 function toggleFav(tutorId, btn) {
-  fetch(`/student/favorite/${tutorId}`, {
+  fetch('/student/favorite/' + tutorId, {
     method: 'POST',
     headers: {'X-CSRFToken': '{{ csrf_token() }}'}
-  }).then(r=>r.json()).then(d => {
+  }).then(function(r) { return r.json(); }).then(function(d) {
     if (!d.is_favorited) {
       btn.closest('.bg-white').remove();
     }

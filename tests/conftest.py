@@ -99,6 +99,19 @@ def sample_slot(db_session, tutor_user):
 
 
 @pytest.fixture
+def guardian_user(db_session):
+    from models.guardian import Guardian
+    guardian = Guardian(
+        name='Test Guardian',
+        email='guardian@test.com',
+        password=generate_password_hash('TestPass123!@#'),
+    )
+    db_session.session.add(guardian)
+    db_session.session.commit()
+    return guardian
+
+
+@pytest.fixture
 def booked_slot(db_session, student_user, tutor_user, sample_slot):
     from models.booking import Booking
     sample_slot.status = 'booked'

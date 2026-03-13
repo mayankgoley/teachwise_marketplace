@@ -9,17 +9,17 @@
       <h1 class="text-2xl font-bold text-gray-800 mb-6">
         <i class="fas fa-users mr-2 text-blue-600"></i>User Management</h1>
 
-      <!-- Filters -->
+      <!-- Search & Filters -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
         <form class="flex items-center space-x-4">
           <input type="text" name="q" value="{{ search }}" placeholder="Search by name or email..."
-                 class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm">
+                 class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
           <select name="type" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
             <option value="all" {% if user_type == 'all' %}selected{% endif %}>All Users</option>
             <option value="student" {% if user_type == 'student' %}selected{% endif %}>Students</option>
             <option value="tutor" {% if user_type == 'tutor' %}selected{% endif %}>Tutors</option>
           </select>
-          <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+          <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
             <i class="fas fa-search mr-1"></i>Search</button>
         </form>
       </div>
@@ -27,69 +27,117 @@
       <!-- Students Table -->
       {% if students %}
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-        <h2 class="font-bold text-gray-800 mb-3">Students ({{ students|length }})</h2>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b border-gray-200">
-                <th class="text-left py-2 px-2 text-gray-600">ID</th>
-                <th class="text-left py-2 px-2 text-gray-600">Name</th>
-                <th class="text-left py-2 px-2 text-gray-600">Email</th>
-                <th class="text-left py-2 px-2 text-gray-600">Joined</th>
-                <th class="text-left py-2 px-2 text-gray-600">Bookings</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for s in students %}
-              <tr class="border-b border-gray-100 hover:bg-gray-50">
-                <td class="py-2 px-2">{{ s.id }}</td>
-                <td class="py-2 px-2 font-medium">{{ s.name }}</td>
-                <td class="py-2 px-2 text-gray-500">{{ s.email }}</td>
-                <td class="py-2 px-2 text-gray-500">{{ s.created_at.strftime('%b %d, %Y') if s.created_at else '' }}</td>
-                <td class="py-2 px-2">{{ s.bookings|length }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="font-bold text-gray-800">Students ({{ students|length }})</h2>
         </div>
+        <form method="POST" action="{{ url_for('admin_bp.bulk_user_action') }}" id="studentBulkForm">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="target_type" value="student">
+
+          <!-- Bulk Actions -->
+          <div class="flex items-center space-x-3 mb-4">
+            <select name="action" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+              <option value="">-- Bulk Action --</option>
+              <option value="reset_password">Reset Password</option>
+            </select>
+            <button type="submit" class="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition"
+                    onclick="return confirm('Apply bulk action to selected students?')">
+              <i class="fas fa-bolt mr-1"></i>Apply</button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-200">
+                  <th class="text-left py-2 px-2">
+                    <input type="checkbox" id="selectAllStudents" class="rounded border-gray-300"
+                           onchange="toggleCheckboxes('studentCheckbox', this.checked)"></th>
+                  <th class="text-left py-2 px-2 text-gray-600">ID</th>
+                  <th class="text-left py-2 px-2 text-gray-600">Name</th>
+                  <th class="text-left py-2 px-2 text-gray-600">Email</th>
+                  <th class="text-left py-2 px-2 text-gray-600">Joined</th>
+                  <th class="text-left py-2 px-2 text-gray-600">Bookings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for s in students %}
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                  <td class="py-2 px-2">
+                    <input type="checkbox" name="user_ids" value="{{ s.id }}" class="studentCheckbox rounded border-gray-300"></td>
+                  <td class="py-2 px-2">{{ s.id }}</td>
+                  <td class="py-2 px-2 font-medium">{{ s.name }}</td>
+                  <td class="py-2 px-2 text-gray-500">{{ s.email }}</td>
+                  <td class="py-2 px-2 text-gray-500">{{ s.created_at.strftime('%b %d, %Y') if s.created_at else '' }}</td>
+                  <td class="py-2 px-2">{{ s.bookings|length }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </form>
       </div>
       {% endif %}
 
       <!-- Tutors Table -->
       {% if tutors %}
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 class="font-bold text-gray-800 mb-3">Tutors ({{ tutors|length }})</h2>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b border-gray-200">
-                <th class="text-left py-2 px-2 text-gray-600">ID</th>
-                <th class="text-left py-2 px-2 text-gray-600">Name</th>
-                <th class="text-left py-2 px-2 text-gray-600">Email</th>
-                <th class="text-left py-2 px-2 text-gray-600">Subject</th>
-                <th class="text-left py-2 px-2 text-gray-600">Status</th>
-                <th class="text-left py-2 px-2 text-gray-600">Rating</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for t in tutors %}
-              <tr class="border-b border-gray-100 hover:bg-gray-50">
-                <td class="py-2 px-2">{{ t.id }}</td>
-                <td class="py-2 px-2 font-medium">{{ t.name }}</td>
-                <td class="py-2 px-2 text-gray-500">{{ t.email }}</td>
-                <td class="py-2 px-2">{{ t.subject }}</td>
-                <td class="py-2 px-2">
-                  <span class="px-2 py-0.5 text-xs rounded-full
-                    {% if t.verification_status == 'verified' %}bg-green-100 text-green-700
-                    {% elif t.verification_status == 'rejected' %}bg-red-100 text-red-700
-                    {% else %}bg-yellow-100 text-yellow-700{% endif %}">
-                    {{ t.verification_status }}</span></td>
-                <td class="py-2 px-2">{{ '%.1f'|format(t.average_rating) }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="font-bold text-gray-800">Tutors ({{ tutors|length }})</h2>
         </div>
+        <form method="POST" action="{{ url_for('admin_bp.bulk_user_action') }}" id="tutorBulkForm">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="target_type" value="tutor">
+
+          <!-- Bulk Actions -->
+          <div class="flex items-center space-x-3 mb-4">
+            <select name="action" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+              <option value="">-- Bulk Action --</option>
+              <option value="verify">Verify Selected</option>
+              <option value="suspend">Suspend Selected</option>
+              <option value="reset_password">Reset Password</option>
+            </select>
+            <button type="submit" class="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition"
+                    onclick="return confirm('Apply bulk action to selected tutors?')">
+              <i class="fas fa-bolt mr-1"></i>Apply</button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-200">
+                  <th class="text-left py-2 px-2">
+                    <input type="checkbox" id="selectAllTutors" class="rounded border-gray-300"
+                           onchange="toggleCheckboxes('tutorCheckbox', this.checked)"></th>
+                  <th class="text-left py-2 px-2 text-gray-600">ID</th>
+                  <th class="text-left py-2 px-2 text-gray-600">Name</th>
+                  <th class="text-left py-2 px-2 text-gray-600">Email</th>
+                  <th class="text-left py-2 px-2 text-gray-600">Subject</th>
+                  <th class="text-left py-2 px-2 text-gray-600">Status</th>
+                  <th class="text-left py-2 px-2 text-gray-600">Rating</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for t in tutors %}
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                  <td class="py-2 px-2">
+                    <input type="checkbox" name="user_ids" value="{{ t.id }}" class="tutorCheckbox rounded border-gray-300"></td>
+                  <td class="py-2 px-2">{{ t.id }}</td>
+                  <td class="py-2 px-2 font-medium">{{ t.name }}</td>
+                  <td class="py-2 px-2 text-gray-500">{{ t.email }}</td>
+                  <td class="py-2 px-2">{{ t.subject }}</td>
+                  <td class="py-2 px-2">
+                    <span class="px-2 py-0.5 text-xs rounded-full
+                      {% if t.verification_status == 'verified' %}bg-green-100 text-green-700
+                      {% elif t.verification_status == 'rejected' %}bg-red-100 text-red-700
+                      {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                      {{ t.verification_status }}</span></td>
+                  <td class="py-2 px-2">{{ '%.1f'|format(t.average_rating) }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </form>
       </div>
       {% endif %}
 
@@ -99,4 +147,14 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleCheckboxes(className, checked) {
+  document.querySelectorAll('.' + className).forEach(function(cb) {
+    cb.checked = checked;
+  });
+}
+</script>
 {% endblock %}

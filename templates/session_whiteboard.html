@@ -3,16 +3,31 @@
 
 {% block extra_head %}
 <style>
-  #wb-container { position: relative; background: #fff; border-radius: 0.75rem; overflow: hidden; }
+  #wb-container { position: relative; background: #fff; border-radius: 0 0 0.75rem 0.75rem; overflow: hidden; }
   .wb-toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; }
   .wb-btn { padding: 0.375rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem;
-            cursor: pointer; border: 1px solid #e5e7eb; background: #fff; transition: all 0.15s; }
+            cursor: pointer; border: 1px solid #e5e7eb; background: #fff; transition: all 0.15s;
+            position: relative; }
   .wb-btn:hover { background: #f3f4f6; }
   .wb-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+  .wb-btn[title]:hover::after {
+    content: attr(title); position: absolute; bottom: calc(100% + 6px); left: 50%;
+    transform: translateX(-50%); background: #1f2937; color: #fff; padding: 4px 8px;
+    border-radius: 4px; font-size: 11px; white-space: nowrap; z-index: 10;
+    pointer-events: none;
+  }
   .color-swatch { width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
-                  border: 2px solid transparent; transition: border-color 0.15s; }
-  .color-swatch.active { border-color: #1f2937; }
+                  border: 2px solid transparent; transition: all 0.15s; flex-shrink: 0; }
+  .color-swatch.active { border-color: #1f2937; transform: scale(1.15); }
+  .color-swatch:hover { transform: scale(1.1); }
   #previous-panel { max-height: 300px; overflow-y: auto; }
+  .thumb-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .thumb-item { border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; cursor: pointer;
+                transition: all 0.15s; aspect-ratio: 16/10; background: #f9fafb; }
+  .thumb-item:hover { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.3); }
+  .thumb-item img { width: 100%; height: 100%; object-fit: cover; }
+  .stroke-preview { display: flex; align-items: center; gap: 6px; }
+  .stroke-dot { border-radius: 50%; background: currentColor; }
 </style>
 {% endblock %}
 
@@ -27,12 +42,16 @@
         {{ tutor.name }} &bull; {{ slot.date.strftime('%B %d, %Y') }}</p>
     </div>
     <div class="flex items-center space-x-3">
+      <span id="saveStatus" class="text-xs text-gray-400"></span>
+      <button onclick="undoAction()" class="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition" title="Undo (Ctrl+Z)">
+        <i class="fas fa-undo"></i></button>
+      <button onclick="redoAction()" class="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition" title="Redo (Ctrl+Y)">
+        <i class="fas fa-redo"></i></button>
+      <button onclick="saveSnapshot()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition" title="Save Snapshot (Ctrl+S)">
+        <i class="fas fa-camera mr-1"></i>Snapshot</button>
       <a href="{{ url_for('session_bp.join_session', slot_id=slot.id) }}"
          class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition">
         <i class="fas fa-video mr-1"></i>Back to Video</a>
-      <button onclick="saveSnapshot()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition">
-        <i class="fas fa-camera mr-1"></i>Save Snapshot</button>
-      <span id="saveStatus" class="text-xs text-gray-400"></span>
     </div>
   </div>
 
@@ -41,55 +60,94 @@
     <div class="lg:col-span-3">
       <!-- Toolbar -->
       <div class="bg-white rounded-t-xl border border-gray-200 border-b-0 p-3">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between flex-wrap gap-2">
           <div class="wb-toolbar">
-            <button class="wb-btn active" data-tool="pencil" onclick="setTool('pencil', this)">
+            <button class="wb-btn active" data-tool="pencil" onclick="setTool('pencil', this)" title="Pen (P)">
               <i class="fas fa-pencil-alt mr-1"></i>Pen</button>
-            <button class="wb-btn" data-tool="line" onclick="setTool('line', this)">
+            <button class="wb-btn" data-tool="line" onclick="setTool('line', this)" title="Line (L)">
               <i class="fas fa-minus mr-1"></i>Line</button>
-            <button class="wb-btn" data-tool="rect" onclick="setTool('rect', this)">
+            <button class="wb-btn" data-tool="rect" onclick="setTool('rect', this)" title="Rectangle (R)">
               <i class="fas fa-square mr-1"></i>Rect</button>
-            <button class="wb-btn" data-tool="circle" onclick="setTool('circle', this)">
+            <button class="wb-btn" data-tool="circle" onclick="setTool('circle', this)" title="Circle (O)">
               <i class="fas fa-circle mr-1"></i>Circle</button>
-            <button class="wb-btn" data-tool="text" onclick="setTool('text', this)">
+            <button class="wb-btn" data-tool="text" onclick="setTool('text', this)" title="Text (T)">
               <i class="fas fa-font mr-1"></i>Text</button>
-            <button class="wb-btn" data-tool="eraser" onclick="setTool('eraser', this)">
+            <button class="wb-btn" data-tool="eraser" onclick="setTool('eraser', this)" title="Eraser (E)">
               <i class="fas fa-eraser mr-1"></i>Eraser</button>
-            <button class="wb-btn" data-tool="select" onclick="setTool('select', this)">
+            <button class="wb-btn" data-tool="select" onclick="setTool('select', this)" title="Select (V)">
               <i class="fas fa-mouse-pointer mr-1"></i>Select</button>
           </div>
-          <div class="flex items-center space-x-3">
-            <!-- Colors -->
+          <div class="flex items-center space-x-3 flex-wrap gap-y-2">
+            <!-- Expanded Color Picker (12 + custom) -->
             <div class="flex items-center space-x-1">
-              {% for c in ['#000000','#ef4444','#3b82f6','#22c55e','#eab308','#8b5cf6','#f97316'] %}
+              {% set wb_colors = ['#000000','#ef4444','#3b82f6','#22c55e','#eab308','#8b5cf6','#f97316','#ec4899','#14b8a6','#6366f1','#78716c','#ffffff'] %}
+              {% for c in wb_colors %}
               <div class="color-swatch {% if loop.first %}active{% endif %}"
-                   style="background:{{ c }}" data-color="{{ c }}"
+                   style="background:{{ c }}{% if c == '#ffffff' %};box-shadow:inset 0 0 0 1px #d1d5db{% endif %}"
+                   data-color="{{ c }}"
                    onclick="setColor('{{ c }}', this)"></div>
               {% endfor %}
+              <input type="color" id="customColor" value="#000000"
+                     onchange="setColor(this.value, null)"
+                     class="w-6 h-6 rounded-full cursor-pointer border border-gray-300"
+                     title="Custom color">
             </div>
-            <!-- Stroke width -->
-            <select id="strokeWidth" onchange="setStrokeWidth(this.value)"
-                    class="border border-gray-300 rounded px-2 py-1 text-xs">
-              <option value="2">Thin</option>
-              <option value="4" selected>Medium</option>
-              <option value="8">Thick</option>
-              <option value="16">Extra</option>
-            </select>
+
+            <!-- Stroke Width Selection -->
+            <div class="stroke-preview flex items-center space-x-2 border border-gray-200 rounded-lg px-2 py-1">
+              {% set widths = [1, 2, 4, 8, 12, 16] %}
+              {% set width_labels = ['1px', '2px', '4px', '8px', '12px', '16px'] %}
+              {% for w in widths %}
+              <button onclick="setStrokeWidth({{ w }})"
+                      class="stroke-width-btn rounded p-1 hover:bg-gray-100 {% if w == 4 %}bg-gray-200{% endif %}"
+                      data-width="{{ w }}" title="{{ width_labels[loop.index0] }}">
+                <div class="stroke-dot" style="width:{{ w }}px;height:{{ w }}px;"></div>
+              </button>
+              {% endfor %}
+            </div>
+
             <!-- Clear -->
-            <button onclick="clearCanvas()" class="wb-btn text-red-600">
+            <button onclick="clearCanvas()" class="wb-btn text-red-600" title="Clear All (Del)">
               <i class="fas fa-trash mr-1"></i>Clear</button>
           </div>
         </div>
       </div>
 
-      <!-- Canvas (responsive) -->
+      <!-- Canvas -->
       <div id="wb-container" class="border border-gray-200 overflow-auto" style="max-width:100%;">
         <canvas id="whiteboard" width="1200" height="700"></canvas>
       </div>
     </div>
 
-    <!-- Sidebar: Previous Whiteboards -->
-    <div>
+    <!-- Sidebar -->
+    <div class="space-y-4">
+      <!-- Thumbnail Previews -->
+      <div class="bg-white rounded-xl border border-gray-200 p-4">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">
+          <i class="fas fa-camera mr-1"></i>Snapshots</h3>
+        <div id="snapshots-panel">
+          {% if wb.snapshots %}
+          <div class="thumb-grid">
+            {% for s in wb.snapshots %}
+            <div class="thumb-item" title="{{ s.name }}">
+              {% if wb.thumbnail %}
+              <img src="{{ wb.thumbnail }}" alt="Snapshot">
+              {% else %}
+              <div class="flex items-center justify-center h-full text-gray-300">
+                <i class="fas fa-image text-2xl"></i>
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          <p class="text-xs text-gray-400 mt-2 text-center">{{ wb.snapshots|length }} snapshot{{ 's' if wb.snapshots|length != 1 else '' }}</p>
+          {% else %}
+          <p class="text-xs text-gray-400" id="noSnapshots">No snapshots yet. Use the camera button to save.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Previous Whiteboards -->
       <div class="bg-white rounded-xl border border-gray-200 p-4">
         <h3 class="text-sm font-bold text-gray-700 mb-3">
           <i class="fas fa-history mr-1"></i>Previous Whiteboards</h3>
@@ -97,10 +155,14 @@
           {% if previous %}
           {% for pw in previous %}
           <button onclick="loadPrevious({{ pw.id }})"
-                  class="w-full text-left p-2 rounded hover:bg-gray-50 text-xs text-gray-600 border-b border-gray-100">
-            <i class="fas fa-chalkboard mr-1"></i>
-            Session {{ pw.slot_id }} &bull;
-            {{ pw.updated_at.strftime('%b %d, %Y') }}
+                  class="w-full text-left p-2 rounded hover:bg-gray-50 text-xs text-gray-600 border-b border-gray-100 flex items-center space-x-2">
+            {% if pw.thumbnail %}
+            <img src="{{ pw.thumbnail }}" class="w-10 h-6 rounded object-cover border border-gray-200 flex-shrink-0">
+            {% else %}
+            <div class="w-10 h-6 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+              <i class="fas fa-chalkboard text-gray-300 text-xs"></i></div>
+            {% endif %}
+            <span>Session {{ pw.slot_id }} &bull; {{ pw.updated_at.strftime('%b %d, %Y') }}</span>
           </button>
           {% endfor %}
           {% else %}
@@ -109,20 +171,15 @@
         </div>
       </div>
 
-      <div class="bg-white rounded-xl border border-gray-200 p-4 mt-4">
-        <h3 class="text-sm font-bold text-gray-700 mb-3">
-          <i class="fas fa-camera mr-1"></i>Snapshots</h3>
-        <div id="snapshots-panel">
-          {% if wb.snapshots %}
-          {% for s in wb.snapshots %}
-          <p class="text-xs text-gray-500 mb-1">
-            <i class="fas fa-image mr-1"></i>{{ s.name }}
-            <span class="text-gray-400">{{ s.created_at[:10] }}</span>
-          </p>
-          {% endfor %}
-          {% else %}
-          <p class="text-xs text-gray-400" id="noSnapshots">No snapshots yet</p>
-          {% endif %}
+      <!-- Keyboard Shortcuts -->
+      <div class="bg-gray-50 rounded-xl border border-gray-200 p-4">
+        <h3 class="text-sm font-bold text-gray-700 mb-2">
+          <i class="fas fa-keyboard mr-1"></i>Shortcuts</h3>
+        <div class="text-xs text-gray-500 space-y-1">
+          <div class="flex justify-between"><span>Undo</span><kbd class="bg-gray-200 px-1.5 rounded text-gray-600">Ctrl+Z</kbd></div>
+          <div class="flex justify-between"><span>Redo</span><kbd class="bg-gray-200 px-1.5 rounded text-gray-600">Ctrl+Y</kbd></div>
+          <div class="flex justify-between"><span>Save</span><kbd class="bg-gray-200 px-1.5 rounded text-gray-600">Ctrl+S</kbd></div>
+          <div class="flex justify-between"><span>Delete</span><kbd class="bg-gray-200 px-1.5 rounded text-gray-600">Del</kbd></div>
         </div>
       </div>
     </div>
@@ -131,7 +188,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/fabric.min.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/socket.io-client@4/dist/socket.io.min.js"></script>
 <script>
 const SLOT_ID = {{ slot.id }};
 const CSRF = '{{ csrf_token() }}';
@@ -140,7 +198,12 @@ let currentColor = '#000000';
 let strokeWidth = 4;
 let canvas;
 
-// Initialize Fabric.js canvas
+// Undo/Redo stacks (50-state)
+const MAX_HISTORY = 50;
+let undoStack = [];
+let redoStack = [];
+let skipHistorySave = false;
+
 document.addEventListener('DOMContentLoaded', function() {
   canvas = new fabric.Canvas('whiteboard', {
     isDrawingMode: true,
@@ -154,35 +217,151 @@ document.addEventListener('DOMContentLoaded', function() {
     .then(r => r.json())
     .then(d => {
       if (d.state) {
+        skipHistorySave = true;
         canvas.loadFromJSON(d.state, function() {
           canvas.renderAll();
+          skipHistorySave = false;
+          saveHistory();
+        });
+      } else {
+        saveHistory();
+      }
+    }).catch(() => { saveHistory(); });
+
+  // Track changes for undo/redo
+  canvas.on('object:modified', () => { saveHistory(); scheduleAutoSave(); });
+  canvas.on('path:created', () => { saveHistory(); scheduleAutoSave(); });
+  canvas.on('object:added', () => {
+    if (!skipHistorySave) { saveHistory(); }
+  });
+
+  // Auto-save: 5s debounce + 15s periodic
+  setInterval(autoSave, 15000);
+
+  // Socket.IO for real-time collaboration
+  try {
+    const socket = io({ transports: ['websocket', 'polling'] });
+    socket.on('connect', () => {
+      socket.emit('join_whiteboard', { slot_id: SLOT_ID });
+    });
+    socket.on('whiteboard_draw', (data) => {
+      if (data.state) {
+        skipHistorySave = true;
+        canvas.loadFromJSON(data.state, () => {
+          canvas.renderAll();
+          skipHistorySave = false;
         });
       }
-    }).catch(() => {});
+    });
+    socket.on('whiteboard_clear', () => {
+      skipHistorySave = true;
+      canvas.clear();
+      canvas.backgroundColor = '#ffffff';
+      canvas.renderAll();
+      skipHistorySave = false;
+      saveHistory();
+    });
+    socket.on('whiteboard_undo', (data) => {
+      if (data.state) {
+        skipHistorySave = true;
+        canvas.loadFromJSON(data.state, () => {
+          canvas.renderAll();
+          skipHistorySave = false;
+        });
+      }
+    });
+    window._wbSocket = socket;
+  } catch(e) {}
 
-  // Auto-save every 10 seconds
-  setInterval(autoSave, 10000);
-
-  // Save on changes
-  canvas.on('object:modified', scheduleAutoSave);
-  canvas.on('path:created', scheduleAutoSave);
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'z') { e.preventDefault(); undoAction(); }
+      else if (e.key === 'y') { e.preventDefault(); redoAction(); }
+      else if (e.key === 's') { e.preventDefault(); autoSave(); }
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      const active = canvas.getActiveObject();
+      if (active) { canvas.remove(active); saveHistory(); }
+    }
+    // Tool shortcuts
+    if (!e.ctrlKey && !e.metaKey) {
+      switch(e.key.toLowerCase()) {
+        case 'p': setToolByName('pencil'); break;
+        case 'l': setToolByName('line'); break;
+        case 'r': setToolByName('rect'); break;
+        case 'o': setToolByName('circle'); break;
+        case 't': setToolByName('text'); break;
+        case 'e': setToolByName('eraser'); break;
+        case 'v': setToolByName('select'); break;
+      }
+    }
+  });
 });
+
+function setToolByName(name) {
+  const btn = document.querySelector(`[data-tool="${name}"]`);
+  if (btn) setTool(name, btn);
+}
+
+// History management
+function saveHistory() {
+  if (skipHistorySave) return;
+  const state = JSON.stringify(canvas.toJSON());
+  undoStack.push(state);
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  redoStack = [];
+}
+
+function undoAction() {
+  if (undoStack.length <= 1) return;
+  const current = undoStack.pop();
+  redoStack.push(current);
+  const prev = undoStack[undoStack.length - 1];
+  skipHistorySave = true;
+  canvas.loadFromJSON(prev, () => {
+    canvas.renderAll();
+    skipHistorySave = false;
+    scheduleAutoSave();
+    if (window._wbSocket) {
+      window._wbSocket.emit('whiteboard_undo', { slot_id: SLOT_ID, state: prev });
+    }
+  });
+}
+
+function redoAction() {
+  if (redoStack.length === 0) return;
+  const next = redoStack.pop();
+  undoStack.push(next);
+  skipHistorySave = true;
+  canvas.loadFromJSON(next, () => {
+    canvas.renderAll();
+    skipHistorySave = false;
+    scheduleAutoSave();
+  });
+}
 
 let saveTimeout;
 function scheduleAutoSave() {
   clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(autoSave, 3000);
+  saveTimeout = setTimeout(autoSave, 5000);
 }
 
 function autoSave() {
   const state = JSON.stringify(canvas.toJSON());
+  const thumbnail = canvas.toDataURL({ format: 'png', quality: 0.3, multiplier: 0.2 });
   document.getElementById('saveStatus').textContent = 'Saving...';
   fetch(`/api/whiteboard/${SLOT_ID}/save`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-    body: JSON.stringify({state: state})
+    body: JSON.stringify({ state: state, thumbnail: thumbnail })
   }).then(r => r.json()).then(d => {
     if (d.ok) document.getElementById('saveStatus').textContent = 'Saved';
+    // Broadcast to other user
+    if (window._wbSocket) {
+      window._wbSocket.emit('whiteboard_draw', { slot_id: SLOT_ID, state: state });
+    }
   }).catch(() => {
     document.getElementById('saveStatus').textContent = 'Save failed';
   });
@@ -191,7 +370,7 @@ function autoSave() {
 function setTool(tool, btn) {
   currentTool = tool;
   document.querySelectorAll('.wb-btn[data-tool]').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
 
   canvas.isDrawingMode = false;
   canvas.selection = false;
@@ -240,21 +419,17 @@ function setupShapeTool(tool) {
     if (!shapeStart || currentTool !== tool) return;
     const pointer = canvas.getPointer(opt.e);
     if (tempShape) canvas.remove(tempShape);
-
     const props = {stroke: currentColor, strokeWidth: strokeWidth, fill: 'transparent'};
     if (tool === 'rect') {
       tempShape = new fabric.Rect({
-        left: Math.min(shapeStart.x, pointer.x),
-        top: Math.min(shapeStart.y, pointer.y),
-        width: Math.abs(pointer.x - shapeStart.x),
-        height: Math.abs(pointer.y - shapeStart.y), ...props
+        left: Math.min(shapeStart.x, pointer.x), top: Math.min(shapeStart.y, pointer.y),
+        width: Math.abs(pointer.x - shapeStart.x), height: Math.abs(pointer.y - shapeStart.y), ...props
       });
     } else if (tool === 'circle') {
       const rx = Math.abs(pointer.x - shapeStart.x) / 2;
       const ry = Math.abs(pointer.y - shapeStart.y) / 2;
       tempShape = new fabric.Ellipse({
-        left: Math.min(shapeStart.x, pointer.x),
-        top: Math.min(shapeStart.y, pointer.y),
+        left: Math.min(shapeStart.x, pointer.x), top: Math.min(shapeStart.y, pointer.y),
         rx: rx, ry: ry, ...props
       });
     } else if (tool === 'line') {
@@ -269,21 +444,24 @@ function setupShapeTool(tool) {
     if (currentTool !== tool) return;
     shapeStart = null;
     tempShape = null;
-    scheduleAutoSave();
   });
 }
 
 function setColor(color, el) {
   currentColor = color;
   document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
-  el.classList.add('active');
+  if (el) el.classList.add('active');
   if (canvas.isDrawingMode && currentTool !== 'eraser') {
     canvas.freeDrawingBrush.color = color;
   }
+  document.getElementById('customColor').value = color;
 }
 
 function setStrokeWidth(val) {
   strokeWidth = parseInt(val);
+  document.querySelectorAll('.stroke-width-btn').forEach(b => {
+    b.classList.toggle('bg-gray-200', parseInt(b.dataset.width) === strokeWidth);
+  });
   if (canvas.isDrawingMode) {
     canvas.freeDrawingBrush.width = currentTool === 'eraser' ? strokeWidth * 4 : strokeWidth;
   }
@@ -294,7 +472,11 @@ function clearCanvas() {
   canvas.clear();
   canvas.backgroundColor = '#ffffff';
   canvas.renderAll();
+  saveHistory();
   autoSave();
+  if (window._wbSocket) {
+    window._wbSocket.emit('whiteboard_clear', { slot_id: SLOT_ID });
+  }
 }
 
 function saveSnapshot() {
@@ -308,9 +490,7 @@ function saveSnapshot() {
       document.getElementById('saveStatus').textContent = `Snapshot saved (${d.count})`;
       const noEl = document.getElementById('noSnapshots');
       if (noEl) noEl.remove();
-    } else {
-      alert(d.error || 'Failed to save snapshot');
-    }
+    } else { alert(d.error || 'Failed to save snapshot'); }
   }).catch(() => alert('Failed to save snapshot'));
 }
 
@@ -320,7 +500,12 @@ function loadPrevious(wbId) {
     .then(r => r.json())
     .then(d => {
       if (d.state) {
-        canvas.loadFromJSON(d.state, function() { canvas.renderAll(); });
+        skipHistorySave = true;
+        canvas.loadFromJSON(d.state, function() {
+          canvas.renderAll();
+          skipHistorySave = false;
+          saveHistory();
+        });
         document.getElementById('saveStatus').textContent = 'Loaded previous';
       }
     });

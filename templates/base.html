@@ -15,13 +15,32 @@
   <!-- Custom CSS -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <meta name="csrf-token" content="{{ csrf_token() }}">
+  <!-- Dark mode: apply saved preference before paint to avoid flash -->
+  <script>
+    (function(){
+      try {
+        if(localStorage.getItem('tw-dark-mode')==='true'){
+          document.documentElement.classList.add('dark');
+        }
+      } catch(e){}
+    })();
+  </script>
   {% block extra_head %}{% endblock %}
 </head>
 
 <body class="bg-gray-50 text-gray-800" style="font-family:'Inter',sans-serif;">
 
+  <!-- B7: Skip-to-content link (visible only on focus) -->
+  <a href="#main-content"
+     class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-blue-600 focus:text-white focus:px-4 focus:py-2 focus:rounded focus:shadow-lg focus:text-sm focus:font-medium">
+    Skip to main content
+  </a>
+
+  <!-- ARIA live region for screen reader announcements -->
+  <div id="tw-live-region" aria-live="polite" class="sr-only"></div>
+
   <!-- =============== NAVBAR =============== -->
-  <nav class="bg-white shadow-sm sticky top-0 z-50">
+  <nav class="bg-white shadow-sm sticky top-0 z-50" aria-label="Main navigation">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         <!-- Logo -->
@@ -61,6 +80,10 @@
                 <div id="notifList" class="notif-list"></div>
               </div>
             </div>
+            <!-- Dark mode toggle -->
+            <button id="darkModeToggle" class="text-gray-500 hover:text-blue-600" title="Toggle dark mode" aria-label="Toggle dark mode">
+              <i class="fas fa-moon text-lg"></i>
+            </button>
             <a href="{{ url_for('tutor_bp.logout') }}"
                class="text-gray-500 hover:text-red-500" title="Logout">
               <i class="fas fa-sign-out-alt text-lg"></i></a>
@@ -68,6 +91,24 @@
             <!-- Guardian logged in -->
             <a href="{{ url_for('guardian_bp.guardian_dashboard') }}"
                class="text-gray-600 hover:text-purple-600 font-medium">Dashboard</a>
+            <a href="{{ url_for('guardian_bp.guardian_messages') }}"
+               class="text-gray-600 hover:text-purple-600 font-medium relative" id="chatNavGuardian">
+              <i class="fas fa-comments"></i>
+              <span id="chatBadgeGuardian" class="hidden absolute -top-1 -right-2 bg-red-500 text-white text-xs
+                    rounded-full w-4 h-4 flex items-center justify-center">{{ sidebar_unread_msgs or '' }}</span></a>
+            <!-- Guardian notification bell -->
+            <div class="relative" id="notifWrapperGuardian">
+              <button id="notifBellGuardian" class="text-gray-500 hover:text-purple-600 relative" title="Notifications">
+                <i class="fas fa-bell text-lg"></i>
+                {% if sidebar_unread_msgs %}
+                <span class="absolute -top-1 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center notif-badge-pulse">{{ sidebar_unread_msgs }}</span>
+                {% endif %}
+              </button>
+            </div>
+            <!-- Dark mode toggle -->
+            <button id="darkModeToggle" class="text-gray-500 hover:text-purple-600" title="Toggle dark mode" aria-label="Toggle dark mode">
+              <i class="fas fa-moon text-lg"></i>
+            </button>
             <a href="{{ url_for('guardian_bp.guardian_logout') }}"
                class="text-gray-500 hover:text-red-500" title="Logout">
               <i class="fas fa-sign-out-alt text-lg"></i></a>
@@ -89,6 +130,10 @@
                 <div id="notifList" class="notif-list"></div>
               </div>
             </div>
+            <!-- Dark mode toggle -->
+            <button id="darkModeToggle" class="text-gray-500 hover:text-blue-600" title="Toggle dark mode" aria-label="Toggle dark mode">
+              <i class="fas fa-moon text-lg"></i>
+            </button>
             <a href="{{ url_for('admin_bp.admin_logout') }}"
                class="text-gray-500 hover:text-red-500" title="Logout">
               <i class="fas fa-sign-out-alt text-lg"></i></a>
@@ -104,6 +149,10 @@
             <a href="{{ url_for('notif_center_bp.notification_center') }}"
                class="text-gray-600 hover:text-blue-600 font-medium" title="Notifications">
               <i class="fas fa-bell"></i></a>
+            <!-- Dark mode toggle -->
+            <button id="darkModeToggle" class="text-gray-500 hover:text-blue-600" title="Toggle dark mode" aria-label="Toggle dark mode">
+              <i class="fas fa-moon text-lg"></i>
+            </button>
             <a href="{{ url_for('student_bp.logout_student') }}"
                class="text-gray-500 hover:text-red-500" title="Logout">
               <i class="fas fa-sign-out-alt text-lg"></i></a>
@@ -134,6 +183,10 @@
                   <i class="fas fa-user-shield mr-2 text-purple-400"></i>Guardian Login</a>
               </div>
             </div>
+            <!-- Dark mode toggle -->
+            <button id="darkModeToggle" class="text-gray-500 hover:text-blue-600" title="Toggle dark mode" aria-label="Toggle dark mode">
+              <i class="fas fa-moon text-lg"></i>
+            </button>
             <!-- Notification bell (links to login) -->
             <a href="{{ url_for('student_bp.login_student') }}"
                class="text-gray-500 hover:text-blue-600" title="Login to see notifications">
@@ -145,10 +198,21 @@
           {% endif %}
         </div>
 
-        <!-- Mobile menu button -->
-        <button id="mobileMenuBtn"
-                class="md:hidden text-gray-500 hover:text-blue-600">
-          <i class="fas fa-bars text-xl"></i></button>
+        <!-- Mobile menu button & sidebar toggle -->
+        <div class="flex items-center space-x-2 md:hidden">
+          {% if current_user.is_authenticated and current_user.user_type in ['student', 'tutor', 'guardian'] %}
+          <button id="mobileSidebarBtn"
+                  class="text-gray-500 hover:text-blue-600 p-1"
+                  onclick="twToggleSidebar()"
+                  aria-label="Toggle sidebar menu">
+            <i class="fas fa-columns text-lg"></i>
+          </button>
+          {% endif %}
+          <button id="mobileMenuBtn"
+                  class="text-gray-500 hover:text-blue-600"
+                  aria-label="Toggle navigation menu">
+            <i class="fas fa-bars text-xl"></i></button>
+        </div>
       </div>
     </div>
 
@@ -160,6 +224,8 @@
       {% endif %}
       {% if current_user.is_authenticated and current_user.user_type == 'guardian' %}
         <a href="{{ url_for('guardian_bp.guardian_dashboard') }}" class="block py-2 text-gray-700">Guardian Dashboard</a>
+        <a href="{{ url_for('guardian_bp.guardian_messages') }}" class="block py-2 text-gray-700">
+          <i class="fas fa-comments mr-1"></i>Messages</a>
         <a href="{{ url_for('guardian_bp.guardian_logout') }}" class="block py-2 text-red-500">Logout</a>
       {% elif current_user.is_authenticated and current_user.user_type == 'tutor' %}
         <a href="{{ url_for('tutor_bp.tutor_dashboard') }}" class="block py-2 text-gray-700">Dashboard</a>
@@ -180,6 +246,9 @@
         <a href="{{ url_for('student_bp.login_student') }}" class="block py-2 text-gray-700">Student Login</a>
         <a href="{{ url_for('tutor_bp.login') }}" class="block py-2 text-gray-700">Tutor Login</a>
       {% endif %}
+      <!-- Mobile dark mode toggle -->
+      <button onclick="twToggleDarkMode()" class="block w-full text-left py-2 text-gray-700">
+        <i class="fas fa-adjust mr-1"></i>Toggle Dark Mode</button>
     </div>
   </nav>
 
@@ -189,14 +258,55 @@
       <script id="flash-data" type="application/json">
         [{% for category, message in messages %}{"category":"{{ category }}","message":"{{ message|e }}"}{% if not loop.last %},{% endif %}{% endfor %}]
       </script>
+      <script>
+        /* Announce flash messages to screen readers */
+        document.addEventListener('DOMContentLoaded', function(){
+          try {
+            var flashData = JSON.parse(document.getElementById('flash-data').textContent);
+            var announcements = flashData.map(function(f){ return f.message; }).join('. ');
+            var liveRegion = document.getElementById('tw-live-region');
+            if(liveRegion && announcements){ liveRegion.textContent = announcements; }
+          } catch(e){}
+        });
+      </script>
     {% endif %}
   {% endwith %}
 
   <!-- =============== PAGE CONTENT =============== -->
-  {% block content %}{% endblock %}
+  {% set _show_sidebar = current_user.is_authenticated and current_user.user_type in ['student', 'tutor', 'guardian'] and request.endpoint != 'session_bp.join_session' %}
+
+  <main id="main-content" role="main">
+    {% if _show_sidebar %}
+    <!-- Sidebar + content flex layout for authenticated student/tutor/guardian -->
+    <div class="max-w-7xl mx-auto px-4 py-6">
+      <div class="flex gap-6">
+        <!-- Sidebar (hidden on mobile by default, toggled via JS) -->
+        <div id="tw-sidebar-wrapper" class="hidden md:block">
+          {% if current_user.user_type == 'student' %}
+            {% include "student_sidebar.html" %}
+          {% elif current_user.user_type == 'tutor' %}
+            {% include "tutor_sidebar.html" %}
+          {% elif current_user.user_type == 'guardian' %}
+            {% include "guardian_sidebar.html" %}
+          {% endif %}
+        </div>
+        <!-- Sidebar mobile overlay backdrop -->
+        <div id="tw-sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden md:hidden" onclick="twCloseSidebar()"></div>
+        <div class="flex-1 min-w-0">
+          {% block breadcrumb %}{% endblock %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+
+    {% if _show_sidebar %}
+        </div>{# end flex-1 #}
+      </div>{# end flex #}
+    </div>{# end max-w-7xl #}
+    {% endif %}
+  </main>
 
   <!-- =============== FOOTER =============== -->
-  <footer class="bg-gray-800 text-white mt-16">
+  <footer class="bg-gray-800 text-white mt-16" role="contentinfo">
     <div class="max-w-7xl mx-auto px-4 py-8">
       <div class="flex flex-col md:flex-row justify-between items-center">
         <div class="flex flex-wrap justify-center gap-6 text-sm text-gray-300 mb-4 md:mb-0">
@@ -247,6 +357,106 @@
   })();
   </script>
   {% endif %}
+
+  <!-- Dark mode toggle logic -->
+  <script>
+  (function(){
+    function twUpdateDarkIcon(){
+      var isDark = document.documentElement.classList.contains('dark');
+      document.querySelectorAll('#darkModeToggle i').forEach(function(icon){
+        icon.className = isDark ? 'fas fa-sun text-lg' : 'fas fa-moon text-lg';
+      });
+    }
+    window.twToggleDarkMode = function(){
+      document.documentElement.classList.toggle('dark');
+      var isDark = document.documentElement.classList.contains('dark');
+      try { localStorage.setItem('tw-dark-mode', isDark); } catch(e){}
+      twUpdateDarkIcon();
+      /* Announce to screen readers */
+      var lr = document.getElementById('tw-live-region');
+      if(lr){ lr.textContent = isDark ? 'Dark mode enabled' : 'Dark mode disabled'; }
+    };
+    /* Bind all dark mode toggle buttons */
+    document.addEventListener('DOMContentLoaded', function(){
+      twUpdateDarkIcon();
+      document.querySelectorAll('#darkModeToggle').forEach(function(btn){
+        btn.addEventListener('click', window.twToggleDarkMode);
+      });
+    });
+  })();
+  </script>
+
+  <!-- Sidebar mobile toggle logic -->
+  <script>
+  (function(){
+    window.twToggleSidebar = function(){
+      var wrapper = document.getElementById('tw-sidebar-wrapper');
+      var overlay = document.getElementById('tw-sidebar-overlay');
+      if(!wrapper) return;
+      var isVisible = wrapper.classList.contains('tw-sidebar-mobile-open');
+      if(isVisible){
+        twCloseSidebar();
+      } else {
+        wrapper.classList.add('tw-sidebar-mobile-open');
+        wrapper.classList.remove('hidden');
+        wrapper.style.position = 'fixed';
+        wrapper.style.top = '64px';
+        wrapper.style.left = '0';
+        wrapper.style.zIndex = '40';
+        wrapper.style.height = 'calc(100vh - 64px)';
+        wrapper.style.overflowY = 'auto';
+        wrapper.style.backgroundColor = '#fff';
+        if(document.documentElement.classList.contains('dark')){
+          wrapper.style.backgroundColor = '#1f2937';
+        }
+        wrapper.style.boxShadow = '4px 0 12px rgba(0,0,0,0.15)';
+        if(overlay){ overlay.classList.remove('hidden'); }
+      }
+    };
+    window.twCloseSidebar = function(){
+      var wrapper = document.getElementById('tw-sidebar-wrapper');
+      var overlay = document.getElementById('tw-sidebar-overlay');
+      if(!wrapper) return;
+      wrapper.classList.remove('tw-sidebar-mobile-open');
+      /* On mobile, re-hide; on desktop keep visible */
+      if(window.innerWidth < 768){
+        wrapper.classList.add('hidden');
+      }
+      wrapper.style.position = '';
+      wrapper.style.top = '';
+      wrapper.style.left = '';
+      wrapper.style.zIndex = '';
+      wrapper.style.height = '';
+      wrapper.style.overflowY = '';
+      wrapper.style.backgroundColor = '';
+      wrapper.style.boxShadow = '';
+      if(overlay){ overlay.classList.add('hidden'); }
+    };
+    window.twMobileSidebar = window.twToggleSidebar;
+    /* Reset sidebar on resize */
+    window.addEventListener('resize', function(){
+      var wrapper = document.getElementById('tw-sidebar-wrapper');
+      if(!wrapper) return;
+      if(window.innerWidth >= 768){
+        wrapper.classList.remove('hidden', 'tw-sidebar-mobile-open');
+        wrapper.classList.add('md:block');
+        wrapper.style.position = '';
+        wrapper.style.top = '';
+        wrapper.style.left = '';
+        wrapper.style.zIndex = '';
+        wrapper.style.height = '';
+        wrapper.style.overflowY = '';
+        wrapper.style.backgroundColor = '';
+        wrapper.style.boxShadow = '';
+        var overlay = document.getElementById('tw-sidebar-overlay');
+        if(overlay){ overlay.classList.add('hidden'); }
+      } else if(!wrapper.classList.contains('tw-sidebar-mobile-open')){
+        wrapper.classList.add('hidden');
+      }
+    });
+  })();
+  </script>
+
   {% block extra_js %}{% endblock %}
 </body>
 </html>

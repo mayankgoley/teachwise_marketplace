@@ -5,58 +5,61 @@
 <div class="max-w-md mx-auto mt-12 mb-16">
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
     <h2 class="text-2xl font-bold text-gray-800 text-center mb-6">
-      Become a Tutor</h2>
+      <i class="fas fa-graduation-cap mr-2 text-blue-600"></i>Become a Tutor</h2>
 
-    <form method="POST" action="{{ url_for('tutor_bp.register') }}">
+    <form method="POST" action="{{ url_for('tutor_bp.register') }}" novalidate>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-        <input type="text" name="name" required
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="regName">Full Name</label>
+        <input type="text" name="name" id="regName" required autocomplete="name"
+               aria-label="Full name" aria-required="true"
                class="w-full px-4 py-2 border border-gray-300 rounded-lg
                       focus:ring-2 focus:ring-blue-500 focus:border-transparent"></div>
 
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-        <input type="email" name="email" required
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="regEmail">Email</label>
+        <input type="email" name="email" id="regEmail" required autocomplete="email"
+               aria-label="Email address" aria-required="true"
                class="w-full px-4 py-2 border border-gray-300 rounded-lg
                       focus:ring-2 focus:ring-blue-500 focus:border-transparent"></div>
 
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
-        <select id="categorySelect"
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="categorySelect">Category</label>
+        <select id="categorySelect" aria-label="Category"
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg">
           <option value="">Select a category</option>
         </select></div>
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Subcategory</label>
-        <select id="subcategorySelect"
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="subcategorySelect">Subcategory</label>
+        <select id="subcategorySelect" aria-label="Subcategory"
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg" disabled>
           <option value="">Select a subcategory</option>
         </select></div>
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Primary Subject / Topic</label>
-        <select name="subject" id="topicSelect" required
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="topicSelect">Primary Subject / Topic</label>
+        <select name="subject" id="topicSelect" required aria-label="Primary subject" aria-required="true"
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg" disabled>
           <option value="">Select a topic</option>
         </select></div>
 
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="regExperience">
           Years of Experience</label>
-        <input type="number" name="experience" min="0" max="50" value="0"
+        <input type="number" name="experience" id="regExperience" min="0" max="50" value="0"
+               aria-label="Years of experience"
                class="w-full px-4 py-2 border border-gray-300 rounded-lg
                       focus:ring-2 focus:ring-blue-500 focus:border-transparent"></div>
 
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
-        <input type="text" name="address"
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="regAddress">Address</label>
+        <input type="text" name="address" id="regAddress" aria-label="Address" autocomplete="street-address"
                class="w-full px-4 py-2 border border-gray-300 rounded-lg
                       focus:ring-2 focus:ring-blue-500 focus:border-transparent"></div>
 
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Your Timezone</label>
-        <select name="timezone"
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="regTimezone">Your Timezone</label>
+        <select name="timezone" id="regTimezone" aria-label="Timezone"
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg
                        focus:ring-2 focus:ring-blue-500 focus:border-transparent">
           {% for value, label in timezone_choices %}
@@ -65,15 +68,24 @@
         </select></div>
 
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-        <input type="password" name="password" required minlength="8"
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="regPassword">Password</label>
+        <input type="password" name="password" id="regPassword" required minlength="8"
+               autocomplete="new-password"
+               aria-label="Password" aria-required="true"
+               aria-describedby="passwordHints"
                class="w-full px-4 py-2 border border-gray-300 rounded-lg
-                      focus:ring-2 focus:ring-blue-500 focus:border-transparent"></div>
+                      focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        <div id="passwordHints" class="mt-1 text-xs text-gray-400 space-y-0.5">
+          <p><i class="fas fa-info-circle mr-1"></i>At least 8 characters</p>
+          <p><i class="fas fa-info-circle mr-1"></i>Include uppercase, lowercase, and a number</p>
+          <p><i class="fas fa-info-circle mr-1"></i>Include at least one special character</p>
+        </div>
+      </div>
 
       <button type="submit"
               class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold
                      hover:bg-blue-700 transition">
-        Register as Tutor</button>
+        <i class="fas fa-user-plus mr-1"></i>Register as Tutor</button>
     </form>
 
     <p class="text-center text-sm text-gray-500 mt-4">
@@ -96,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // Cascading category → subcategory → topic dropdowns
+  // Cascading category -> subcategory -> topic dropdowns
   const categories = {{ categories_json|safe }};
   const catEl = document.getElementById('categorySelect');
   const subEl = document.getElementById('subcategorySelect');
@@ -144,6 +156,21 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     topEl.disabled = false;
   });
+
+  // Live password strength hints
+  const pwInput = document.getElementById('regPassword');
+  if (pwInput) {
+    pwInput.addEventListener('input', function() {
+      const val = this.value;
+      const hints = document.getElementById('passwordHints').querySelectorAll('p');
+      // 8+ chars
+      hints[0].className = val.length >= 8 ? 'text-green-600' : 'text-gray-400';
+      // uppercase, lowercase, number
+      hints[1].className = (/[A-Z]/.test(val) && /[a-z]/.test(val) && /\d/.test(val)) ? 'text-green-600' : 'text-gray-400';
+      // special char
+      hints[2].className = /[^A-Za-z0-9]/.test(val) ? 'text-green-600' : 'text-gray-400';
+    });
+  }
 });
 </script>
 {% endblock %}

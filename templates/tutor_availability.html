@@ -5,6 +5,12 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/fullcalendar.min.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/location-picker.css') }}">
+<style>
+  .bulk-cell { min-height: 28px; cursor: pointer; border: 1px solid #e5e7eb; transition: background 0.1s; }
+  .bulk-cell:hover { background: #dbeafe; }
+  .bulk-cell.selected { background: #3b82f6; }
+  .bulk-cell.dragging { background: #93c5fd; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -19,6 +25,69 @@
     <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
        class="text-blue-600 hover:text-blue-800 font-medium">
       <i class="fas fa-arrow-left mr-1"></i>Back to Dashboard</a>
+  </div>
+
+  <!-- Bulk Creation Grid -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <h2 class="text-xl font-bold text-gray-800 mb-2">
+      <i class="fas fa-th mr-2 text-indigo-600"></i>Quick Bulk Create</h2>
+    <p class="text-gray-500 text-sm mb-4">Click and drag to select time blocks for the coming week. Then fill in details and create slots in bulk.</p>
+
+    <!-- Bulk slot settings -->
+    <div class="grid grid-cols-3 gap-4 mb-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1" for="bulkSubject">Subject</label>
+        <input type="text" id="bulkSubject" value="{{ tutor.subject }}"
+               class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+               aria-label="Bulk subject">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1" for="bulkMode">Mode</label>
+        <select id="bulkMode" class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                aria-label="Bulk mode">
+          <option value="online">Online</option>
+          <option value="in-person">In-Person</option>
+          <option value="both">Both</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1" for="bulkRate">Rate ($)</label>
+        <input type="number" id="bulkRate" value="{{ tutor.hourly_rate or 0 }}" step="0.01" min="0"
+               class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+               aria-label="Bulk rate">
+      </div>
+    </div>
+
+    <!-- Grid: 7 columns (Mon-Sun) x time rows (7AM-9PM, 30-min blocks) -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs" id="bulkGrid">
+        <thead>
+          <tr>
+            <th class="text-left py-1 px-1 text-gray-500 w-16">Time</th>
+            <th class="text-center py-1 px-1 text-gray-700 font-semibold" id="bulkDay0">Mon</th>
+            <th class="text-center py-1 px-1 text-gray-700 font-semibold" id="bulkDay1">Tue</th>
+            <th class="text-center py-1 px-1 text-gray-700 font-semibold" id="bulkDay2">Wed</th>
+            <th class="text-center py-1 px-1 text-gray-700 font-semibold" id="bulkDay3">Thu</th>
+            <th class="text-center py-1 px-1 text-gray-700 font-semibold" id="bulkDay4">Fri</th>
+            <th class="text-center py-1 px-1 text-gray-700 font-semibold" id="bulkDay5">Sat</th>
+            <th class="text-center py-1 px-1 text-gray-700 font-semibold" id="bulkDay6">Sun</th>
+          </tr>
+        </thead>
+        <tbody id="bulkGridBody"></tbody>
+      </table>
+    </div>
+    <div class="flex items-center justify-between mt-4">
+      <p class="text-xs text-gray-400"><span id="bulkSelectedCount">0</span> blocks selected</p>
+      <div class="flex space-x-2">
+        <button type="button" id="bulkClearBtn"
+                class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg
+                       hover:bg-gray-50 transition">Clear</button>
+        <button type="button" id="bulkCreateBtn"
+                class="px-4 py-1.5 text-sm text-white bg-indigo-600 rounded-lg font-semibold
+                       hover:bg-indigo-700 transition">
+          <i class="fas fa-bolt mr-1"></i>Create Slots</button>
+      </div>
+    </div>
   </div>
 
   <!-- Weekly Template Editor -->
@@ -75,8 +144,9 @@
     <form method="POST" action="{{ url_for('tutor_bp.generate_slots_from_template') }}"
           class="flex items-center space-x-4">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label class="text-sm font-medium text-gray-700">Generate for next</label>
-      <select name="weeks" class="px-3 py-2 border border-gray-300 rounded-lg">
+      <label class="text-sm font-medium text-gray-700" for="genWeeks">Generate for next</label>
+      <select name="weeks" id="genWeeks" class="px-3 py-2 border border-gray-300 rounded-lg"
+              aria-label="Number of weeks">
         {% for w in range(1, 9) %}
         <option value="{{ w }}">{{ w }} week{{ 's' if w > 1 }}</option>
         {% endfor %}
@@ -146,17 +216,17 @@
       <h3 class="font-bold text-gray-800 mb-3">Add Time Block</h3>
       <div class="space-y-3">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="newBlockStart">Start Time</label>
           <input type="time" id="newBlockStart" value="09:00"
                  class="w-full px-3 py-2 border border-gray-300 rounded-lg">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="newBlockEnd">End Time</label>
           <input type="time" id="newBlockEnd" value="10:00"
                  class="w-full px-3 py-2 border border-gray-300 rounded-lg">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Mode</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="newBlockMode">Mode</label>
           <select id="newBlockMode" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
             <option value="online">Online</option>
             <option value="in-person">In-Person</option>
@@ -164,12 +234,12 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="newBlockSubject">Subject</label>
           <input type="text" id="newBlockSubject" value="{{ tutor.subject }}"
                  class="w-full px-3 py-2 border border-gray-300 rounded-lg">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="newBlockPrice">Price ($)</label>
           <input type="number" id="newBlockPrice" value="0" step="0.01" min="0"
                  class="w-full px-3 py-2 border border-gray-300 rounded-lg">
         </div>
@@ -195,7 +265,8 @@
         <div id="bulkLocationSlotIds"></div>
         <div class="mb-3 relative">
           <input type="text" id="bulkLocSearch" placeholder="Search address..."
-                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                 aria-label="Search address">
         </div>
         <div id="bulkLocMap" style="height:250px;" class="rounded-lg mb-3"></div>
         <input type="hidden" name="latitude" id="bulkLocLat">
@@ -203,8 +274,10 @@
         <input type="hidden" name="address" id="bulkLocAddr">
         <div class="grid grid-cols-2 gap-3 mb-3">
           <input type="text" name="label" placeholder="Label (optional)" maxlength="100"
-                 class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
-          <select name="radius_miles" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                 class="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                 aria-label="Location label">
+          <select name="radius_miles" class="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  aria-label="Radius">
             <option value="5">5 miles</option>
             <option value="10" selected>10 miles</option>
             <option value="15">15 miles</option>
@@ -285,6 +358,142 @@ document.getElementById('templateForm').addEventListener('submit', function() {
   document.getElementById('templateJson').value = JSON.stringify(template);
 });
 
+// ---------- Bulk Creation Grid ----------
+(function() {
+  const tbody = document.getElementById('bulkGridBody');
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=Sun
+  // Calculate dates for Mon-Sun of the coming week
+  const dates = [];
+  for (let d = 0; d < 7; d++) {
+    // d=0 is Mon
+    let offset = (1 + d) - dayOfWeek;
+    if (offset <= 0) offset += 7;
+    const dt = new Date(today);
+    dt.setDate(today.getDate() + offset);
+    dates.push(dt);
+  }
+  // Update headers with actual dates
+  for (let d = 0; d < 7; d++) {
+    const hdr = document.getElementById('bulkDay' + d);
+    if (hdr) {
+      const dtStr = dates[d].toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      hdr.textContent = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d] + ' ' + dtStr;
+    }
+  }
+
+  // Build rows: 7AM to 9PM (30-min blocks)
+  for (let h = 7; h < 21; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const tr = document.createElement('tr');
+      const timeStr = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+      const endM = m + 30;
+      const endH = endM >= 60 ? h + 1 : h;
+      const endStr = String(endH).padStart(2,'0') + ':' + String(endM % 60).padStart(2,'0');
+      const label = (h > 12 ? h - 12 : h) + ':' + String(m).padStart(2,'0') + (h >= 12 ? 'p' : 'a');
+
+      const th = document.createElement('td');
+      th.className = 'text-gray-400 py-0 px-1 text-right';
+      th.textContent = label;
+      tr.appendChild(th);
+
+      for (let d = 0; d < 7; d++) {
+        const td = document.createElement('td');
+        td.className = 'bulk-cell';
+        td.dataset.day = d;
+        td.dataset.date = dates[d].toISOString().split('T')[0];
+        td.dataset.start = timeStr;
+        td.dataset.end = endStr;
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+  }
+
+  // Drag-to-select interaction
+  let isDragging = false;
+  let selectMode = true;
+
+  tbody.addEventListener('mousedown', function(e) {
+    const cell = e.target.closest('.bulk-cell');
+    if (!cell) return;
+    isDragging = true;
+    selectMode = !cell.classList.contains('selected');
+    toggleCell(cell, selectMode);
+    e.preventDefault();
+  });
+  tbody.addEventListener('mouseover', function(e) {
+    if (!isDragging) return;
+    const cell = e.target.closest('.bulk-cell');
+    if (cell) toggleCell(cell, selectMode);
+  });
+  document.addEventListener('mouseup', function() { isDragging = false; });
+
+  function toggleCell(cell, select) {
+    if (select) {
+      cell.classList.add('selected');
+    } else {
+      cell.classList.remove('selected');
+    }
+    updateCount();
+  }
+
+  function updateCount() {
+    const count = tbody.querySelectorAll('.bulk-cell.selected').length;
+    document.getElementById('bulkSelectedCount').textContent = count;
+  }
+
+  // Clear
+  document.getElementById('bulkClearBtn').addEventListener('click', function() {
+    tbody.querySelectorAll('.bulk-cell.selected').forEach(c => c.classList.remove('selected'));
+    updateCount();
+  });
+
+  // Create
+  document.getElementById('bulkCreateBtn').addEventListener('click', function() {
+    const cells = tbody.querySelectorAll('.bulk-cell.selected');
+    if (cells.length === 0) { alert('Select at least one time block.'); return; }
+
+    const slots = [];
+    cells.forEach(c => {
+      slots.push({
+        date: c.dataset.date,
+        start_time: c.dataset.start,
+        end_time: c.dataset.end
+      });
+    });
+
+    const btn = document.getElementById('bulkCreateBtn');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+
+    fetch('{{ url_for("tutor_bp.bulk_create_slots") }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token() }}'
+      },
+      body: JSON.stringify({ slots: slots })
+    })
+    .then(r => r.json())
+    .then(data => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-bolt mr-1"></i>Create Slots';
+      if (data.created > 0) {
+        alert(`Created ${data.created} slot(s)` + (data.skipped ? `, ${data.skipped} skipped (duplicates/past)` : '') + '.');
+        location.reload();
+      } else {
+        alert('No slots created.' + (data.errors.length ? ' ' + data.errors.join('; ') : ' All blocks may overlap with existing slots.'));
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-bolt mr-1"></i>Create Slots';
+      alert('Failed to create slots. Please try again.');
+    });
+  });
+})();
+
 // FullCalendar
 document.addEventListener('DOMContentLoaded', function() {
   const calendarEl = document.getElementById('calendar');
@@ -313,7 +522,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('selectedCount').textContent = selectedSlots.size;
         return;
       }
-      // Show detail modal
       const details = document.getElementById('slotDetails');
       details.innerHTML = `
         <p><strong>Subject:</strong> ${info.event.title}</p>
@@ -366,16 +574,12 @@ document.addEventListener('DOMContentLoaded', function() {
     form.submit();
   });
 
-  // Bulk location - toggle visibility with bulk mode
-  const origBulkToggle = document.getElementById('bulkModeBtn');
+  // Bulk location
   const bulkLocBtn = document.getElementById('bulkLocationBtn');
-  if (origBulkToggle && bulkLocBtn) {
-    origBulkToggle.addEventListener('click', function() {
-      bulkLocBtn.classList.toggle('hidden', !bulkMode);
-    });
-  }
+  document.getElementById('bulkModeBtn').addEventListener('click', function() {
+    bulkLocBtn.classList.toggle('hidden', !bulkMode);
+  });
 
-  // Bulk location - show modal
   if (bulkLocBtn) {
     bulkLocBtn.addEventListener('click', function() {
       if (selectedSlots.size === 0) return;
@@ -387,7 +591,6 @@ document.addEventListener('DOMContentLoaded', function() {
         container.appendChild(input);
       });
       document.getElementById('bulkLocationModal').classList.remove('hidden');
-      // Init map
       setTimeout(function() {
         if (!window._bulkLocPicker) {
           window._bulkLocPicker = new LocationPicker({

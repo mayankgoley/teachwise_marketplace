@@ -19,31 +19,51 @@
         <label class="block text-sm font-medium text-gray-700 mb-1">Amount (USD)</label>
         <div class="relative">
           <span class="absolute left-3 top-2 text-gray-400 font-medium">$</span>
-          <input type="number" name="amount" min="5" max="500" step="0.01"
-                 required placeholder="25.00"
+          <input type="number" name="amount" id="topupAmount"
+                 min="{{ min_topup }}" max="{{ max_topup }}" step="0.01"
+                 required placeholder="{{ min_topup }}.00"
                  class="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg
                         focus:ring-2 focus:ring-green-500 focus:border-transparent">
         </div>
-        <p class="text-xs text-gray-400 mt-1">Minimum $5.00, maximum $500.00</p>
+        <p class="text-xs text-gray-400 mt-1">
+          Minimum ${{ "%.2f"|format(min_topup|float) }}, maximum ${{ "%.2f"|format(max_topup|float) }}
+        </p>
       </div>
 
       <!-- Quick amount buttons -->
       <div class="grid grid-cols-4 gap-2 mb-6">
-        <button type="button" onclick="document.querySelector('input[name=amount]').value='10'"
-                class="py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50">$10</button>
-        <button type="button" onclick="document.querySelector('input[name=amount]').value='25'"
-                class="py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50">$25</button>
-        <button type="button" onclick="document.querySelector('input[name=amount]').value='50'"
-                class="py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50">$50</button>
-        <button type="button" onclick="document.querySelector('input[name=amount]').value='100'"
-                class="py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50">$100</button>
+        {% set quick_amounts = [10, 25, 50, 100] %}
+        {% for amt in quick_amounts %}
+        {% if amt >= min_topup and amt <= max_topup %}
+        <button type="button" onclick="setAmount({{ amt }})"
+                class="quick-amt-btn py-2.5 border border-gray-200 rounded-lg text-sm font-medium
+                       hover:bg-green-50 hover:border-green-300 transition
+                       focus:ring-2 focus:ring-green-400 focus:outline-none"
+                data-amount="{{ amt }}">
+          &pound;{{ amt }}</button>
+        {% endif %}
+        {% endfor %}
+      </div>
+
+      <!-- Amount preview -->
+      <div id="amountPreview" class="hidden bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-center">
+        <p class="text-green-700 text-sm">
+          <i class="fas fa-wallet mr-1"></i>
+          Adding <strong id="previewAmount">$0.00</strong> to your wallet
+        </p>
       </div>
 
       <button type="submit"
               class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold
-                     hover:bg-green-700 transition">
-        Continue to Payment</button>
+                     hover:bg-green-700 transition text-lg">
+        <i class="fas fa-lock mr-2"></i>Continue to Payment</button>
     </form>
+
+    <!-- Secure payment note -->
+    <div class="flex items-center justify-center text-xs text-gray-400 mt-4 space-x-2">
+      <i class="fas fa-shield-alt text-green-500"></i>
+      <span>Secure payment via Stripe</span>
+    </div>
 
     <p class="text-center text-sm text-gray-500 mt-4">
       <a href="{{ url_for('wallet_bp.wallet_dashboard') }}"
@@ -51,4 +71,40 @@
         <i class="fas fa-arrow-left mr-1"></i>Back to Wallet</a></p>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const amountInput = document.getElementById('topupAmount');
+const preview = document.getElementById('amountPreview');
+const previewAmount = document.getElementById('previewAmount');
+
+function setAmount(val) {
+  amountInput.value = val;
+  updatePreview();
+  // Highlight active quick button
+  document.querySelectorAll('.quick-amt-btn').forEach(btn => {
+    btn.classList.toggle('bg-green-100', parseInt(btn.dataset.amount) === val);
+    btn.classList.toggle('border-green-400', parseInt(btn.dataset.amount) === val);
+  });
+}
+
+function updatePreview() {
+  const val = parseFloat(amountInput.value);
+  if (val > 0) {
+    preview.classList.remove('hidden');
+    previewAmount.textContent = '$' + val.toFixed(2);
+  } else {
+    preview.classList.add('hidden');
+  }
+}
+
+amountInput.addEventListener('input', () => {
+  // Deselect quick buttons on manual input
+  document.querySelectorAll('.quick-amt-btn').forEach(btn => {
+    btn.classList.remove('bg-green-100', 'border-green-400');
+  });
+  updatePreview();
+});
+</script>
 {% endblock %}

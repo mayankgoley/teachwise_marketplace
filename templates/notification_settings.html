@@ -33,6 +33,58 @@
         {% endfor %}
       </div>
 
+      <!-- Email Digest Frequency -->
+      <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="font-medium text-gray-800 text-sm">Email Digest Frequency</p>
+            <p class="text-gray-500 text-xs mt-0.5">How often to receive email summaries</p>
+          </div>
+          <select name="email_digest_frequency"
+                  class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white">
+            <option value="instant" {% if prefs.get('email_digest_frequency', 'instant') == 'instant' %}selected{% endif %}>Instant</option>
+            <option value="daily" {% if prefs.get('email_digest_frequency') == 'daily' %}selected{% endif %}>Daily</option>
+            <option value="weekly" {% if prefs.get('email_digest_frequency') == 'weekly' %}selected{% endif %}>Weekly</option>
+            <option value="none" {% if prefs.get('email_digest_frequency') == 'none' %}selected{% endif %}>None</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Reminder Timing -->
+      <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+        <p class="font-medium text-gray-800 text-sm mb-2">Session Reminder Timing</p>
+        <p class="text-gray-500 text-xs mb-3">When to send reminders before sessions</p>
+        <div class="grid grid-cols-2 gap-2">
+          {% for key, label in [('reminder_24h', '24 hours before'), ('reminder_12h', '12 hours before'), ('reminder_1h', '1 hour before'), ('reminder_30m', '30 minutes before')] %}
+          <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <input type="checkbox" name="{{ key }}" value="1"
+                   {% if prefs.get(key, key in ('reminder_24h', 'reminder_1h')) %}checked{% endif %}
+                   class="rounded text-blue-600">
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Sound Toggle -->
+      <div class="mt-4 p-4 bg-gray-50 rounded-lg flex items-center justify-between">
+        <div>
+          <p class="font-medium text-gray-800 text-sm">Notification Sound</p>
+          <p class="text-gray-500 text-xs mt-0.5">Play a sound when new notifications arrive</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" name="notification_sound" value="1"
+                 {% if prefs.get('notification_sound', True) %}checked{% endif %}
+                 class="sr-only peer">
+          <div class="w-11 h-6 bg-gray-200 rounded-full peer
+                      peer-checked:after:translate-x-full peer-checked:after:border-white
+                      after:content-[''] after:absolute after:top-0.5 after:left-[2px]
+                      after:bg-white after:border-gray-300 after:border after:rounded-full
+                      after:h-5 after:w-5 after:transition-all
+                      peer-checked:bg-blue-600"></div>
+        </label>
+      </div>
+
       <button type="submit"
               class="w-full mt-6 bg-blue-600 text-white py-3 rounded-lg font-semibold
                      hover:bg-blue-700 transition">

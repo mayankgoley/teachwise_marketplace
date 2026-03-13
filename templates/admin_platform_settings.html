@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Platform Settings | TeachWise Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="flex gap-8">
+    {% include "admin_sidebar.html" %}
+    <div class="flex-1">
+      <h1 class="text-2xl font-bold text-gray-800 mb-6">
+        <i class="fas fa-cog mr-2 text-gray-600"></i>Platform Settings</h1>
+
+      <form method="POST" action="{{ url_for('admin_bp.platform_settings') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <!-- General Settings -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-globe mr-2 text-blue-500"></i>General</h2>
+          <div class="grid lg:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Platform Name</label>
+              <input type="text" name="platform_name" value="{{ settings_dict.get('platform_name', 'TeachWise') }}"
+                     class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              {% for s in settings if s.key == 'platform_name' %}
+              <p class="text-xs text-gray-400 mt-1">Last updated by {{ s.updated_by or 'system' }}</p>
+              {% endfor %}
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Support Email</label>
+              <input type="email" name="support_email" value="{{ settings_dict.get('support_email', '') }}"
+                     class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              {% for s in settings if s.key == 'support_email' %}
+              <p class="text-xs text-gray-400 mt-1">Last updated by {{ s.updated_by or 'system' }}</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment Settings -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-credit-card mr-2 text-green-500"></i>Payments</h2>
+          <div class="grid lg:grid-cols-3 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Platform Fee (%)</label>
+              <input type="number" name="platform_fee_percent" value="{{ settings_dict.get('platform_fee_percent', '15') }}"
+                     min="0" max="50" step="0.5"
+                     class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              {% for s in settings if s.key == 'platform_fee_percent' %}
+              <p class="text-xs text-gray-400 mt-1">Current: {{ s.value }}%</p>
+              {% endfor %}
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Min Session Price ($)</label>
+              <input type="number" name="min_session_price" value="{{ settings_dict.get('min_session_price', '') }}"
+                     min="0" step="0.01"
+                     class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              {% for s in settings if s.key == 'min_session_price' %}
+              <p class="text-xs text-gray-400 mt-1">Current: ${{ s.value }}</p>
+              {% endfor %}
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Max Session Price ($)</label>
+              <input type="number" name="max_session_price" value="{{ settings_dict.get('max_session_price', '') }}"
+                     min="0" step="0.01"
+                     class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              {% for s in settings if s.key == 'max_session_price' %}
+              <p class="text-xs text-gray-400 mt-1">Current: ${{ s.value }}</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Booking Settings -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-calendar-check mr-2 text-purple-500"></i>Bookings</h2>
+          <div class="grid lg:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Max Booking Advance (days)</label>
+              <input type="number" name="max_booking_advance_days" value="{{ settings_dict.get('max_booking_advance_days', '') }}"
+                     min="1" max="365"
+                     class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              {% for s in settings if s.key == 'max_booking_advance_days' %}
+              <p class="text-xs text-gray-400 mt-1">Current: {{ s.value }} days</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- System Settings -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-server mr-2 text-red-500"></i>System</h2>
+          <div class="grid lg:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Maintenance Mode</label>
+              <select name="maintenance_mode"
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="false" {% if settings_dict.get('maintenance_mode', 'false') == 'false' %}selected{% endif %}>Disabled</option>
+                <option value="true" {% if settings_dict.get('maintenance_mode') == 'true' %}selected{% endif %}>Enabled</option>
+              </select>
+              {% for s in settings if s.key == 'maintenance_mode' %}
+              <p class="text-xs text-gray-400 mt-1">Current: {{ 'Enabled' if s.value == 'true' else 'Disabled' }}</p>
+              {% endfor %}
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">New Registrations</label>
+              <select name="new_registrations_enabled"
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="true" {% if settings_dict.get('new_registrations_enabled', 'true') == 'true' %}selected{% endif %}>Enabled</option>
+                <option value="false" {% if settings_dict.get('new_registrations_enabled') == 'false' %}selected{% endif %}>Disabled</option>
+              </select>
+              {% for s in settings if s.key == 'new_registrations_enabled' %}
+              <p class="text-xs text-gray-400 mt-1">Current: {{ 'Enabled' if s.value == 'true' else 'Disabled' }}</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Current Settings Overview -->
+        {% if settings %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-list mr-2 text-gray-500"></i>All Current Settings</h2>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-200">
+                  <th class="text-left py-2 px-2 text-gray-600">Key</th>
+                  <th class="text-left py-2 px-2 text-gray-600">Value</th>
+                  <th class="text-left py-2 px-2 text-gray-600">Category</th>
+                  <th class="text-left py-2 px-2 text-gray-600">Updated By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for s in settings %}
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                  <td class="py-2 px-2 font-medium font-mono text-xs">{{ s.key }}</td>
+                  <td class="py-2 px-2 text-gray-600">{{ s.value }}</td>
+                  <td class="py-2 px-2">
+                    <span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">{{ s.category or 'general' }}</span></td>
+                  <td class="py-2 px-2 text-gray-500 text-xs">{{ s.updated_by or 'system' }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Save Button -->
+        <div class="flex justify-end">
+          <button type="submit"
+                  class="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+            <i class="fas fa-save mr-2"></i>Save Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

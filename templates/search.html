@@ -2,14 +2,69 @@
 {% block title %}Find Tutors Near You | TeachWise{% endblock %}
 
 {% block extra_head %}
-<!-- Leaflet.js CSS (local) -->
-<link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet.css') }}">
+<!-- Leaflet.js -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<!-- noUiSlider -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.css">
 <style>
   #map { height: 500px; width: 100%; border-radius: 12px; }
   .tutor-popup { min-width: 200px; }
   .tutor-popup h4 { margin: 0 0 4px 0; color: #0D3B66; }
   .tutor-popup p { margin: 2px 0; font-size: 13px; color: #555; }
   .tutor-popup a { color: #2980B9; text-decoration: none; font-weight: 600; }
+
+  /* Autocomplete dropdown */
+  .autocomplete-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+    background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12); max-height: 280px; overflow-y: auto;
+  }
+  .autocomplete-dropdown.hidden { display: none; }
+  .autocomplete-item {
+    padding: 10px 14px; cursor: pointer; display: flex; align-items: center; gap: 10px;
+    font-size: 14px; border-bottom: 1px solid #f3f4f6;
+  }
+  .autocomplete-item:hover, .autocomplete-item.active { background: #eff6ff; }
+  .autocomplete-item:last-child { border-bottom: none; }
+  .ac-type { font-size: 10px; padding: 2px 6px; border-radius: 9999px; font-weight: 600; }
+  .ac-type-tutor { background: #dbeafe; color: #1d4ed8; }
+  .ac-type-subject { background: #dcfce7; color: #15803d; }
+
+  /* Filter chips */
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500;
+    background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+  }
+  .filter-chip button { color: #93c5fd; font-size: 14px; line-height: 1; }
+  .filter-chip button:hover { color: #1d4ed8; }
+
+  /* Recent search chips */
+  .recent-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 500;
+    background: #f3f4f6; color: #374151; cursor: pointer; transition: all 0.15s;
+  }
+  .recent-chip:hover { background: #e5e7eb; }
+
+  /* Star rating filter */
+  .star-filter-btn { cursor: pointer; font-size: 20px; color: #d1d5db; transition: color 0.15s; }
+  .star-filter-btn.active, .star-filter-btn:hover { color: #f59e0b; }
+
+  /* Multi-subject panel */
+  .subject-panel { max-height: 300px; overflow-y: auto; }
+  .subject-check { accent-color: #2563eb; }
+
+  /* noUiSlider overrides */
+  .noUi-connect { background: #3b82f6; }
+  .noUi-handle { border-radius: 50%; border: 2px solid #3b82f6; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+  .noUi-handle::before, .noUi-handle::after { display: none; }
+
+  /* Map hover highlight */
+  .tutor-card-hover { border-color: #3b82f6 !important; box-shadow: 0 4px 12px rgba(59,130,246,0.2) !important; }
+
+  /* Sort dropdown */
+  #sortDropdown { min-width: 180px; }
 </style>
 {% endblock %}
 
@@ -20,16 +75,28 @@
   <h1 class="text-3xl font-bold text-gray-800 mb-2">Find Tutors Near You</h1>
   <p class="text-gray-500 mb-6">Search by location, subject, and distance</p>
 
-  <!-- Enhanced Filters -->
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+  <!-- Recent Searches -->
+  <div id="recentSearches" class="hidden mb-4">
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="text-xs font-medium text-gray-400"><i class="fas fa-history mr-1"></i>Recent:</span>
+      <div id="recentChips" class="flex gap-2 flex-wrap"></div>
+      <button id="clearRecent" class="text-xs text-red-400 hover:text-red-600 ml-1">Clear</button>
+    </div>
+  </div>
 
-    <!-- Row 1: Location + Text Search -->
+  <!-- Enhanced Filters -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+
+    <!-- Row 1: Text Search (with autocomplete) + Location -->
     <div class="grid md:grid-cols-3 gap-4 mb-4">
-      <div>
+      <div class="relative">
         <label class="block text-xs font-medium text-gray-500 mb-1">Search</label>
         <input type="text" id="textSearch" placeholder="e.g. calculus, PhD, Math..."
+               autocomplete="off"
                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
-                      focus:ring-2 focus:ring-blue-500"></div>
+                      focus:ring-2 focus:ring-blue-500">
+        <div id="autocompleteDropdown" class="autocomplete-dropdown hidden"></div>
+      </div>
       <div>
         <label class="block text-xs font-medium text-gray-500 mb-1">Location</label>
         <div class="flex gap-2">
@@ -38,67 +105,75 @@
           <button id="geolocateBtn" title="Use my location"
                   class="px-3 py-2 bg-blue-50 text-blue-600 rounded-lg
                          hover:bg-blue-100"><i class="fas fa-crosshairs"></i></button>
-        </div></div>
+        </div>
+      </div>
       <div>
-        <label class="block text-xs font-medium text-gray-500 mb-1">Subject</label>
-        <select id="subjectFilter"
+        <label class="block text-xs font-medium text-gray-500 mb-1">Mode</label>
+        <select id="modeFilter"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-          <option value="">All Subjects</option>
-        </select></div>
-    </div>
-
-    <!-- Row 2: Advanced Filters (collapsible) -->
-    <div id="advancedFilters" class="hidden">
-      <div class="grid md:grid-cols-5 gap-4 pt-3 border-t border-gray-100">
-        <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">
-            Radius: <span id="radiusValue">25</span> km</label>
-          <input type="range" id="radiusSlider" min="5" max="100" value="25"
-                 step="5" class="w-full"></div>
-        <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">Min Rating</label>
-          <select id="minRating"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-            <option value="">Any</option>
-            <option value="3">3+ stars</option>
-            <option value="4">4+ stars</option>
-            <option value="4.5">4.5+ stars</option>
-          </select></div>
-        <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">Price Range</label>
-          <div class="flex gap-1">
-            <input type="number" id="minPrice" placeholder="Min $" min="0"
-                   class="w-1/2 px-2 py-2 border border-gray-300 rounded-lg text-sm">
-            <input type="number" id="maxPrice" placeholder="Max $" min="0"
-                   class="w-1/2 px-2 py-2 border border-gray-300 rounded-lg text-sm">
-          </div></div>
-        <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">Mode</label>
-          <select id="modeFilter"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-            <option value="">Any Mode</option>
-            <option value="online">Online</option>
-            <option value="in-person">In-Person</option>
-          </select></div>
-        <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">Sort By</label>
-          <select id="sortBy"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-            <option value="relevance">Relevance</option>
-            <option value="distance">Distance</option>
-            <option value="rating_desc">Highest Rating</option>
-            <option value="price_asc">Lowest Price</option>
-            <option value="price_desc">Highest Price</option>
-            <option value="experience_desc">Most Experienced</option>
-          </select></div>
+          <option value="">Any Mode</option>
+          <option value="online">Online</option>
+          <option value="in-person">In-Person</option>
+        </select>
       </div>
     </div>
 
-    <!-- Toggle + Search Buttons -->
-    <div class="flex justify-between items-center mt-3">
-      <button id="toggleAdvanced"
-              class="text-sm text-blue-600 hover:underline">
-        <i class="fas fa-sliders-h mr-1"></i>Advanced Filters</button>
+    <!-- Row 2: Multi-Subject Checkboxes (collapsible) -->
+    <div class="mb-4">
+      <button id="toggleSubjects" class="text-sm text-blue-600 hover:underline mb-2">
+        <i class="fas fa-layer-group mr-1"></i>Select Subjects (OR filter)</button>
+      <div id="subjectPanel" class="hidden bg-gray-50 rounded-lg p-3">
+        <div class="subject-panel grid grid-cols-2 md:grid-cols-4 gap-2" id="subjectCheckboxes"></div>
+        <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
+          <span id="subjectCount" class="text-xs text-gray-400">0 selected</span>
+          <button id="clearSubjects" class="text-xs text-red-400 hover:text-red-600">Clear all</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Rating + Price + Radius -->
+    <div class="grid md:grid-cols-3 gap-4 mb-4">
+      <!-- Star rating filter -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Min Rating</label>
+        <div class="flex items-center gap-1" id="starFilter">
+          {% for i in range(1, 6) %}
+          <button type="button" class="star-filter-btn" data-value="{{ i }}">
+            <i class="fas fa-star"></i></button>
+          {% endfor %}
+          <span id="ratingLabel" class="text-xs text-gray-400 ml-2">Any</span>
+          <button id="clearRating" class="text-xs text-red-400 hover:text-red-600 ml-1 hidden">
+            <i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <!-- Price range slider -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">
+          Price Range: <span id="priceLabel">$0 - $200</span></label>
+        <div id="priceSlider" class="mt-3"></div>
+      </div>
+      <!-- Radius -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">
+          Radius: <span id="radiusValue">25</span> km</label>
+        <input type="range" id="radiusSlider" min="5" max="100" value="25"
+               step="5" class="w-full mt-1">
+      </div>
+    </div>
+
+    <!-- Sort + Search -->
+    <div class="flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <select id="sortBy"
+                class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white" id="sortDropdown">
+          <option value="relevance">Sort: Relevance</option>
+          <option value="distance">Sort: Distance</option>
+          <option value="rating_desc">Sort: Highest Rating</option>
+          <option value="price_asc">Sort: Lowest Price</option>
+          <option value="price_desc">Sort: Highest Price</option>
+          <option value="experience_desc">Sort: Most Experienced</option>
+        </select>
+      </div>
       <button id="searchBtn"
               class="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold
                      hover:bg-blue-700 transition text-sm">
@@ -106,10 +181,12 @@
     </div>
   </div>
 
-  <!-- Map/List Toggle -->
+  <!-- Active Filter Chips -->
+  <div id="filterChips" class="flex flex-wrap gap-2 mb-4 hidden"></div>
+
+  <!-- Map/List Toggle + Result Count -->
   <div class="flex gap-2 mb-4">
-    <button id="mapViewBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm
-                                    font-medium">
+    <button id="mapViewBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">
       <i class="fas fa-map mr-1"></i>Map View</button>
     <button id="listViewBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm
                                      font-medium hover:bg-gray-300">
@@ -127,34 +204,164 @@
     <div id="tutorList" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
   </div>
 
+  <!-- Enhanced Empty State -->
+  <div id="emptyState" class="hidden bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center mt-4">
+    <div class="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+      <i class="fas fa-search text-blue-400 text-3xl"></i>
+    </div>
+    <h3 class="text-lg font-bold text-gray-700 mb-2">No tutors found</h3>
+    <p class="text-gray-400 text-sm mb-4">Try adjusting your filters, widening your radius, or searching for a different subject.</p>
+    <div class="flex justify-center gap-3">
+      <button onclick="clearAllFilters()" class="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100">
+        <i class="fas fa-redo mr-1"></i>Reset Filters</button>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<!-- Leaflet.js (local) -->
-<script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
+<!-- Leaflet.js -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- noUiSlider -->
+<script src="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.js"></script>
 
 <script>
 // ============================================================
-// POPULATE SUBJECT FILTER FROM CATEGORIES
+// GLOBAL STATE
+// ============================================================
+const categories = {{ categories_json|safe }};
+let markers = [];
+let radiusCircle = null;
+let searchLat = null;
+let searchLng = null;
+let tutorData = [];
+let studentMarker = null;
+let selectedRating = 0;
+let selectedSubjects = [];
+let priceMin = 0;
+let priceMax = 200;
+let acDebounce = null;
+let acIndex = -1;
+
+// ============================================================
+// POPULATE MULTI-SUBJECT CHECKBOXES
 // ============================================================
 (function() {
-  const categories = {{ categories_json|safe }};
-  const sel = document.getElementById('subjectFilter');
+  const container = document.getElementById('subjectCheckboxes');
   categories.forEach(function(cat) {
-    const group = document.createElement('optgroup');
-    group.label = cat.name;
     cat.subcategories.forEach(function(sub) {
       sub.topics.forEach(function(topic) {
-        const opt = document.createElement('option');
-        opt.value = topic;
-        opt.textContent = topic;
-        group.appendChild(opt);
+        var label = document.createElement('label');
+        label.className = 'flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer hover:bg-white rounded px-1 py-0.5';
+        label.innerHTML = '<input type="checkbox" class="subject-check" value="' + topic + '"> ' + topic;
+        container.appendChild(label);
       });
     });
-    sel.appendChild(group);
   });
 })();
+
+// ============================================================
+// PRICE RANGE SLIDER (noUiSlider)
+// ============================================================
+var priceSliderEl = document.getElementById('priceSlider');
+noUiSlider.create(priceSliderEl, {
+  start: [0, 200],
+  connect: true,
+  range: { 'min': 0, 'max': 300 },
+  step: 5,
+  tooltips: false,
+  format: {
+    to: function(v) { return Math.round(v); },
+    from: function(v) { return Number(v); }
+  }
+});
+priceSliderEl.noUiSlider.on('update', function(values) {
+  priceMin = values[0];
+  priceMax = values[1];
+  document.getElementById('priceLabel').textContent = '$' + priceMin + ' - $' + priceMax;
+});
+priceSliderEl.noUiSlider.on('change', function() {
+  updateFilterChips();
+  searchTutors();
+});
+
+// ============================================================
+// STAR RATING FILTER
+// ============================================================
+(function() {
+  var stars = document.querySelectorAll('#starFilter .star-filter-btn');
+  var label = document.getElementById('ratingLabel');
+  var clearBtn = document.getElementById('clearRating');
+
+  stars.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var val = parseInt(this.dataset.value);
+      if (selectedRating === val) {
+        selectedRating = 0;
+        label.textContent = 'Any';
+        clearBtn.classList.add('hidden');
+      } else {
+        selectedRating = val;
+        label.textContent = val + '+ stars';
+        clearBtn.classList.remove('hidden');
+      }
+      stars.forEach(function(s, i) {
+        s.classList.toggle('active', i < selectedRating);
+      });
+      updateFilterChips();
+      searchTutors();
+    });
+
+    btn.addEventListener('mouseenter', function() {
+      var val = parseInt(this.dataset.value);
+      stars.forEach(function(s, i) {
+        s.classList.toggle('active', i < val);
+      });
+    });
+  });
+
+  document.getElementById('starFilter').addEventListener('mouseleave', function() {
+    stars.forEach(function(s, i) {
+      s.classList.toggle('active', i < selectedRating);
+    });
+  });
+
+  clearBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    selectedRating = 0;
+    label.textContent = 'Any';
+    clearBtn.classList.add('hidden');
+    stars.forEach(function(s) { s.classList.remove('active'); });
+    updateFilterChips();
+    searchTutors();
+  });
+})();
+
+// ============================================================
+// SUBJECT CHECKBOX HANDLING
+// ============================================================
+document.getElementById('toggleSubjects').addEventListener('click', function() {
+  document.getElementById('subjectPanel').classList.toggle('hidden');
+});
+
+document.getElementById('subjectCheckboxes').addEventListener('change', function() {
+  selectedSubjects = [];
+  document.querySelectorAll('.subject-check:checked').forEach(function(cb) {
+    selectedSubjects.push(cb.value);
+  });
+  document.getElementById('subjectCount').textContent = selectedSubjects.length + ' selected';
+  updateFilterChips();
+  searchTutors();
+});
+
+document.getElementById('clearSubjects').addEventListener('click', function() {
+  document.querySelectorAll('.subject-check:checked').forEach(function(cb) { cb.checked = false; });
+  selectedSubjects = [];
+  document.getElementById('subjectCount').textContent = '0 selected';
+  updateFilterChips();
+  searchTutors();
+});
 
 // ============================================================
 // MAP INITIALIZATION
@@ -166,64 +373,201 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19
 }).addTo(map);
 
-let markers = [];
-let radiusCircle = null;
-let searchLat = null;
-let searchLng = null;
-let tutorData = [];
-
-
-// ============================================================
-// CUSTOM MARKER ICONS
-// ============================================================
 const tutorIcon = L.divIcon({
   html: '<div style="background:#22c55e;color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><i class="fas fa-graduation-cap"></i></div>',
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-  popupAnchor: [0, -20],
-  className: ""
+  iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -20], className: ""
 });
-
 const studentIcon = L.divIcon({
   html: '<div style="background:#3b82f6;color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><i class="fas fa-map-pin"></i></div>',
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-  popupAnchor: [0, -20],
-  className: ""
+  iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -20], className: ""
 });
-
-let studentMarker = null;
 
 
 // ============================================================
-// SEARCH FUNCTION (Enhanced for Phase 4)
+// AUTOCOMPLETE
+// ============================================================
+var searchInput = document.getElementById('textSearch');
+var acDropdown = document.getElementById('autocompleteDropdown');
+
+searchInput.addEventListener('input', function() {
+  clearTimeout(acDebounce);
+  var q = this.value.trim();
+  if (q.length < 2) { acDropdown.classList.add('hidden'); return; }
+  acDebounce = setTimeout(function() {
+    fetch('/search/suggest?q=' + encodeURIComponent(q))
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.suggestions || data.suggestions.length === 0) {
+          acDropdown.classList.add('hidden'); return;
+        }
+        acIndex = -1;
+        acDropdown.innerHTML = data.suggestions.map(function(s, i) {
+          var typeClass = s.type === 'tutor' ? 'ac-type-tutor' : 'ac-type-subject';
+          var sub = s.sub ? '<span class="text-xs text-gray-400 ml-1">' + s.sub + '</span>' : '';
+          return '<div class="autocomplete-item" data-index="' + i + '" data-text="' + s.text + '" data-type="' + s.type + '">' +
+            '<span class="ac-type ' + typeClass + '">' + s.type + '</span>' +
+            '<span>' + s.text + sub + '</span></div>';
+        }).join('');
+        acDropdown.classList.remove('hidden');
+
+        acDropdown.querySelectorAll('.autocomplete-item').forEach(function(item) {
+          item.addEventListener('click', function() {
+            searchInput.value = this.dataset.text;
+            acDropdown.classList.add('hidden');
+            searchTutors();
+          });
+        });
+      }).catch(function() {});
+  }, 200);
+});
+
+searchInput.addEventListener('keydown', function(e) {
+  var items = acDropdown.querySelectorAll('.autocomplete-item');
+  if (items.length === 0 || acDropdown.classList.contains('hidden')) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); acIndex = Math.min(acIndex + 1, items.length - 1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); acIndex = Math.max(acIndex - 1, 0); }
+  else if (e.key === 'Enter' && acIndex >= 0) {
+    e.preventDefault();
+    searchInput.value = items[acIndex].dataset.text;
+    acDropdown.classList.add('hidden');
+    searchTutors();
+    return;
+  } else if (e.key === 'Escape') { acDropdown.classList.add('hidden'); return; }
+  items.forEach(function(it, i) { it.classList.toggle('active', i === acIndex); });
+});
+
+document.addEventListener('click', function(e) {
+  if (!acDropdown.contains(e.target) && e.target !== searchInput) {
+    acDropdown.classList.add('hidden');
+  }
+});
+
+
+// ============================================================
+// RECENT SEARCHES
+// ============================================================
+function loadRecentSearches() {
+  fetch('/search/recent').then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.searches || data.searches.length === 0) {
+      document.getElementById('recentSearches').classList.add('hidden');
+      return;
+    }
+    var container = document.getElementById('recentChips');
+    container.innerHTML = data.searches.map(function(s) {
+      return '<span class="recent-chip" data-query="' + s.query + '">' +
+        '<i class="fas fa-search text-gray-400"></i>' + s.query +
+        '<span class="text-gray-300">' + s.result_count + '</span></span>';
+    }).join('');
+    document.getElementById('recentSearches').classList.remove('hidden');
+
+    container.querySelectorAll('.recent-chip').forEach(function(chip) {
+      chip.addEventListener('click', function() {
+        searchInput.value = this.dataset.query;
+        searchTutors();
+      });
+    });
+  }).catch(function() {});
+}
+
+document.getElementById('clearRecent').addEventListener('click', function() {
+  fetch('/search/recent', { method: 'DELETE' }).then(function() {
+    document.getElementById('recentSearches').classList.add('hidden');
+  });
+});
+loadRecentSearches();
+
+
+// ============================================================
+// ACTIVE FILTER CHIPS
+// ============================================================
+function updateFilterChips() {
+  var container = document.getElementById('filterChips');
+  var chips = [];
+
+  if (selectedRating > 0) {
+    chips.push({ label: selectedRating + '+ stars', clear: function() {
+      selectedRating = 0;
+      document.getElementById('ratingLabel').textContent = 'Any';
+      document.getElementById('clearRating').classList.add('hidden');
+      document.querySelectorAll('#starFilter .star-filter-btn').forEach(function(s) { s.classList.remove('active'); });
+    }});
+  }
+  if (priceMin > 0 || priceMax < 200) {
+    chips.push({ label: '$' + priceMin + '-$' + priceMax, clear: function() {
+      priceSliderEl.noUiSlider.set([0, 200]);
+    }});
+  }
+  selectedSubjects.forEach(function(sub) {
+    chips.push({ label: sub, clear: function() {
+      var cb = document.querySelector('.subject-check[value="' + sub + '"]');
+      if (cb) cb.checked = false;
+      selectedSubjects = selectedSubjects.filter(function(s) { return s !== sub; });
+      document.getElementById('subjectCount').textContent = selectedSubjects.length + ' selected';
+    }});
+  });
+  var mode = document.getElementById('modeFilter').value;
+  if (mode) {
+    chips.push({ label: mode, clear: function() { document.getElementById('modeFilter').value = ''; }});
+  }
+
+  if (chips.length === 0) {
+    container.classList.add('hidden');
+    return;
+  }
+
+  container.classList.remove('hidden');
+  container.innerHTML = chips.map(function(c, i) {
+    return '<span class="filter-chip" data-idx="' + i + '">' + c.label +
+      '<button data-idx="' + i + '">&times;</button></span>';
+  }).join('');
+
+  container.querySelectorAll('.filter-chip button').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var idx = parseInt(this.dataset.idx);
+      chips[idx].clear();
+      updateFilterChips();
+      searchTutors();
+    });
+  });
+}
+
+
+// ============================================================
+// SEARCH FUNCTION
 // ============================================================
 async function searchTutors() {
   const q = document.getElementById('textSearch').value.trim();
   const radius = document.getElementById('radiusSlider').value;
-  const subject = document.getElementById('subjectFilter').value;
-  const minRating = document.getElementById('minRating').value;
-  const minPrice = document.getElementById('minPrice').value;
-  const maxPrice = document.getElementById('maxPrice').value;
   const mode = document.getElementById('modeFilter').value;
   const sort = document.getElementById('sortBy').value;
 
   let url = '/api/search?radius=' + radius + '&sort=' + sort;
   if (q) url += '&q=' + encodeURIComponent(q);
   if (searchLat && searchLng) url += '&lat=' + searchLat + '&lng=' + searchLng;
-  if (subject) url += '&subject=' + encodeURIComponent(subject);
-  if (minRating) url += '&min_rating=' + minRating;
-  if (minPrice) url += '&min_price=' + minPrice;
-  if (maxPrice) url += '&max_price=' + maxPrice;
+  if (selectedRating > 0) url += '&min_rating=' + selectedRating;
+  if (priceMin > 0) url += '&min_price=' + priceMin;
+  if (priceMax < 200) url += '&max_price=' + priceMax;
   if (mode) url += '&teaching_mode=' + encodeURIComponent(mode);
+
+  // Multi-subject support
+  selectedSubjects.forEach(function(sub) {
+    url += '&subject=' + encodeURIComponent(sub);
+  });
 
   try {
     const response = await fetch(url);
     tutorData = await response.json();
     updateMap();
     updateList();
-    document.getElementById('resultCount').textContent =
-      tutorData.length + ' tutor(s) found';
+    var countEl = document.getElementById('resultCount');
+    countEl.textContent = tutorData.length + ' tutor(s) found';
+
+    var emptyEl = document.getElementById('emptyState');
+    if (tutorData.length === 0) {
+      emptyEl.classList.remove('hidden');
+    } else {
+      emptyEl.classList.add('hidden');
+    }
   } catch (err) { console.error('Search error:', err); }
 }
 
@@ -232,66 +576,59 @@ async function searchTutors() {
 // UPDATE MAP MARKERS
 // ============================================================
 function updateMap() {
-  markers.forEach(m => map.removeLayer(m));
+  markers.forEach(function(m) { map.removeLayer(m); });
   markers = [];
-
   if (radiusCircle) map.removeLayer(radiusCircle);
   if (studentMarker) { map.removeLayer(studentMarker); studentMarker = null; }
 
-  // Student search location marker (blue)
   if (searchLat && searchLng) {
     studentMarker = L.marker([searchLat, searchLng], { icon: studentIcon })
       .addTo(map)
       .bindPopup('<div class="tutor-popup"><h4>Your Search Location</h4></div>');
   }
 
-  tutorData.forEach(t => {
+  tutorData.forEach(function(t, idx) {
     if (!t.lat || !t.lng) return;
-    const slotsInfo = t.open_slots > 0
-      ? `<p style="color:#27AE60;font-weight:600;">${t.open_slots} open slot${t.open_slots > 1 ? 's' : ''}</p>`
+    var slotsInfo = t.open_slots > 0
+      ? '<p style="color:#27AE60;font-weight:600;">' + t.open_slots + ' open slot' + (t.open_slots > 1 ? 's' : '') + '</p>'
       : '<p style="color:#999;">No open slots</p>';
-
-    // Distance display
-    let distText = '';
+    var distText = '';
     if (t.distance_miles !== null && t.distance_miles !== undefined) {
-      distText = `<p>${t.distance_miles} mi away</p>`;
+      distText = '<p>' + t.distance_miles + ' mi away</p>';
     } else if (t.distance_km !== null && t.distance_km !== undefined) {
-      distText = `<p>${t.distance_km} km away</p>`;
+      distText = '<p>' + t.distance_km + ' km away</p>';
     }
-
-    // Mode badges
-    let modeBadges = '';
+    var modeBadges = '';
     if (t.has_online) modeBadges += '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:10px;font-size:11px;margin-right:4px;">Online</span>';
     if (t.has_offline) modeBadges += '<span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:10px;font-size:11px;">In-Person</span>';
+    var priceText = '';
+    if (t.hourly_rate) priceText = '<p>$' + t.hourly_rate + '/hr</p>';
 
-    // Price display
-    let priceText = '';
-    if (t.min_price !== undefined && t.max_price !== undefined && t.min_price !== t.max_price) {
-      priceText = `<p>$${t.min_price} - $${t.max_price}/hr</p>`;
-    } else if (t.hourly_rate) {
-      priceText = `<p>$${t.hourly_rate}/hr</p>`;
-    }
+    var popup = '<div class="tutor-popup"><h4>' + t.name + '</h4>' +
+      '<p><strong>' + t.subject + '</strong></p>' +
+      '<p>&#11088; ' + t.rating + ' &bull; ' + t.experience + ' yrs exp</p>' +
+      '<p>' + modeBadges + '</p>' + slotsInfo + distText + priceText +
+      '<a href="' + t.profile_url + '">View Profile &rarr;</a></div>';
 
-    const popup = `
-      <div class="tutor-popup">
-        <h4>${t.name}</h4>
-        <p><strong>${t.subject}</strong></p>
-        <p>&#11088; ${t.rating} &bull; ${t.experience} yrs exp</p>
-        <p>${modeBadges}</p>
-        ${slotsInfo}
-        ${distText}
-        ${priceText}
-        <a href="${t.profile_url}">View Profile &rarr;</a>
-      </div>`;
-
-    const marker = L.marker([t.lat, t.lng], { icon: tutorIcon })
+    var marker = L.marker([t.lat, t.lng], { icon: tutorIcon })
       .addTo(map)
       .bindPopup(popup);
+
+    // Map-list hover interaction
+    marker._tutorIdx = idx;
+    marker.on('mouseover', function() {
+      var card = document.querySelector('[data-tutor-idx="' + idx + '"]');
+      if (card) card.classList.add('tutor-card-hover');
+    });
+    marker.on('mouseout', function() {
+      var card = document.querySelector('[data-tutor-idx="' + idx + '"]');
+      if (card) card.classList.remove('tutor-card-hover');
+    });
     markers.push(marker);
   });
 
   if (markers.length > 0) {
-    const group = L.featureGroup(markers);
+    var group = L.featureGroup(markers);
     if (studentMarker) group.addLayer(studentMarker);
     map.fitBounds(group.getBounds().pad(0.1));
   }
@@ -302,68 +639,81 @@ function updateMap() {
 // UPDATE LIST VIEW
 // ============================================================
 function updateList() {
-  const container = document.getElementById("tutorList");
+  var container = document.getElementById("tutorList");
   if (tutorData.length === 0) {
-    container.innerHTML = `
-      <div class="col-span-full text-center py-12">
-        <i class="fas fa-map-marker-alt text-4xl text-gray-300 mb-4"></i>
-        <p class="text-gray-400">No tutors found. Try adjusting your filters.</p></div>`;
+    container.innerHTML = '';
     return;
   }
 
-  container.innerHTML = tutorData.map(t => {
-    const slotsColor = t.open_slots > 0 ? 'text-green-600 bg-green-50' : 'text-gray-400 bg-gray-50';
-    const slotsText = t.open_slots > 0
-      ? `${t.open_slots} slot${t.open_slots > 1 ? 's' : ''}`
+  container.innerHTML = tutorData.map(function(t, idx) {
+    var slotsColor = t.open_slots > 0 ? 'text-green-600 bg-green-50' : 'text-gray-400 bg-gray-50';
+    var slotsText = t.open_slots > 0
+      ? t.open_slots + ' slot' + (t.open_slots > 1 ? 's' : '')
       : 'No slots';
-
-    // Distance badge
-    let distBadge = '';
+    var distBadge = '';
     if (t.distance_miles !== null && t.distance_miles !== undefined) {
-      distBadge = `<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-        <i class="fas fa-route mr-1"></i>${t.distance_miles} mi</span>`;
+      distBadge = '<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"><i class="fas fa-route mr-1"></i>' + t.distance_miles + ' mi</span>';
     } else if (t.distance_km !== null && t.distance_km !== undefined) {
-      distBadge = `<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-        <i class="fas fa-route mr-1"></i>${t.distance_km} km</span>`;
+      distBadge = '<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"><i class="fas fa-route mr-1"></i>' + t.distance_km + ' km</span>';
     }
-
-    // Mode badges
-    let modeBadges = '';
+    var modeBadges = '';
     if (t.has_online) modeBadges += '<span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">Online</span> ';
     if (t.has_offline) modeBadges += '<span class="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700">In-Person</span>';
+    var priceText = t.hourly_rate ? '$' + t.hourly_rate + '/hr' : '';
 
-    // Price display
-    let priceText = '';
-    if (t.min_price !== undefined && t.max_price !== undefined && t.min_price > 0 && t.min_price !== t.max_price) {
-      priceText = `$${t.min_price}-$${t.max_price}/hr`;
-    } else if (t.hourly_rate) {
-      priceText = `$${t.hourly_rate}/hr`;
-    }
+    return '<a href="' + t.profile_url + '" data-tutor-idx="' + idx + '"' +
+      ' class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition block"' +
+      ' onmouseenter="highlightMarker(' + idx + ')" onmouseleave="unhighlightMarker(' + idx + ')">' +
+      '<div class="flex items-center space-x-3 mb-3">' +
+      '<div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">' +
+      '<i class="fas fa-user text-blue-600"></i></div>' +
+      '<div class="flex-1"><div class="flex items-center justify-between">' +
+      '<h4 class="font-semibold text-gray-800">' + t.name + '</h4>' +
+      '<span class="text-xs font-medium px-2 py-1 rounded-full ' + slotsColor + '">' +
+      '<i class="fas fa-calendar-check mr-1"></i>' + slotsText + '</span></div>' +
+      '<p class="text-gray-500 text-sm">' + t.subject + '</p>' +
+      '<div class="flex flex-wrap gap-1 mt-1">' + modeBadges + '</div></div></div>' +
+      '<div class="flex items-center justify-between text-sm text-gray-500">' +
+      '<span>&#11088; ' + t.rating + '</span><span>' + t.experience + ' yrs</span>' +
+      distBadge + (priceText ? '<span class="font-medium text-blue-600">' + priceText + '</span>' : '') +
+      '</div></a>';
+  }).join("");
+}
 
-    return `
-    <a href="${t.profile_url}"
-       class="bg-white rounded-xl shadow-sm border border-gray-100 p-5
-              hover:shadow-md transition block">
-      <div class="flex items-center space-x-3 mb-3">
-        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center
-                    justify-center flex-shrink-0">
-          <i class="fas fa-user text-blue-600"></i></div>
-        <div class="flex-1">
-          <div class="flex items-center justify-between">
-            <h4 class="font-semibold text-gray-800">${t.name}</h4>
-            <span class="text-xs font-medium px-2 py-1 rounded-full ${slotsColor}">
-              <i class="fas fa-calendar-check mr-1"></i>${slotsText}</span>
-          </div>
-          <p class="text-gray-500 text-sm">${t.subject}</p>
-          <div class="flex flex-wrap gap-1 mt-1">${modeBadges}</div></div>
-      </div>
-      <div class="flex items-center justify-between text-sm text-gray-500">
-        <span>&#11088; ${t.rating}</span>
-        <span>${t.experience} yrs</span>
-        ${distBadge}
-        ${priceText ? "<span class='font-medium text-blue-600'>" + priceText + "</span>" : ""}
-      </div>
-    </a>`}).join("");
+// Map-list hover interaction functions
+function highlightMarker(idx) {
+  markers.forEach(function(m) {
+    if (m._tutorIdx === idx) m.openPopup();
+  });
+}
+function unhighlightMarker(idx) {
+  markers.forEach(function(m) {
+    if (m._tutorIdx === idx) m.closePopup();
+  });
+}
+
+
+// ============================================================
+// CLEAR ALL FILTERS
+// ============================================================
+function clearAllFilters() {
+  document.getElementById('textSearch').value = '';
+  document.getElementById('locationInput').value = '';
+  document.getElementById('modeFilter').value = '';
+  document.getElementById('radiusSlider').value = 25;
+  document.getElementById('radiusValue').textContent = '25';
+  selectedRating = 0;
+  document.getElementById('ratingLabel').textContent = 'Any';
+  document.getElementById('clearRating').classList.add('hidden');
+  document.querySelectorAll('#starFilter .star-filter-btn').forEach(function(s) { s.classList.remove('active'); });
+  priceSliderEl.noUiSlider.set([0, 200]);
+  document.querySelectorAll('.subject-check:checked').forEach(function(cb) { cb.checked = false; });
+  selectedSubjects = [];
+  document.getElementById('subjectCount').textContent = '0 selected';
+  searchLat = null;
+  searchLng = null;
+  updateFilterChips();
+  searchTutors();
 }
 
 
@@ -377,29 +727,26 @@ document.getElementById("radiusSlider").addEventListener("input", function() {
 });
 document.getElementById("radiusSlider").addEventListener("change", searchTutors);
 
-// Subject filter
-document.getElementById("subjectFilter").addEventListener("change", searchTutors);
-
-// Advanced filter toggle
-document.getElementById('toggleAdvanced').addEventListener('click', function() {
-  const panel = document.getElementById('advancedFilters');
-  panel.classList.toggle('hidden');
-  this.innerHTML = panel.classList.contains('hidden')
-    ? '<i class="fas fa-sliders-h mr-1"></i>Advanced Filters'
-    : '<i class="fas fa-times mr-1"></i>Hide Filters';
+// Mode filter
+document.getElementById("modeFilter").addEventListener("change", function() {
+  updateFilterChips();
+  searchTutors();
 });
+
+// Sort
+document.getElementById("sortBy").addEventListener("change", searchTutors);
 
 // Search button
 document.getElementById("searchBtn").addEventListener("click", async function() {
-  const address = document.getElementById("locationInput").value.trim();
+  var address = document.getElementById("locationInput").value.trim();
   if (address) {
     try {
-      const res = await fetch(
+      var res = await fetch(
         "https://nominatim.openstreetmap.org/search?format=json&limit=1&q="
         + encodeURIComponent(address),
         { headers: { "User-Agent": "TeachWise/1.0" } }
       );
-      const data = await res.json();
+      var data = await res.json();
       if (data.length > 0) {
         searchLat = parseFloat(data[0].lat);
         searchLng = parseFloat(data[0].lon);
@@ -410,7 +757,15 @@ document.getElementById("searchBtn").addEventListener("click", async function() 
   searchTutors();
 });
 
-// Geolocate button (browser GPS)
+// Enter key on search input
+searchInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && acDropdown.classList.contains('hidden')) {
+    e.preventDefault();
+    document.getElementById('searchBtn').click();
+  }
+});
+
+// Geolocate button
 document.getElementById("geolocateBtn").addEventListener("click", function() {
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(function(pos) {
@@ -419,7 +774,7 @@ document.getElementById("geolocateBtn").addEventListener("click", function() {
       map.setView([searchLat, searchLng], 12);
       document.getElementById("locationInput").value = "My Location";
       searchTutors();
-    }, function(err) {
+    }, function() {
       alert("Could not get your location. Please enter an address.");
     });
   }
@@ -442,7 +797,7 @@ document.getElementById("listViewBtn").addEventListener("click", function() {
     "px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300";
 });
 
-// Initial search (show recommended tutors on page load)
+// Initial search
 searchTutors();
 </script>
 {% endblock %}

@@ -41,5 +41,20 @@ class Message(db.Model):
     is_read = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Delivery status: sent -> delivered -> read
+    status = db.Column(db.String(20), default='sent')
+    read_at = db.Column(db.DateTime, nullable=True)
+
+    # File/image sharing
+    message_type = db.Column(db.String(20), default='text')  # text, image, file
+    file_url = db.Column(db.String(500), nullable=True)
+    file_name = db.Column(db.String(255), nullable=True)
+    file_size = db.Column(db.Integer, nullable=True)
+    file_mime_type = db.Column(db.String(100), nullable=True)
+
+    # Editing and deletion
+    edited_at = db.Column(db.DateTime, nullable=True)
+    is_deleted = db.Column(db.Boolean, default=False)
+
     def __repr__(self):
         return f'<Message {self.id}>'

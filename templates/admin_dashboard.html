@@ -5,28 +5,7 @@
 <div class="max-w-7xl mx-auto px-4 py-8">
   <div class="flex gap-8">
     <!-- Sidebar Nav -->
-    <div class="w-56 flex-shrink-0">
-      <nav class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sticky top-24">
-        <h3 class="font-bold text-gray-800 text-sm mb-3">Admin Panel</h3>
-        <div class="space-y-1">
-          <a href="{{ url_for('admin_bp.dashboard') }}"
-             class="flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg">
-            <i class="fas fa-chart-line mr-2 w-4"></i>Dashboard</a>
-          <a href="{{ url_for('admin_bp.admin_users') }}"
-             class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-            <i class="fas fa-users mr-2 w-4"></i>Users</a>
-          <a href="{{ url_for('admin_bp.admin_bookings') }}"
-             class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-            <i class="fas fa-calendar-check mr-2 w-4"></i>Bookings</a>
-          <a href="{{ url_for('doc_bp.admin_verification_queue') }}"
-             class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-            <i class="fas fa-file-alt mr-2 w-4"></i>Verifications</a>
-          <a href="{{ url_for('admin_bp.admin_emails') }}"
-             class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-            <i class="fas fa-envelope mr-2 w-4"></i>Emails</a>
-        </div>
-      </nav>
-    </div>
+    {% include "admin_sidebar.html" %}
 
     <!-- Main Content -->
     <div class="flex-1">
@@ -35,9 +14,18 @@
           <h1 class="text-3xl font-bold text-gray-800">Dashboard</h1>
           <p class="text-gray-500 mt-1">Welcome, {{ current_user.name }}</p>
         </div>
-        <a href="{{ url_for('admin_bp.admin_logout') }}"
-           class="text-red-500 hover:text-red-700 font-medium">
-          <i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
+        <div class="flex items-center space-x-4">
+          {% if pending_reports > 0 %}
+          <a href="{{ url_for('admin_bp.moderation_queue') }}"
+             class="relative inline-flex items-center px-3 py-2 bg-red-50 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 transition">
+            <i class="fas fa-flag mr-2"></i>Moderation
+            <span class="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">{{ pending_reports }}</span>
+          </a>
+          {% endif %}
+          <a href="{{ url_for('admin_bp.admin_logout') }}"
+             class="text-red-500 hover:text-red-700 font-medium">
+            <i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
+        </div>
       </div>
 
       <!-- Stats Cards -->
@@ -104,6 +92,37 @@
         </div>
       </div>
 
+      <!-- Quick Links to Analytics -->
+      <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <a href="{{ url_for('admin_bp.booking_analytics') }}"
+           class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition flex items-center space-x-3">
+          <div class="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
+            <i class="fas fa-chart-bar text-purple-600"></i></div>
+          <div>
+            <p class="text-sm font-semibold text-gray-800">Booking Analytics</p>
+            <p class="text-xs text-gray-400">Subjects, tutors, trends</p>
+          </div>
+        </a>
+        <a href="{{ url_for('admin_bp.system_analytics') }}"
+           class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition flex items-center space-x-3">
+          <div class="w-10 h-10 bg-teal-50 rounded-lg flex items-center justify-center">
+            <i class="fas fa-server text-teal-600"></i></div>
+          <div>
+            <p class="text-sm font-semibold text-gray-800">System Analytics</p>
+            <p class="text-xs text-gray-400">Emails, chats, reviews</p>
+          </div>
+        </a>
+        <a href="{{ url_for('admin_bp.revenue_dashboard') }}"
+           class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition flex items-center space-x-3">
+          <div class="w-10 h-10 bg-yellow-50 rounded-lg flex items-center justify-center">
+            <i class="fas fa-dollar-sign text-yellow-600"></i></div>
+          <div>
+            <p class="text-sm font-semibold text-gray-800">Revenue Dashboard</p>
+            <p class="text-xs text-gray-400">Payments, fees, totals</p>
+          </div>
+        </a>
+      </div>
+
       <!-- Charts -->
       <div class="grid lg:grid-cols-2 gap-6 mb-8">
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -119,6 +138,10 @@
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 class="font-bold text-gray-800 text-sm mb-3">Revenue Trend (12 months)</h3>
           <canvas id="revChart" height="200"></canvas>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 class="font-bold text-gray-800 text-sm mb-3">Sessions Overview</h3>
+          <canvas id="sessionsChart" height="200"></canvas>
         </div>
       </div>
 
@@ -183,7 +206,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
 <script>
 // Registrations chart
 fetch('{{ url_for("admin_bp.api_stats_registrations") }}')
@@ -227,5 +250,23 @@ fetch('{{ url_for("admin_bp.api_stats_revenue") }}')
       options: {responsive:true, plugins:{legend:{display:false}}}
     });
   });
+
+// Sessions overview chart (active vs total bookings)
+new Chart(document.getElementById('sessionsChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Active Sessions', 'Completed / Other'],
+    datasets: [{
+      data: [{{ active_sessions }}, {{ total_bookings - active_sessions }}],
+      backgroundColor: ['#3b82f6', '#e5e7eb']
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom' }
+    }
+  }
+});
 </script>
 {% endblock %}

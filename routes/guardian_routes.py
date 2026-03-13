@@ -1,4 +1,4 @@
-from flask import Blueprint, redirect, url_for, flash, render_template, request, current_app
+from flask import Blueprint, redirect, url_for, flash, render_template, request, current_app, jsonify
 from flask_login import login_user, logout_user, current_user
 from services.encryption_service import generate_token, verify_token
 from models.guardian import Guardian
@@ -7,18 +7,19 @@ from models.student import Student
 from models.booking import Booking
 from models.slots import TutorSlot
 from models.tutor import Tutor
+from models.guardian_message import GuardianMessage
 from database import db
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from utils.auth import role_required, is_account_locked, increment_failed_login, reset_failed_login
 from utils.validators import validate_password_complexity, get_password_error_message
+from utils.sanitizer import sanitize_input_length
 from services.booking_service import cancel_booking as do_cancel_booking, reopen_slot
 
 guardian_bp = Blueprint('guardian_bp', __name__)
 
 @guardian_bp.route('/guardian/verify/<token>')
 def verify_guardian(token):
-    """Guardian clicks this link in their email."""
     data = verify_token(token, salt='guardian-verify', max_age=172800)
     if not data:
         flash('This link has expired or is invalid.', 'danger')
@@ -37,7 +38,6 @@ def verify_guardian(token):
     guardian.verified_on = datetime.utcnow()
     db.session.commit()
 
-    # If guardian has no password yet, redirect to set-password
     if not guardian.password_hash:
         token = generate_token({'guardian_id': guardian.id}, salt='guardian-setpw')
         flash('Verified! Please set a password for your guardian dashboard.', 'success')
@@ -48,7 +48,7 @@ def verify_guardian(token):
 
 @guardian_bp.route('/guardian/set-password/<token>', methods=['GET', 'POST'])
 def set_password(token):
-    data = verify_token(token, salt='guardian-setpw', max_age=259200)  # 72h
+    data = verify_token(token, salt='guardian-setpw', max_age=259200)
     if not data:
         flash('This link has expired or is invalid.', 'danger')
         return redirect(url_for('main.index'))
@@ -105,14 +105,11 @@ def guardian_login():
         guardian.last_login = datetime.utcnow()
         db.session.commit()
 
-        # Issue JWT token for microservice auth (stored in cookie)
         try:
             from shared.jwt_auth import create_jwt_token
             jwt_token = create_jwt_token(
-                uid=guardian.get_id(),
-                role='guardian',
-                name=guardian.name,
-                email=guardian.email
+                uid=guardian.get_id(), role='guardian',
+                name=guardian.name, email=guardian.email
             )
             resp = redirect(url_for('guardian_bp.guardian_dashboard'))
             resp.set_cookie('tw_jwt', jwt_token, httponly=True,
@@ -120,7 +117,7 @@ def guardian_login():
             flash(f'Welcome back, {guardian.name}!', 'success')
             return resp
         except Exception:
-            pass  # JWT failure should not block login
+            pass
 
         flash(f'Welcome back, {guardian.name}!', 'success')
         return redirect(url_for('guardian_bp.guardian_dashboard'))
@@ -140,8 +137,12 @@ def guardian_dashboard():
     guardian = current_user
     students = Student.query.filter_by(guardian_id=guardian.id).all()
 
-    # Gather stats per child
+    # B1: Enhanced stats per child
     children = []
+    now = datetime.utcnow()
+    week_ago = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+
     for s in students:
         total_bookings = Booking.query.filter_by(student_id=s.id).count()
         pending_approval = Booking.query.filter_by(
@@ -152,11 +153,29 @@ def guardian_dashboard():
             .join(Booking, Booking.slot_id == TutorSlot.id)\
             .filter(Booking.student_id == s.id, Booking.status != 'Cancelled').scalar()
 
+        # B1: Additional stats
+        completed = Booking.query.filter_by(student_id=s.id, status='Completed').count()
+        upcoming = Booking.query.filter_by(student_id=s.id, status='Booked').count()
+
+        spent_this_week = db.session.query(db.func.coalesce(db.func.sum(TutorSlot.price), 0))\
+            .join(Booking, Booking.slot_id == TutorSlot.id)\
+            .filter(Booking.student_id == s.id, Booking.status != 'Cancelled',
+                    Booking.booked_on >= week_ago).scalar()
+
+        spent_this_month = db.session.query(db.func.coalesce(db.func.sum(TutorSlot.price), 0))\
+            .join(Booking, Booking.slot_id == TutorSlot.id)\
+            .filter(Booking.student_id == s.id, Booking.status != 'Cancelled',
+                    Booking.booked_on >= month_ago).scalar()
+
         children.append({
             'student': s,
             'total_bookings': total_bookings,
+            'completed': completed,
+            'upcoming': upcoming,
             'pending_approval': pending_approval,
-            'total_spent': float(total_spent or 0)
+            'total_spent': float(total_spent or 0),
+            'spent_this_week': float(spent_this_week or 0),
+            'spent_this_month': float(spent_this_month or 0),
         })
 
     # Pending bookings needing guardian approval
@@ -169,10 +188,62 @@ def guardian_dashboard():
             Booking.status == 'Booked'
         ).order_by(Booking.booked_on.desc()).all()
 
+    # B2: Recent activity feed
+    activity_feed = []
+    if student_ids:
+        recent = Booking.query.filter(
+            Booking.student_id.in_(student_ids),
+            Booking.booked_on >= week_ago
+        ).order_by(Booking.booked_on.desc()).limit(20).all()
+
+        for b in recent:
+            student = next((c['student'] for c in children if c['student'].id == b.student_id), None)
+            tutor = Tutor.query.get(b.tutor_id)
+            slot = TutorSlot.query.get(b.slot_id)
+            activity_feed.append({
+                'booking': b, 'student': student,
+                'tutor': tutor, 'slot': slot,
+                'timestamp': b.booked_on
+            })
+
+    # B5: Unread messages count
+    unread_messages = 0
+    if student_ids:
+        unread_messages = GuardianMessage.query.filter(
+            GuardianMessage.guardian_id == guardian.id,
+            GuardianMessage.sender_type == 'tutor',
+            GuardianMessage.is_read == False
+        ).count()
+
+    # B6: Spending limit warnings
+    spending_warnings = []
+    for c in children:
+        if guardian.weekly_spending_limit and c['spent_this_week'] >= guardian.weekly_spending_limit * 0.8:
+            pct = int(c['spent_this_week'] / guardian.weekly_spending_limit * 100)
+            spending_warnings.append({
+                'student': c['student'].name,
+                'type': 'weekly',
+                'pct': min(pct, 100),
+                'spent': c['spent_this_week'],
+                'limit': guardian.weekly_spending_limit
+            })
+        if guardian.monthly_spending_limit and c['spent_this_month'] >= guardian.monthly_spending_limit * 0.8:
+            pct = int(c['spent_this_month'] / guardian.monthly_spending_limit * 100)
+            spending_warnings.append({
+                'student': c['student'].name,
+                'type': 'monthly',
+                'pct': min(pct, 100),
+                'spent': c['spent_this_month'],
+                'limit': guardian.monthly_spending_limit
+            })
+
     return render_template('guardian_dashboard.html',
                            guardian=guardian,
                            children=children,
-                           pending_bookings=pending_bookings)
+                           pending_bookings=pending_bookings,
+                           activity_feed=activity_feed,
+                           unread_messages=unread_messages,
+                           spending_warnings=spending_warnings)
 
 @guardian_bp.route('/guardian/child/<int:student_id>')
 @role_required('guardian')
@@ -187,25 +258,50 @@ def child_activity(student_id):
     bookings = Booking.query.filter_by(student_id=student.id)\
         .order_by(Booking.booked_on.desc()).all()
 
-    # Enrich booking data
     booking_details = []
     for b in bookings:
         slot = TutorSlot.query.get(b.slot_id)
         tutor = Tutor.query.get(b.tutor_id)
         booking_details.append({
-            'booking': b,
-            'slot': slot,
-            'tutor': tutor
+            'booking': b, 'slot': slot, 'tutor': tutor
         })
 
     total_spent = sum(bd['slot'].price for bd in booking_details
                       if bd['slot'] and bd['booking'].status != 'Cancelled')
 
+    # B3: Per-child notification config
+    child_config = (guardian.child_notification_config or {}).get(str(student_id), {})
+
     return render_template('guardian_child_activity.html',
                            guardian=guardian,
                            student=student,
                            booking_details=booking_details,
-                           total_spent=total_spent)
+                           total_spent=total_spent,
+                           child_config=child_config)
+
+
+# B3: Save per-child notification config
+@guardian_bp.route('/guardian/child/<int:student_id>/config', methods=['POST'])
+@role_required('guardian')
+def save_child_config(student_id):
+    guardian = current_user
+    student = Student.query.get_or_404(student_id)
+    if student.guardian_id != guardian.id:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('guardian_bp.guardian_dashboard'))
+
+    config = guardian.child_notification_config or {}
+    config[str(student_id)] = {
+        'booking_alerts': 'booking_alerts' in request.form,
+        'session_reminders': 'session_reminders' in request.form,
+        'spending_alerts': 'spending_alerts' in request.form,
+        'progress_reports': 'progress_reports' in request.form,
+    }
+    guardian.child_notification_config = config
+    db.session.commit()
+    flash(f'Notification settings updated for {student.name}.', 'success')
+    return redirect(url_for('guardian_bp.child_activity', student_id=student_id))
+
 
 @guardian_bp.route('/guardian/approve-booking/<int:booking_id>', methods=['POST'])
 @role_required('guardian')
@@ -260,16 +356,112 @@ def emergency_cancel(booking_id):
         return redirect(url_for('guardian_bp.guardian_dashboard'))
 
     slot = TutorSlot.query.get(booking.slot_id)
-
     result = do_cancel_booking(booking, 'guardian', refund_pct=100)
-
-    if slot:
-        refund_amount = slot.price
-    else:
-        refund_amount = 0
+    refund_amount = slot.price if slot else 0
 
     flash(f'Emergency cancellation complete. Full refund of ${refund_amount:.2f} will be processed.', 'success')
     return redirect(url_for('guardian_bp.guardian_dashboard'))
+
+
+# B5: Guardian-Tutor messaging
+@guardian_bp.route('/guardian/messages')
+@role_required('guardian')
+def guardian_messages():
+    guardian = current_user
+    students = Student.query.filter_by(guardian_id=guardian.id).all()
+    student_ids = [s.id for s in students]
+
+    # Get unique tutor conversations
+    conversations = db.session.query(
+        GuardianMessage.tutor_id,
+        GuardianMessage.student_id,
+        db.func.max(GuardianMessage.created_at).label('last_msg'),
+        db.func.sum(db.case(
+            (db.and_(GuardianMessage.sender_type == 'tutor',
+                     GuardianMessage.is_read == False), 1),
+            else_=0
+        )).label('unread')
+    ).filter(
+        GuardianMessage.guardian_id == guardian.id
+    ).group_by(
+        GuardianMessage.tutor_id, GuardianMessage.student_id
+    ).order_by(db.desc('last_msg')).all()
+
+    conv_list = []
+    for conv in conversations:
+        tutor = Tutor.query.get(conv.tutor_id)
+        student = Student.query.get(conv.student_id)
+        conv_list.append({
+            'tutor': tutor,
+            'student': student,
+            'last_msg': conv.last_msg,
+            'unread': int(conv.unread or 0)
+        })
+
+    return render_template('guardian_messages.html',
+                           guardian=guardian,
+                           conversations=conv_list,
+                           students=students)
+
+
+@guardian_bp.route('/guardian/messages/<int:tutor_id>/<int:student_id>', methods=['GET', 'POST'])
+@role_required('guardian')
+def guardian_message_thread(tutor_id, student_id):
+    guardian = current_user
+    student = Student.query.get_or_404(student_id)
+    if student.guardian_id != guardian.id:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('guardian_bp.guardian_messages'))
+
+    tutor = Tutor.query.get_or_404(tutor_id)
+
+    if request.method == 'POST':
+        content = sanitize_input_length(request.form.get('content', '').strip(), 1000)
+        if content:
+            msg = GuardianMessage(
+                guardian_id=guardian.id,
+                tutor_id=tutor_id,
+                student_id=student_id,
+                sender_type='guardian',
+                content=content
+            )
+            db.session.add(msg)
+            db.session.commit()
+        return redirect(url_for('guardian_bp.guardian_message_thread',
+                                tutor_id=tutor_id, student_id=student_id))
+
+    # Mark messages as read
+    GuardianMessage.query.filter_by(
+        guardian_id=guardian.id, tutor_id=tutor_id,
+        student_id=student_id, sender_type='tutor', is_read=False
+    ).update({'is_read': True})
+    db.session.commit()
+
+    messages = GuardianMessage.query.filter_by(
+        guardian_id=guardian.id, tutor_id=tutor_id, student_id=student_id
+    ).order_by(GuardianMessage.created_at.asc()).all()
+
+    return render_template('guardian_message_thread.html',
+                           guardian=guardian, tutor=tutor,
+                           student=student, messages=messages)
+
+
+# B6: Spending limits
+@guardian_bp.route('/guardian/spending-limits', methods=['GET', 'POST'])
+@role_required('guardian')
+def spending_limits():
+    guardian = current_user
+    if request.method == 'POST':
+        weekly = request.form.get('weekly_limit', '').strip()
+        monthly = request.form.get('monthly_limit', '').strip()
+        guardian.weekly_spending_limit = float(weekly) if weekly else None
+        guardian.monthly_spending_limit = float(monthly) if monthly else None
+        db.session.commit()
+        flash('Spending limits updated.', 'success')
+        return redirect(url_for('guardian_bp.guardian_dashboard'))
+
+    return render_template('guardian_spending_limits.html', guardian=guardian)
+
 
 @guardian_bp.route('/guardian/forgot-password', methods=['GET', 'POST'])
 @limiter.limit('3 per hour', methods=['POST'])

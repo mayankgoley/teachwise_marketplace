@@ -6,34 +6,165 @@
   <a href="javascript:history.back()" class="text-blue-600 hover:text-blue-800 text-sm font-medium mb-4 inline-block">
     <i class="fas fa-arrow-left mr-1"></i>Back</a>
 
+  <!-- Expiry Countdown -->
+  {% if days_until_expiry is not none %}
+  <div class="mb-4 rounded-lg p-3
+    {% if days_until_expiry <= 1 %}bg-red-50 border border-red-200
+    {% elif days_until_expiry <= 3 %}bg-amber-50 border border-amber-200
+    {% elif days_until_expiry <= 7 %}bg-yellow-50 border border-yellow-200
+    {% else %}bg-blue-50 border border-blue-200{% endif %}">
+    <div class="flex items-center space-x-3">
+      <i class="fas fa-clock text-lg
+        {% if days_until_expiry <= 1 %}text-red-500
+        {% elif days_until_expiry <= 3 %}text-amber-500
+        {% elif days_until_expiry <= 7 %}text-yellow-600
+        {% else %}text-blue-500{% endif %}"></i>
+      <div>
+        {% if days_until_expiry == 0 %}
+        <p class="font-semibold text-red-800 text-sm">This recording expires today!</p>
+        <p class="text-red-700 text-xs">Download it now before it is automatically removed.</p>
+        {% elif days_until_expiry == 1 %}
+        <p class="font-semibold text-red-800 text-sm">Expires tomorrow</p>
+        <p class="text-red-700 text-xs">This recording will be removed in approximately 1 day.</p>
+        {% elif days_until_expiry <= 3 %}
+        <p class="font-semibold text-amber-800 text-sm">Expires in {{ days_until_expiry }} days</p>
+        <p class="text-amber-700 text-xs">This recording will be automatically removed on {{ recording.expires_at.strftime('%B %d, %Y') }}.</p>
+        {% elif days_until_expiry <= 7 %}
+        <p class="font-semibold text-yellow-800 text-sm">Expires in {{ days_until_expiry }} days</p>
+        <p class="text-yellow-700 text-xs">Recording expires on {{ recording.expires_at.strftime('%B %d, %Y') }}.</p>
+        {% else %}
+        <p class="font-medium text-blue-800 text-sm">Expires in {{ days_until_expiry }} days
+          <span class="text-blue-600 text-xs">({{ recording.expires_at.strftime('%B %d, %Y') }})</span></p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Recording Info Card -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-    <h1 class="text-2xl font-bold text-gray-800 mb-2">
-      <i class="fas fa-play-circle text-red-500 mr-2"></i>Session Recording</h1>
-    <p class="text-gray-500 text-sm">
-      {{ tutor.name if tutor else 'Tutor' }}
-      {% if student %} &bull; {{ student.name }}{% endif %}
-      &bull; {{ slot.date.strftime('%B %d, %Y') }}
-      {{ slot.start_time.strftime('%I:%M %p') }} - {{ slot.end_time.strftime('%I:%M %p') }}
-    </p>
+    <div class="flex items-start justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">
+          <i class="fas fa-play-circle text-red-500 mr-2"></i>Session Recording</h1>
+        <p class="text-gray-500 text-sm">
+          {{ tutor.name if tutor else 'Tutor' }}
+          {% if student %} &bull; {{ student.name }}{% endif %}
+          &bull; {{ slot.date.strftime('%B %d, %Y') }}
+          {{ slot.start_time.strftime('%I:%M %p') }} - {{ slot.end_time.strftime('%I:%M %p') }}
+        </p>
+      </div>
+      <div class="flex items-center space-x-2">
+        <!-- Quality Badge -->
+        {% if quality_label %}
+        <span class="text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
+          <i class="fas fa-signal mr-1"></i>{{ quality_label }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
     {% if recording.duration_seconds %}
-    <p class="text-gray-400 text-xs mt-1">
-      Duration: {{ (recording.duration_seconds // 60) }}m {{ recording.duration_seconds % 60 }}s
-      &bull; Expires: {{ recording.expires_at.strftime('%B %d, %Y') if recording.expires_at else 'N/A' }}</p>
+    <div class="flex items-center space-x-4 mt-3 text-sm text-gray-500">
+      <span><i class="fas fa-clock mr-1 text-gray-400"></i>
+        {{ (recording.duration_seconds // 60) }}m {{ recording.duration_seconds % 60 }}s</span>
+      {% if recording.file_size_bytes %}
+      <span><i class="fas fa-hdd mr-1 text-gray-400"></i>
+        {{ (recording.file_size_bytes / (1024*1024))|round(1) }} MB</span>
+      {% endif %}
+      {% if recording.created_at %}
+      <span><i class="fas fa-calendar mr-1 text-gray-400"></i>
+        {{ recording.created_at.strftime('%b %d, %Y %I:%M %p') }}</span>
+      {% endif %}
+    </div>
     {% endif %}
+
+    <!-- Consent Badges -->
+    <div class="flex items-center space-x-2 mt-3">
+      <span class="text-xs px-2 py-0.5 rounded-full font-medium
+        {% if recording.consent_student %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-500{% endif %}">
+        <i class="fas fa-{% if recording.consent_student %}check-circle{% else %}times-circle{% endif %} mr-0.5"></i>
+        Student {% if recording.consent_student %}Consented{% else %}No Consent{% endif %}
+      </span>
+      <span class="text-xs px-2 py-0.5 rounded-full font-medium
+        {% if recording.consent_tutor %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-500{% endif %}">
+        <i class="fas fa-{% if recording.consent_tutor %}check-circle{% else %}times-circle{% endif %} mr-0.5"></i>
+        Tutor {% if recording.consent_tutor %}Consented{% else %}No Consent{% endif %}
+      </span>
+    </div>
   </div>
 
   {% if recording.is_deleted or recording.is_expired %}
   <div class="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
     <i class="fas fa-exclamation-triangle text-red-400 text-4xl mb-4"></i>
     <p class="text-red-600 font-medium">This recording has expired or been deleted.</p>
+    <p class="text-red-500 text-sm mt-1">Recordings are retained for 30 days after the session.</p>
   </div>
   {% else %}
-  <div class="bg-black rounded-xl overflow-hidden">
-    <video controls class="w-full" style="max-height: 70vh;">
+  <!-- Video Player -->
+  <div class="bg-black rounded-xl overflow-hidden shadow-lg">
+    <video controls class="w-full" style="max-height: 70vh;" id="videoPlayer">
       <source src="{{ url_for('recording_bp.playback_recording', slot_id=slot.id, recording_id=recording.id) }}" type="video/webm">
       Your browser does not support video playback.
     </video>
   </div>
+
+  <!-- Keyboard Shortcut Hints -->
+  <div class="mt-4 bg-gray-50 rounded-lg border border-gray-200 p-3">
+    <p class="text-xs font-semibold text-gray-500 mb-2">
+      <i class="fas fa-keyboard mr-1"></i>Keyboard Shortcuts</p>
+    <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500">
+      <span><kbd class="bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">Space</kbd> Play/Pause</span>
+      <span><kbd class="bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">F</kbd> Fullscreen</span>
+      <span><kbd class="bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">M</kbd> Mute</span>
+      <span><kbd class="bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">&larr;</kbd> -10s</span>
+      <span><kbd class="bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">&rarr;</kbd> +10s</span>
+      <span><kbd class="bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">&uarr;</kbd> Volume Up</span>
+      <span><kbd class="bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">&darr;</kbd> Volume Down</span>
+    </div>
+  </div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% if not recording.is_deleted and not recording.is_expired %}
+<script>
+const video = document.getElementById('videoPlayer');
+if (video) {
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    switch(e.key) {
+      case ' ':
+        e.preventDefault();
+        video.paused ? video.play() : video.pause();
+        break;
+      case 'f':
+      case 'F':
+        if (document.fullscreenElement) document.exitFullscreen();
+        else video.requestFullscreen();
+        break;
+      case 'm':
+      case 'M':
+        video.muted = !video.muted;
+        break;
+      case 'ArrowLeft':
+        video.currentTime = Math.max(0, video.currentTime - 10);
+        break;
+      case 'ArrowRight':
+        video.currentTime = Math.min(video.duration, video.currentTime + 10);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        video.volume = Math.min(1, video.volume + 0.1);
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        video.volume = Math.max(0, video.volume - 0.1);
+        break;
+    }
+  });
+}
+</script>
+{% endif %}
 {% endblock %}

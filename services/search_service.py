@@ -1,8 +1,16 @@
 from database import db
 from models.tutor import Tutor
 from sqlalchemy import func, text, desc, case, literal_column, and_, or_
-from services.cache_service import cache_get, cache_set
+from services.cache_service import cache_get, cache_set, cache_delete_pattern
 import hashlib
+
+
+def invalidate_search_cache(tutor_id=None):
+    """Clear search and recommendation caches.
+    Call after any tutor profile, slot, or review change."""
+    cache_delete_pattern('search:*')
+    cache_delete_pattern('rec:*')
+    cache_delete_pattern('suggest:*')
 
 
 def search_tutors_geo(student_lat, student_lng, query_text=None, filters=None,
@@ -17,23 +25,20 @@ def search_tutors_geo(student_lat, student_lng, query_text=None, filters=None,
 
     filters = filters or {}
 
-    # Build cache key
     cache_key = _build_cache_key(
         f'geo:{student_lat}:{student_lng}:{query_text or ""}', filters, sort)
     cached = cache_get(cache_key)
     if cached is not None:
         return cached
 
-    # Student point as geography
     student_point = func.ST_SetSRID(
         func.ST_MakePoint(student_lng, student_lat), 4326
-    ).cast(db.String)  # Cast to text for parameter binding
+    ).cast(db.String)
 
     student_geog = text(
         "ST_SetSRID(ST_MakePoint(:s_lng, :s_lat), 4326)::geography"
     ).params(s_lng=student_lng, s_lat=student_lat)
 
-    # Distance in meters from slot location to student
     distance_expr = func.ST_Distance(
         TutorSlot.location_point,
         text("ST_SetSRID(ST_MakePoint(:d_lng, :d_lat), 4326)::geography").params(
@@ -41,7 +46,6 @@ def search_tutors_geo(student_lat, student_lng, query_text=None, filters=None,
     )
     distance_miles = (distance_expr / 1609.34).label('distance_miles')
 
-    # Base query: slots joined with tutors
     query = db.session.query(
         Tutor.id.label('tutor_id'),
         Tutor.name,
@@ -68,7 +72,6 @@ def search_tutors_geo(student_lat, student_lng, query_text=None, filters=None,
         TutorSlot.date >= date.today(),
     )
 
-    # Slot visibility: offline within radius OR online
     query = query.filter(
         or_(
             TutorSlot.mode == 'online',
@@ -85,7 +88,6 @@ def search_tutors_geo(student_lat, student_lng, query_text=None, filters=None,
         )
     )
 
-    # Text search filter
     if query_text and query_text.strip():
         words = query_text.strip().split()
         tsquery_str = ' & '.join(w for w in words if w)
@@ -107,7 +109,15 @@ def search_tutors_geo(student_lat, student_lng, query_text=None, filters=None,
             query = query.filter(TutorSlot.mode == 'online')
         else:
             query = query.filter(TutorSlot.mode != 'online')
-    if filters.get('subject'):
+
+    # Multi-subject support
+    if filters.get('subjects'):
+        sub_filters = []
+        for s in filters['subjects']:
+            sub_filters.append(Tutor.subject.ilike(f"%{s}%"))
+            sub_filters.append(TutorSlot.subject.ilike(f"%{s}%"))
+        query = query.filter(or_(*sub_filters))
+    elif filters.get('subject'):
         query = query.filter(
             or_(
                 Tutor.subject.ilike(f"%{filters['subject']}%"),
@@ -115,7 +125,6 @@ def search_tutors_geo(student_lat, student_lng, query_text=None, filters=None,
             )
         )
 
-    # Group by tutor
     query = query.group_by(
         Tutor.id, Tutor.name, Tutor.subject, Tutor.rating_avg,
         Tutor.experience, Tutor.hourly_rate, Tutor.city,
@@ -123,7 +132,6 @@ def search_tutors_geo(student_lat, student_lng, query_text=None, filters=None,
         Tutor.profile_photo
     )
 
-    # Sort
     if sort == 'distance':
         query = query.order_by(text('nearest_distance ASC NULLS LAST'))
     elif sort == 'price_asc':
@@ -137,7 +145,6 @@ def search_tutors_geo(student_lat, student_lng, query_text=None, filters=None,
 
     results = query.limit(limit).all()
 
-    # Format response
     data = []
     for row in results:
         nearest_dist = round(row.nearest_distance, 1) if row.nearest_distance else None
@@ -209,7 +216,12 @@ def search_tutors(query_text, filters=None, sort='relevance', limit=50):
             (Tutor.teaching_mode == filters['teaching_mode']) |
             (Tutor.teaching_mode == 'Both')
         )
-    if filters.get('subject'):
+
+    # Multi-subject support
+    if filters.get('subjects'):
+        sub_filters = [Tutor.subject.ilike(f"%{s}%") for s in filters['subjects']]
+        query = query.filter(or_(*sub_filters))
+    elif filters.get('subject'):
         query = query.filter(Tutor.subject.ilike(f"%{filters['subject']}%"))
 
     if sort == 'relevance' and ts_rank is not None:

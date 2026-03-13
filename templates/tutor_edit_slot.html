@@ -15,27 +15,31 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
-        <input type="date" name="date" required value="{{ slot.date.strftime('%Y-%m-%d') }}"
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="editSlotDate">Date</label>
+        <input type="date" name="date" id="editSlotDate" required value="{{ slot.date.strftime('%Y-%m-%d') }}"
+               aria-label="Slot date"
                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
       </div>
 
       <div class="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-          <input type="time" name="start_time" required value="{{ slot.start_time.strftime('%H:%M') }}"
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="editSlotStart">Start Time</label>
+          <input type="time" name="start_time" id="editSlotStart" required value="{{ slot.start_time.strftime('%H:%M') }}"
+                 aria-label="Start time"
                  class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-          <input type="time" name="end_time" required value="{{ slot.end_time.strftime('%H:%M') }}"
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="editSlotEnd">End Time</label>
+          <input type="time" name="end_time" id="editSlotEnd" required value="{{ slot.end_time.strftime('%H:%M') }}"
+                 aria-label="End time"
                  class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
         </div>
       </div>
 
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Mode</label>
-        <select name="mode" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="editSlotMode">Mode</label>
+        <select name="mode" id="editSlotMode" aria-label="Session mode"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2">
           <option value="online" {% if slot.mode == 'online' %}selected{% endif %}>Online</option>
           <option value="in-person" {% if slot.mode == 'in-person' %}selected{% endif %}>In-Person</option>
           <option value="both" {% if slot.mode == 'both' %}selected{% endif %}>Both</option>
@@ -43,14 +47,16 @@
       </div>
 
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-        <input type="text" name="subject" value="{{ slot.subject or tutor.subject }}"
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="editSlotSubject">Subject</label>
+        <input type="text" name="subject" id="editSlotSubject" value="{{ slot.subject or tutor.subject }}"
+               aria-label="Subject"
                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
       </div>
 
       <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
-        <input type="number" name="price" step="0.01" min="0" value="{{ slot.price }}"
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="editSlotPrice">Price ($)</label>
+        <input type="number" name="price" id="editSlotPrice" step="0.01" min="0" value="{{ slot.price }}"
+               aria-label="Price"
                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
       </div>
 

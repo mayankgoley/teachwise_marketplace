@@ -49,6 +49,7 @@ class ChatbotMessage(db.Model):
     tool_calls = db.Column(db.JSON, nullable=True)
     tool_results = db.Column(db.JSON, nullable=True)
     tokens_used = db.Column(db.Integer, default=0)
+    feedback = db.Column(db.String(20), nullable=True)  # D6: helpful, unhelpful
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -56,5 +57,6 @@ class ChatbotMessage(db.Model):
             'id': self.id,
             'role': self.role,
             'content': self.content,
+            'feedback': self.feedback,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }

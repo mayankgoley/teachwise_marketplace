@@ -33,6 +33,7 @@ class TutorDocument(db.Model):
     file_deleted_on = db.Column(db.DateTime, nullable=True)
 
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expiry_date = db.Column(db.Date, nullable=True)
 
     tutor = db.relationship('Tutor', backref='documents', lazy=True)
 

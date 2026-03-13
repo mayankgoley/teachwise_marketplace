@@ -5,6 +5,8 @@ from models.slots import TutorSlot
 from models.tutor import Tutor
 from models.booking import Booking
 from services.storage_service import upload_document
+from extensions import socketio
+from flask_socketio import emit, join_room, leave_room
 from database import db
 from datetime import datetime
 import base64
@@ -76,6 +78,12 @@ def save_whiteboard(slot_id):
     data = request.get_json()
     wb.json_state = data.get('state', '')
     wb.updated_at = datetime.utcnow()
+
+    # Item 3: Save thumbnail if provided
+    thumbnail = data.get('thumbnail')
+    if thumbnail and thumbnail.startswith('data:image/'):
+        wb.thumbnail = thumbnail
+
     db.session.commit()
 
     return jsonify({'ok': True})
@@ -110,14 +118,12 @@ def save_snapshot(slot_id):
     if not image_data or not image_data.startswith('data:image/png;base64,'):
         return jsonify({'error': 'Invalid image data'}), 400
 
-    # Decode base64 PNG
     raw = image_data.split(',', 1)[1]
     png_bytes = base64.b64decode(raw)
 
-    if len(png_bytes) > 10 * 1024 * 1024:  # 10MB limit for snapshots
+    if len(png_bytes) > 10 * 1024 * 1024:
         return jsonify({'error': 'Snapshot too large'}), 400
 
-    # Upload to storage
     filename = f'whiteboard_{slot_id}_{datetime.utcnow().strftime("%Y%m%d%H%M%S")}.png'
     result = upload_document(png_bytes, slot.tutor_id, filename)
 
@@ -152,3 +158,48 @@ def load_previous_whiteboard(wb_id):
         return jsonify({'error': 'Access denied'}), 403
 
     return jsonify({'state': wb.json_state})
+
+
+# ═══════════════════════════════════════════════════════════
+# Item 4: Socket.IO Events for Real-Time Collaboration
+# ═══════════════════════════════════════════════════════════
+
+@socketio.on('join_whiteboard')
+def handle_join_whiteboard(data):
+    slot_id = data.get('slot_id')
+    if slot_id:
+        room = f'whiteboard_{slot_id}'
+        join_room(room)
+        # Send current state to newly joined user
+        wb = WhiteboardSession.query.filter_by(slot_id=slot_id).first()
+        if wb and wb.json_state:
+            emit('whiteboard_full_state', {'canvas_json': wb.json_state})
+
+
+@socketio.on('leave_whiteboard')
+def handle_leave_whiteboard(data):
+    slot_id = data.get('slot_id')
+    if slot_id:
+        leave_room(f'whiteboard_{slot_id}')
+
+
+@socketio.on('whiteboard_draw')
+def handle_whiteboard_draw(data):
+    """Relay drawing events to other participants."""
+    slot_id = data.get('slot_id')
+    if slot_id:
+        emit('whiteboard_draw', data, room=f'whiteboard_{slot_id}', include_self=False)
+
+
+@socketio.on('whiteboard_clear')
+def handle_whiteboard_clear(data):
+    slot_id = data.get('slot_id')
+    if slot_id:
+        emit('whiteboard_clear', data, room=f'whiteboard_{slot_id}', include_self=False)
+
+
+@socketio.on('whiteboard_undo')
+def handle_whiteboard_undo(data):
+    slot_id = data.get('slot_id')
+    if slot_id:
+        emit('whiteboard_undo', data, room=f'whiteboard_{slot_id}', include_self=False)

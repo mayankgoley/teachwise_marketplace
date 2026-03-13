@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}Tutor Setup | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-12">
+  <!-- Header -->
+  <div class="text-center mb-10">
+    <h1 class="text-3xl font-bold text-gray-800">
+      <i class="fas fa-magic mr-2 text-blue-600"></i>Welcome to TeachWise</h1>
+    <p class="text-gray-500 mt-2">Complete these steps to set up your tutor profile</p>
+  </div>
+
+  <!-- Progress Bar -->
+  <div class="mb-10">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-sm font-medium text-gray-700">Step {{ step + 1 }} of 5</span>
+      <span class="text-sm font-bold text-blue-600">{{ ((step / 5) * 100)|int }}% complete</span>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-3">
+      <div class="bg-blue-600 h-3 rounded-full transition-all duration-500"
+           style="width: {{ (step / 5) * 100 }}%"></div>
+    </div>
+    <div class="flex justify-between mt-3">
+      {% set step_labels = ['Bio & Profile', 'Rates & Mode', 'Availability', 'Documents', 'Stripe'] %}
+      {% for i in range(5) %}
+      <div class="flex flex-col items-center" style="width:20%;">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
+                    {% if i < step %}bg-green-500 text-white
+                    {% elif i == step %}bg-blue-600 text-white
+                    {% else %}bg-gray-200 text-gray-500{% endif %}">
+          {% if i < step %}
+          <i class="fas fa-check"></i>
+          {% else %}
+          {{ i + 1 }}
+          {% endif %}
+        </div>
+        <span class="text-xs text-gray-500 mt-1 text-center">{{ step_labels[i] }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Step Content -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+
+    {% if step == 0 %}
+    <!-- Step 1: Bio & Qualification -->
+    <h2 class="text-xl font-bold text-gray-800 mb-2">
+      <i class="fas fa-user mr-2 text-blue-600"></i>Tell Us About Yourself</h2>
+    <p class="text-gray-500 text-sm mb-6">Help students get to know you better.</p>
+    <form method="POST" action="{{ url_for('tutor_bp.tutor_setup_step', step_number=1) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="setupBio">Bio</label>
+        <textarea name="bio" id="setupBio" rows="4" maxlength="500"
+                  placeholder="Tell students about your teaching style, experience, and what makes your sessions special..."
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                         focus:ring-2 focus:ring-blue-500 resize-none"
+                  aria-label="Your bio">{{ tutor.bio or '' }}</textarea>
+        <p class="text-xs text-gray-400 mt-1">Up to 500 characters</p>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="setupQual">Qualification</label>
+        <input type="text" name="qualification" id="setupQual" maxlength="200"
+               value="{{ tutor.qualification or '' }}"
+               placeholder="e.g., PhD in Mathematics, BSc Computer Science"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                      focus:ring-2 focus:ring-blue-500"
+               aria-label="Qualification">
+      </div>
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="setupInstitution">Institution</label>
+        <input type="text" name="institution" id="setupInstitution" maxlength="200"
+               value="{{ tutor.institution or '' }}"
+               placeholder="e.g., MIT, Stanford University"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                      focus:ring-2 focus:ring-blue-500"
+               aria-label="Institution">
+      </div>
+      <button type="submit"
+              class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold
+                     hover:bg-blue-700 transition">
+        Continue <i class="fas fa-arrow-right ml-1"></i></button>
+    </form>
+
+    {% elif step == 1 %}
+    <!-- Step 2: Rates & Teaching Mode -->
+    <h2 class="text-xl font-bold text-gray-800 mb-2">
+      <i class="fas fa-dollar-sign mr-2 text-green-600"></i>Rates & Teaching Mode</h2>
+    <p class="text-gray-500 text-sm mb-6">Set your pricing and how you prefer to teach.</p>
+    <form method="POST" action="{{ url_for('tutor_bp.tutor_setup_step', step_number=2) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="setupRate">Hourly Rate ($)</label>
+        <input type="number" name="hourly_rate" id="setupRate" step="0.01" min="0"
+               value="{{ tutor.hourly_rate or '' }}"
+               placeholder="25.00"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                      focus:ring-2 focus:ring-blue-500"
+               aria-label="Hourly rate">
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-3">Teaching Mode</label>
+        <div class="space-y-3">
+          <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer
+                        hover:bg-blue-50 transition">
+            <input type="radio" name="teaching_mode" value="online"
+                   class="w-4 h-4 text-blue-600 mr-3"
+                   {{ 'checked' if not tutor.teaching_mode or tutor.teaching_mode == 'online' }}>
+            <div>
+              <p class="font-medium text-gray-800"><i class="fas fa-laptop mr-1 text-blue-500"></i>Online Only</p>
+              <p class="text-xs text-gray-500">Teach via video conferencing</p>
+            </div>
+          </label>
+          <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer
+                        hover:bg-blue-50 transition">
+            <input type="radio" name="teaching_mode" value="in-person"
+                   class="w-4 h-4 text-blue-600 mr-3"
+                   {{ 'checked' if tutor.teaching_mode == 'in-person' }}>
+            <div>
+              <p class="font-medium text-gray-800"><i class="fas fa-map-marker-alt mr-1 text-green-500"></i>In-Person Only</p>
+              <p class="text-xs text-gray-500">Meet students at a physical location</p>
+            </div>
+          </label>
+          <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer
+                        hover:bg-blue-50 transition">
+            <input type="radio" name="teaching_mode" value="both"
+                   class="w-4 h-4 text-blue-600 mr-3"
+                   {{ 'checked' if tutor.teaching_mode == 'both' }}>
+            <div>
+              <p class="font-medium text-gray-800"><i class="fas fa-exchange-alt mr-1 text-purple-500"></i>Both</p>
+              <p class="text-xs text-gray-500">Offer online and in-person sessions</p>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="setupExp">Years of Experience</label>
+        <input type="number" name="experience" id="setupExp" min="0" max="50"
+               value="{{ tutor.experience or '' }}"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg
+                      focus:ring-2 focus:ring-blue-500"
+               aria-label="Experience">
+      </div>
+      <button type="submit"
+              class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold
+                     hover:bg-blue-700 transition">
+        Continue <i class="fas fa-arrow-right ml-1"></i></button>
+    </form>
+
+    {% elif step == 2 %}
+    <!-- Step 3: Availability -->
+    <h2 class="text-xl font-bold text-gray-800 mb-2">
+      <i class="fas fa-calendar-alt mr-2 text-indigo-600"></i>Set Your Availability</h2>
+    <p class="text-gray-500 text-sm mb-6">Create time slots so students know when you are available. You can always add more later.</p>
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center mb-6">
+      <i class="fas fa-calendar-check text-blue-500 text-4xl mb-3"></i>
+      <p class="text-blue-800 font-medium">Set up your weekly template and generate time slots.</p>
+      <a href="{{ url_for('tutor_bp.tutor_availability') }}"
+         class="inline-block mt-3 bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold
+                hover:bg-blue-700 transition text-sm">
+        <i class="fas fa-calendar-alt mr-1"></i>Open Availability Manager</a>
+    </div>
+    <form method="POST" action="{{ url_for('tutor_bp.tutor_setup_step', step_number=3) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit"
+              class="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold
+                     hover:bg-gray-200 transition">
+        Skip for Now <i class="fas fa-arrow-right ml-1"></i></button>
+    </form>
+
+    {% elif step == 3 %}
+    <!-- Step 4: Documents -->
+    <h2 class="text-xl font-bold text-gray-800 mb-2">
+      <i class="fas fa-file-alt mr-2 text-amber-600"></i>Upload Verification Documents</h2>
+    <p class="text-gray-500 text-sm mb-6">Upload your ID, degree, or certification to get verified. Verified tutors get more bookings.</p>
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center mb-6">
+      <i class="fas fa-shield-alt text-amber-500 text-4xl mb-3"></i>
+      <p class="text-amber-800 font-medium">Verification builds trust with students and parents.</p>
+      <a href="{{ url_for('doc_bp.upload_docs') }}"
+         class="inline-block mt-3 bg-amber-600 text-white px-6 py-2 rounded-lg font-semibold
+                hover:bg-amber-700 transition text-sm">
+        <i class="fas fa-upload mr-1"></i>Upload Documents</a>
+    </div>
+    <form method="POST" action="{{ url_for('tutor_bp.tutor_setup_step', step_number=4) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit"
+              class="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold
+                     hover:bg-gray-200 transition">
+        Skip for Now <i class="fas fa-arrow-right ml-1"></i></button>
+    </form>
+
+    {% elif step == 4 %}
+    <!-- Step 5: Stripe Connect -->
+    <h2 class="text-xl font-bold text-gray-800 mb-2">
+      <i class="fas fa-credit-card mr-2 text-purple-600"></i>Connect Stripe</h2>
+    <p class="text-gray-500 text-sm mb-6">Connect your Stripe account to receive direct payouts for your sessions.</p>
+    <div class="bg-purple-50 border border-purple-200 rounded-lg p-6 text-center mb-6">
+      <i class="fas fa-wallet text-purple-500 text-4xl mb-3"></i>
+      <p class="text-purple-800 font-medium">Receive instant payouts directly to your bank account.</p>
+      {% if tutor.stripe_onboarding_complete %}
+      <p class="text-green-600 font-semibold mt-2"><i class="fas fa-check-circle mr-1"></i>Stripe already connected!</p>
+      {% else %}
+      <a href="{{ url_for('payment_bp.stripe_onboard') }}"
+         class="inline-block mt-3 bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold
+                hover:bg-purple-700 transition text-sm">
+        <i class="fas fa-link mr-1"></i>Connect Stripe</a>
+      {% endif %}
+    </div>
+    <form method="POST" action="{{ url_for('tutor_bp.tutor_setup_step', step_number=5) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit"
+              class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold
+                     hover:bg-green-700 transition">
+        <i class="fas fa-check mr-1"></i>Finish Setup</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

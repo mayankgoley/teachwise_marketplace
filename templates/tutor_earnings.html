@@ -4,11 +4,32 @@
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
   <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold text-gray-800">Earnings Dashboard</h1>
-    <div class="flex space-x-3">
-      <a href="{{ url_for('tutor_bp.earnings_export') }}"
-         class="text-sm text-blue-600 hover:underline font-medium">
-        <i class="fas fa-download mr-1"></i>Export CSV</a>
+    <h1 class="text-2xl font-bold text-gray-800">
+      <i class="fas fa-chart-line mr-2 text-green-600"></i>Earnings Dashboard</h1>
+    <div class="flex items-center space-x-3">
+      <!-- Export Dropdown -->
+      <div class="relative" id="exportDropdown">
+        <button type="button" onclick="document.getElementById('exportMenu').classList.toggle('hidden')"
+                class="flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium
+                       border border-blue-300 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition">
+          <i class="fas fa-download mr-1"></i>Export
+          <i class="fas fa-chevron-down ml-1 text-xs"></i></button>
+        <div id="exportMenu" class="hidden absolute right-0 mt-1 bg-white border border-gray-200
+                    rounded-lg shadow-lg z-20 w-56 py-2">
+          <p class="px-3 py-1 text-xs text-gray-400 uppercase tracking-wide">Select Year</p>
+          {% for y in range(now.year, now.year - 4, -1) %}
+          <div class="px-3 py-1 flex items-center justify-between hover:bg-gray-50">
+            <span class="text-sm text-gray-700 font-medium">{{ y }}</span>
+            <div class="flex space-x-2">
+              <a href="{{ url_for('tutor_bp.earnings_export', format='csv', year=y) }}"
+                 class="text-xs text-blue-600 hover:underline font-medium">CSV</a>
+              <a href="{{ url_for('tutor_bp.earnings_export', format='pdf', year=y) }}"
+                 class="text-xs text-red-600 hover:underline font-medium">PDF</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
       <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
          class="text-sm text-gray-600 hover:underline font-medium">
         <i class="fas fa-arrow-left mr-1"></i>Dashboard</a>
@@ -51,24 +72,45 @@
     </div>
   </div>
 
-  <!-- Stripe Payout Link -->
-  {% if tutor.stripe_account_id and tutor.stripe_onboarding_complete %}
-  <div class="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
-    <p class="text-green-800 font-medium">
-      <i class="fas fa-check-circle mr-1"></i>
-      Stripe payouts connected.
-      <a href="https://dashboard.stripe.com/express" target="_blank"
-         class="underline ml-1">Manage Payouts</a></p>
+  <!-- Stripe Payout Section -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+    <h2 class="text-lg font-bold text-gray-800 mb-4">
+      <i class="fas fa-credit-card mr-2 text-purple-600"></i>Payout Schedule</h2>
+    {% if tutor.stripe_account_id and tutor.stripe_onboarding_complete %}
+    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+      <p class="text-green-800 font-medium">
+        <i class="fas fa-check-circle mr-1"></i>
+        Stripe payouts connected.
+        <a href="https://dashboard.stripe.com/express" target="_blank"
+           class="underline ml-1">Manage Payouts</a></p>
+    </div>
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="bg-gray-50 rounded-lg p-4">
+        <p class="text-sm font-semibold text-gray-700 mb-1">
+          <i class="fas fa-clock mr-1 text-blue-500"></i>Payout Timing</p>
+        <p class="text-xs text-gray-600">Payouts are processed automatically on a rolling basis, typically within 2-7 business days after a session is completed.</p>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-4">
+        <p class="text-sm font-semibold text-gray-700 mb-1">
+          <i class="fas fa-percentage mr-1 text-amber-500"></i>Platform Fee</p>
+        <p class="text-xs text-gray-600">TeachWise retains a small platform fee from each transaction. The net amount is shown in your earnings table below.</p>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-4">
+        <p class="text-sm font-semibold text-gray-700 mb-1">
+          <i class="fas fa-file-invoice mr-1 text-green-500"></i>Tax Reporting</p>
+        <p class="text-xs text-gray-600">Use the export feature above to download your earnings for tax purposes. Consult a tax professional for filing guidance.</p>
+      </div>
+    </div>
+    {% else %}
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <p class="text-blue-800 font-medium">
+        <i class="fas fa-credit-card mr-1"></i>
+        Connect Stripe to receive direct payouts.
+        <a href="{{ url_for('payment_bp.stripe_onboard') }}"
+           class="underline ml-1 font-semibold">Set Up Payouts</a></p>
+    </div>
+    {% endif %}
   </div>
-  {% else %}
-  <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-    <p class="text-blue-800 font-medium">
-      <i class="fas fa-credit-card mr-1"></i>
-      Connect Stripe to receive direct payouts.
-      <a href="{{ url_for('payment_bp.stripe_onboard') }}"
-         class="underline ml-1 font-semibold">Set Up Payouts</a></p>
-  </div>
-  {% endif %}
 
   <!-- Earnings Table -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -88,7 +130,7 @@
           <tbody>
             {% for p in payments %}
             <tr class="border-b border-gray-100 hover:bg-gray-50">
-              <td class="py-3 px-2">{{ p.completed_at.strftime('%b %d, %Y') if p.completed_at else '—' }}</td>
+              <td class="py-3 px-2">{{ p.completed_at.strftime('%b %d, %Y') if p.completed_at else '&mdash;' }}</td>
               <td class="py-3 px-2">${{ '%.2f'|format(p.amount) }}</td>
               <td class="py-3 px-2 text-red-500">-${{ '%.2f'|format(p.platform_fee) }}</td>
               <td class="py-3 px-2 font-semibold text-green-600">${{ '%.2f'|format(p.tutor_payout) }}</td>
@@ -108,8 +150,17 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
 <script>
+// Close export dropdown on outside click
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('exportDropdown');
+  const menu = document.getElementById('exportMenu');
+  if (dd && !dd.contains(e.target)) {
+    menu.classList.add('hidden');
+  }
+});
+
 // Monthly earnings chart
 fetch('{{ url_for("tutor_bp.earnings_chart_data") }}')
   .then(r => r.json())

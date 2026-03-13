@@ -16,6 +16,7 @@ class Booking(db.Model):
     guardian_notified = db.Column(db.Boolean, default=False)
     cancelled_by = db.Column(db.String(50), nullable=True)
     cancelled_on = db.Column(db.DateTime, nullable=True)
+    cancellation_reason = db.Column(db.String(255), nullable=True)
 
     # Guardian approval for minor students (None = not applicable, True/False = decision)
     guardian_approved = db.Column(db.Boolean, nullable=True)

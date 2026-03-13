@@ -5,23 +5,86 @@
 <div class="max-w-5xl mx-auto px-4 py-8">
   <!-- Back + Header -->
   <a href="{{ url_for('guardian_bp.guardian_dashboard') }}"
-     class="text-purple-600 hover:text-purple-800 text-sm font-medium mb-4 inline-block">
+     class="text-purple-600 hover:text-purple-800 text-sm font-medium mb-4 inline-block"
+     aria-label="Back to Guardian Dashboard">
     <i class="fas fa-arrow-left mr-1"></i>Back to Dashboard</a>
 
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-    <div class="flex items-center space-x-4">
-      <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
         <i class="fas fa-user-graduate text-blue-600 text-2xl"></i>
       </div>
-      <div>
+      <div class="flex-1">
         <h1 class="text-2xl font-bold text-gray-800">{{ student.name }}</h1>
         <p class="text-gray-500">{{ student.email }} &bull; {{ student.grade_level or 'Student' }}</p>
       </div>
-      <div class="ml-auto text-right">
+      <div class="text-right">
         <p class="text-sm text-gray-500">Total Spent</p>
         <p class="text-2xl font-bold text-green-600">${{ '%.2f'|format(total_spent) }}</p>
       </div>
     </div>
+  </div>
+
+  <!-- Per-Child Notification Config -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <h2 class="text-lg font-bold text-gray-800 mb-4">
+      <i class="fas fa-bell text-purple-600 mr-2"></i>Notification Settings for {{ student.name }}</h2>
+    <form method="POST" action="{{ url_for('guardian_bp.save_child_config', student_id=student.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label class="flex items-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition"
+               for="cfg_booking_alerts">
+          <input type="checkbox" name="booking_alerts" id="cfg_booking_alerts"
+                 {% if child_config.get('booking_alerts', True) %}checked{% endif %}
+                 class="w-5 h-5 text-purple-600 rounded mr-3"
+                 aria-label="Booking confirmations for {{ student.name }}">
+          <div>
+            <p class="font-medium text-gray-800 text-sm">Booking Confirmations</p>
+            <p class="text-xs text-gray-500">When a session is booked or confirmed</p>
+          </div>
+        </label>
+
+        <label class="flex items-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition"
+               for="cfg_session_reminders">
+          <input type="checkbox" name="session_reminders" id="cfg_session_reminders"
+                 {% if child_config.get('session_reminders', True) %}checked{% endif %}
+                 class="w-5 h-5 text-purple-600 rounded mr-3"
+                 aria-label="Session reminders for {{ student.name }}">
+          <div>
+            <p class="font-medium text-gray-800 text-sm">Session Reminders</p>
+            <p class="text-xs text-gray-500">Reminders before scheduled sessions</p>
+          </div>
+        </label>
+
+        <label class="flex items-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition"
+               for="cfg_spending_alerts">
+          <input type="checkbox" name="spending_alerts" id="cfg_spending_alerts"
+                 {% if child_config.get('spending_alerts', True) %}checked{% endif %}
+                 class="w-5 h-5 text-purple-600 rounded mr-3"
+                 aria-label="Spending alerts for {{ student.name }}">
+          <div>
+            <p class="font-medium text-gray-800 text-sm">Spending Alerts</p>
+            <p class="text-xs text-gray-500">Alerts when spending approaches limits</p>
+          </div>
+        </label>
+
+        <label class="flex items-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition"
+               for="cfg_progress_reports">
+          <input type="checkbox" name="progress_reports" id="cfg_progress_reports"
+                 {% if child_config.get('progress_reports', True) %}checked{% endif %}
+                 class="w-5 h-5 text-purple-600 rounded mr-3"
+                 aria-label="Progress updates for {{ student.name }}">
+          <div>
+            <p class="font-medium text-gray-800 text-sm">Progress Updates</p>
+            <p class="text-xs text-gray-500">Updates on learning progress and goals</p>
+          </div>
+        </label>
+      </div>
+
+      <button type="submit"
+              class="mt-4 bg-purple-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-purple-700 transition">
+        <i class="fas fa-save mr-1"></i>Save Notification Settings</button>
+    </form>
   </div>
 
   <!-- Booking History -->
@@ -35,9 +98,9 @@
     {% set slot = bd.slot %}
     {% set tutor = bd.tutor %}
     <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
         <div class="flex-1">
-          <div class="flex items-center space-x-3">
+          <div class="flex flex-wrap items-center gap-2">
             <p class="font-semibold text-gray-800">{{ tutor.name if tutor else 'Unknown' }}</p>
             <span class="text-xs px-2 py-0.5 rounded-full font-medium
               {% if b.status == 'Booked' %}bg-blue-100 text-blue-700
@@ -67,17 +130,25 @@
         </div>
 
         <!-- Actions -->
-        <div class="flex space-x-2 ml-4">
+        <div class="flex flex-wrap gap-2">
+          {% if tutor %}
+          <a href="{{ url_for('guardian_bp.guardian_message_thread', tutor_id=tutor.id, student_id=student.id) }}"
+             class="bg-purple-50 text-purple-700 px-3 py-1.5 rounded text-xs font-semibold hover:bg-purple-100 transition"
+             aria-label="Message {{ tutor.name }}">
+            <i class="fas fa-comment mr-1"></i>Message Tutor</a>
+          {% endif %}
           {% if b.status == 'Booked' and b.guardian_approved is none %}
           <form method="POST" action="{{ url_for('guardian_bp.approve_booking', booking_id=b.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button class="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-green-700">
+            <button class="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-green-700"
+                    aria-label="Approve booking">
               Approve</button>
           </form>
           <form method="POST" action="{{ url_for('guardian_bp.reject_booking', booking_id=b.id) }}"
                 onsubmit="return confirm('Reject this booking?')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button class="bg-red-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-red-700">
+            <button class="bg-red-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-red-700"
+                    aria-label="Reject booking">
               Reject</button>
           </form>
           {% endif %}
@@ -85,7 +156,8 @@
           <form method="POST" action="{{ url_for('guardian_bp.emergency_cancel', booking_id=b.id) }}"
                 onsubmit="return confirm('Emergency cancel? Full refund will be issued.')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button class="bg-yellow-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-yellow-700">
+            <button class="bg-yellow-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-yellow-700"
+                    aria-label="Emergency cancel booking">
               <i class="fas fa-exclamation-triangle mr-1"></i>Emergency Cancel</button>
           </form>
           {% endif %}

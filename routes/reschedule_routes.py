@@ -1,6 +1,7 @@
 from flask import (Blueprint, request, redirect, url_for, flash,
-                    render_template)
+                    render_template, jsonify)
 from flask_login import current_user, login_required
+from utils.auth import role_required
 from database import db
 from models.booking import Booking
 from models.slots import TutorSlot
@@ -281,6 +282,79 @@ def reject_reschedule(request_id):
 
     flash('Reschedule request rejected.', 'info')
     return _redirect_back(rr)
+
+
+@reschedule_bp.route('/tutor/reschedule-requests/bulk-action', methods=['POST'])
+@role_required('tutor')
+def bulk_reschedule_action():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'processed': 0, 'errors': ['Invalid JSON.']}), 400
+
+    action = data.get('action')
+    request_ids = data.get('request_ids', [])
+
+    if action not in ('accept', 'decline'):
+        return jsonify({'processed': 0, 'errors': ['Invalid action.']}), 400
+    if not request_ids or not isinstance(request_ids, list):
+        return jsonify({'processed': 0, 'errors': ['No request IDs provided.']}), 400
+
+    tutor = current_user
+    processed = 0
+    errors = []
+
+    try:
+        for rid in request_ids:
+            rr = RescheduleRequest.query.get(rid)
+            if not rr:
+                errors.append(f'Request {rid} not found.')
+                continue
+
+            booking = rr.booking
+            if not booking or booking.tutor_id != tutor.id:
+                errors.append(f'Request {rid}: unauthorized.')
+                continue
+
+            if rr.status != 'pending':
+                errors.append(f'Request {rid}: already {rr.status}.')
+                continue
+
+            if datetime.utcnow() > rr.expires_at:
+                rr.status = 'expired'
+                errors.append(f'Request {rid}: expired.')
+                continue
+
+            if action == 'accept':
+                original = TutorSlot.query.get(rr.original_slot_id)
+                proposed = TutorSlot.query.get(rr.proposed_slot_id)
+
+                if not proposed or proposed.status != 'pending':
+                    rr.status = 'rejected'
+                    rr.responded_at = datetime.utcnow()
+                    errors.append(f'Request {rid}: proposed slot no longer available.')
+                    continue
+
+                # Swap slots
+                original.status = 'cancelled'
+                original.student_id = None
+                proposed.status = 'booked'
+                proposed.student_id = booking.student_id
+                booking.slot_id = proposed.id
+
+                rr.status = 'approved'
+                rr.responded_at = datetime.utcnow()
+            else:
+                rr.status = 'rejected'
+                rr.responded_at = datetime.utcnow()
+
+            processed += 1
+
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'processed': 0, 'errors': [str(e)]}), 500
+
+    return jsonify({'processed': processed, 'errors': errors})
 
 
 @reschedule_bp.route('/tutor/reschedule-requests')

@@ -3,6 +3,13 @@
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
+  <div class="flex items-center gap-2 mb-2">
+    <a href="{{ url_for('main.index') }}" class="text-blue-600 hover:underline text-sm">
+      <i class="fas fa-home mr-1"></i>Home</a>
+    <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+    <span class="text-sm text-gray-500">{{ subject }}</span>
+  </div>
+
   <h1 class="text-3xl font-bold text-gray-800 mb-2">{{ subject }} Tutors</h1>
   <p class="text-gray-500 mb-6">Browse verified tutors specializing in {{ subject }}</p>
 
@@ -11,8 +18,13 @@
     <h3 class="text-sm font-medium text-gray-500 mb-3">Subcategories</h3>
     <div class="flex flex-wrap gap-2">
       {% for sub in category.subcategories %}
-      <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
-        {{ sub.name }}</span>
+      <span class="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-medium
+                   hover:bg-blue-100 transition cursor-default">
+        {{ sub.name }}
+        {% if sub.topics %}
+        <span class="text-blue-400 text-xs ml-1">({{ sub.topics|length }})</span>
+        {% endif %}
+      </span>
       {% endfor %}
     </div>
   </div>
@@ -23,21 +35,29 @@
       {% for tutor in tutors %}
       <a href="{{ url_for('tutor_bp.view_tutor_profile', tutor_id=tutor.id) }}"
          class="bg-white rounded-xl shadow-sm border border-gray-100 p-6
-                flex items-center space-x-4 hover:shadow-md transition">
-        <div class="w-14 h-14 bg-blue-100 rounded-full flex items-center
-                    justify-center flex-shrink-0">
-          {% if tutor.profile_photo %}
-            <img src="{{ tutor.profile_photo|photo_url }}"
-                 class="w-14 h-14 rounded-full object-cover" alt="{{ tutor.name }}">
-          {% else %}
-            <i class="fas fa-user text-blue-600 text-xl"></i>
-          {% endif %}
-        </div>
-        <div>
-          <h4 class="font-semibold text-gray-800">{{ tutor.name }}</h4>
-          <p class="text-gray-500 text-sm">
-            {{ tutor.subject }} &bull; {{ tutor.experience or 0 }} yrs
-            &bull; &#11088; {{ tutor.average_rating or tutor.rating_avg or 0 }}</p>
+                hover:shadow-md hover:border-blue-200 transition group">
+        <div class="flex items-center space-x-4">
+          <div class="w-14 h-14 bg-blue-100 rounded-full flex items-center
+                      justify-center flex-shrink-0 group-hover:bg-blue-200 transition">
+            {% if tutor.profile_photo %}
+              <img src="{{ tutor.profile_photo|photo_url }}"
+                   class="w-14 h-14 rounded-full object-cover" alt="{{ tutor.name }}">
+            {% else %}
+              <i class="fas fa-user text-blue-600 text-xl"></i>
+            {% endif %}
+          </div>
+          <div class="flex-1 min-w-0">
+            <h4 class="font-semibold text-gray-800 truncate group-hover:text-blue-600 transition">{{ tutor.name }}</h4>
+            <p class="text-gray-500 text-sm truncate">{{ tutor.subject }}</p>
+            <div class="flex items-center gap-3 mt-1 text-xs text-gray-400">
+              <span>&#11088; {{ tutor.average_rating or tutor.rating_avg or 0 }}</span>
+              <span>{{ tutor.experience or 0 }} yrs</span>
+              {% if tutor.hourly_rate %}
+              <span class="text-blue-600 font-medium">${{ tutor.hourly_rate }}/hr</span>
+              {% endif %}
+            </div>
+          </div>
+          <i class="fas fa-chevron-right text-gray-300 group-hover:text-blue-400 transition"></i>
         </div>
       </a>
       {% endfor %}

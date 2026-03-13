@@ -1,14 +1,9 @@
 from database import db
 from datetime import datetime
-from geoalchemy2 import Geography
-from sqlalchemy import Index
 
 
 class TutorSlot(db.Model):
     __tablename__ = 'tutor_slots'
-    __table_args__ = (
-        Index('idx_slot_location_point', 'location_point', postgresql_using='gist'),
-    )
 
     id = db.Column(db.Integer, primary_key=True)
     tutor_id = db.Column(db.Integer, db.ForeignKey('tutors.id'), nullable=False)
@@ -41,7 +36,6 @@ class TutorSlot(db.Model):
     location_is_default = db.Column(db.Boolean, default=True)
     radius_miles = db.Column(db.Float, nullable=True)
     radius_is_default = db.Column(db.Boolean, default=True)
-    location_point = db.Column(Geography('POINT', srid=4326), nullable=True)
     cancellation_reason = db.Column(db.Text, nullable=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

@@ -78,6 +78,8 @@ class Config:
     STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', 'pk_test_placeholder')
     STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', 'whsec_placeholder')
     PLATFORM_FEE_PERCENT = 15
+    WALLET_MIN_TOPUP = int(os.environ.get('WALLET_MIN_TOPUP', 5))
+    WALLET_MAX_TOPUP = int(os.environ.get('WALLET_MAX_TOPUP', 500))
 
     # --- Recommendation Weights (must sum to 1.0) ---
     REC_WEIGHT_SUBJECT = 0.40

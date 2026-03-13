@@ -30,6 +30,13 @@ class Student(UserMixin, db.Model):
         'reminder_1h': True, 'session_complete': True
     })
 
+    notification_sound = db.Column(db.Boolean, default=True)  # A1
+    email_digest_frequency = db.Column(db.String(20), default='instant')  # A5
+    reminder_times = db.Column(db.JSON, default=lambda: {})  # A6
+    push_subscription = db.Column(db.JSON, nullable=True)  # A7
+
+    has_seen_tour = db.Column(db.Boolean, default=False)
+
     failed_login_attempts = db.Column(db.Integer, default=0)
     locked_until = db.Column(db.DateTime, nullable=True)
 

@@ -1,14 +1,42 @@
 {% extends "base.html" %}
 {% block title %}Booking History | TeachWise{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.css">
+{% endblock %}
+
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Booking History</h1>
-    <div class="flex space-x-3">
-      <a href="{{ url_for('student_bp.booking_export') }}"
-         class="text-sm text-blue-600 hover:underline font-medium">
-        <i class="fas fa-download mr-1"></i>Export CSV</a>
+    <div class="flex items-center space-x-3">
+      <!-- View Toggle -->
+      <div class="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+        <button id="listViewBtn" onclick="showListView()"
+                class="px-3 py-1.5 text-sm font-medium bg-blue-600 text-white transition"
+                aria-label="List view">
+          <i class="fas fa-list"></i></button>
+        <button id="calViewBtn" onclick="showCalendarView()"
+                class="px-3 py-1.5 text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 transition"
+                aria-label="Calendar view">
+          <i class="fas fa-calendar-alt"></i></button>
+      </div>
+
+      <!-- Export Dropdown -->
+      <div class="relative" id="exportDropdown">
+        <button onclick="document.getElementById('exportMenu').classList.toggle('hidden')"
+                class="text-sm text-blue-600 hover:text-blue-800 font-medium border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition">
+          <i class="fas fa-download mr-1"></i>Export</button>
+        <div id="exportMenu" class="hidden absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
+          <a href="{{ url_for('student_bp.booking_export', format='csv', date_from=date_from, date_to=date_to) }}"
+             class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">
+            <i class="fas fa-file-csv mr-2 text-green-500"></i>CSV</a>
+          <a href="{{ url_for('student_bp.booking_export', format='pdf', date_from=date_from, date_to=date_to) }}"
+             class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">
+            <i class="fas fa-file-pdf mr-2 text-red-500"></i>PDF</a>
+        </div>
+      </div>
+
       <a href="{{ url_for('student_bp.dashboard') }}"
          class="text-sm text-gray-600 hover:underline font-medium">
         <i class="fas fa-arrow-left mr-1"></i>Dashboard</a>
@@ -29,10 +57,10 @@
 
   <!-- Filters -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-    <form method="GET" class="grid md:grid-cols-6 gap-3 items-end">
+    <form method="GET" class="grid md:grid-cols-6 gap-3 items-end" aria-label="Filter bookings">
       <div>
-        <label class="block text-xs text-gray-500 mb-1">Status</label>
-        <select name="status" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+        <label for="filter-status" class="block text-xs text-gray-500 mb-1">Status</label>
+        <select name="status" id="filter-status" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
           <option value="">All</option>
           <option value="Booked" {{ 'selected' if status == 'Booked' }}>Booked</option>
           <option value="Confirmed" {{ 'selected' if status == 'Confirmed' }}>Confirmed</option>
@@ -42,24 +70,28 @@
         </select>
       </div>
       <div>
-        <label class="block text-xs text-gray-500 mb-1">Subject</label>
-        <input type="text" name="subject" value="{{ subject }}" placeholder="e.g. Math"
-               class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+        <label for="filter-subject" class="block text-xs text-gray-500 mb-1">Subject</label>
+        <input type="text" name="subject" id="filter-subject" value="{{ subject }}" placeholder="e.g. Math"
+               class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+               aria-label="Filter by subject">
       </div>
       <div>
-        <label class="block text-xs text-gray-500 mb-1">Tutor</label>
-        <input type="text" name="tutor_name" value="{{ tutor_name }}" placeholder="Name"
-               class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+        <label for="filter-tutor" class="block text-xs text-gray-500 mb-1">Tutor</label>
+        <input type="text" name="tutor_name" id="filter-tutor" value="{{ tutor_name }}" placeholder="Name"
+               class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+               aria-label="Filter by tutor name">
       </div>
       <div>
-        <label class="block text-xs text-gray-500 mb-1">From</label>
-        <input type="date" name="date_from" value="{{ date_from }}"
-               class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+        <label for="filter-date-from" class="block text-xs text-gray-500 mb-1">From</label>
+        <input type="date" name="date_from" id="filter-date-from" value="{{ date_from }}"
+               class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+               aria-label="Start date filter">
       </div>
       <div>
-        <label class="block text-xs text-gray-500 mb-1">To</label>
-        <input type="date" name="date_to" value="{{ date_to }}"
-               class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+        <label for="filter-date-to" class="block text-xs text-gray-500 mb-1">To</label>
+        <input type="date" name="date_to" id="filter-date-to" value="{{ date_to }}"
+               class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+               aria-label="End date filter">
       </div>
       <button type="submit"
               class="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold
@@ -67,8 +99,15 @@
     </form>
   </div>
 
-  <!-- Results -->
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+  <!-- Calendar View (hidden by default) -->
+  <div id="calendarView" class="hidden mb-6">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div id="bookingCalendar"></div>
+    </div>
+  </div>
+
+  <!-- List View (default) -->
+  <div id="listView" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
     {% if results.items %}
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -107,10 +146,10 @@
                   {% else %}bg-yellow-100 text-yellow-700{% endif %}">
                   {{ booking.status }}</span></td>
               <td class="py-3 px-2">
-                <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 flex-wrap gap-y-1">
                 {% if booking.status == 'Completed' and booking.id not in reviewed %}
                   <a href="{{ url_for('student_bp.submit_review', booking_id=booking.id) }}"
-                     class="text-sm text-yellow-600 hover:underline">
+                     class="text-xs text-yellow-600 hover:underline font-medium">
                     <i class="fas fa-star mr-1"></i>Review</a>
                 {% elif booking.id in reviewed %}
                   <span class="text-xs text-green-600"><i class="fas fa-check mr-1"></i>Reviewed</span>
@@ -120,8 +159,19 @@
                      class="text-xs text-yellow-600 hover:underline" title="Session Notes">
                     <i class="fas fa-sticky-note mr-1"></i>Notes</a>
                 {% endif %}
-                {% if not (booking.status == 'Completed' and booking.id not in reviewed) and not (booking.id in reviewed) and booking.status not in ('Completed', 'Booked', 'Confirmed') %}
-                  —
+                {% if booking.status == 'Completed' %}
+                  <a href="{{ url_for('tutor_bp.view_tutor_profile', tutor_id=tutor.id) }}"
+                     class="text-xs text-blue-600 hover:underline font-medium" title="Book this tutor again">
+                    <i class="fas fa-redo mr-1"></i>Book Again</a>
+                  <a href="{{ url_for('student_bp.booking_export', format='pdf', date_from=slot.date.strftime('%Y-%m-%d'), date_to=slot.date.strftime('%Y-%m-%d')) }}"
+                     class="text-xs text-gray-500 hover:underline" title="Download receipt">
+                    <i class="fas fa-receipt mr-1"></i>Receipt</a>
+                  <a href="{{ url_for('student_bp.booking_export', format='pdf', date_from=slot.date.strftime('%Y-%m-%d'), date_to=slot.date.strftime('%Y-%m-%d')) }}"
+                     class="text-xs text-gray-500 hover:underline" title="Download invoice">
+                    <i class="fas fa-file-invoice mr-1"></i>Invoice</a>
+                  <a href="#"
+                     class="text-xs text-orange-500 hover:underline" title="Request a refund">
+                    <i class="fas fa-undo mr-1"></i>Refund</a>
                 {% endif %}
                 </div>
               </td>
@@ -133,26 +183,29 @@
 
       <!-- Pagination -->
       {% if results.pages > 1 %}
-      <div class="flex justify-center mt-6 space-x-2">
+      <nav class="flex justify-center mt-6 space-x-2" aria-label="Booking history pagination">
         {% if results.has_prev %}
           <a href="?page={{ results.prev_num }}&status={{ status }}&subject={{ subject }}&tutor_name={{ tutor_name }}&date_from={{ date_from }}&date_to={{ date_to }}"
-             class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Prev</a>
+             class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50"
+             aria-label="Previous page">Prev</a>
         {% endif %}
         {% for p in results.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
           {% if p %}
             <a href="?page={{ p }}&status={{ status }}&subject={{ subject }}&tutor_name={{ tutor_name }}&date_from={{ date_from }}&date_to={{ date_to }}"
                class="px-3 py-1 border rounded text-sm
                  {% if p == results.page %}bg-blue-600 text-white border-blue-600
-                 {% else %}border-gray-300 hover:bg-gray-50{% endif %}">{{ p }}</a>
+                 {% else %}border-gray-300 hover:bg-gray-50{% endif %}"
+               {% if p == results.page %}aria-current="page"{% endif %}>{{ p }}</a>
           {% else %}
             <span class="px-2 text-gray-400">...</span>
           {% endif %}
         {% endfor %}
         {% if results.has_next %}
           <a href="?page={{ results.next_num }}&status={{ status }}&subject={{ subject }}&tutor_name={{ tutor_name }}&date_from={{ date_from }}&date_to={{ date_to }}"
-             class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Next</a>
+             class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50"
+             aria-label="Next page">Next</a>
         {% endif %}
-      </div>
+      </nav>
       {% endif %}
     {% else %}
       <p class="text-gray-400 text-center py-8">
@@ -161,4 +214,64 @@
     {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js"></script>
+<script>
+var calendarInitialized = false;
+var calendar = null;
+
+function showListView() {
+  document.getElementById('listView').classList.remove('hidden');
+  document.getElementById('calendarView').classList.add('hidden');
+  document.getElementById('listViewBtn').classList.add('bg-blue-600', 'text-white');
+  document.getElementById('listViewBtn').classList.remove('bg-white', 'text-gray-600');
+  document.getElementById('calViewBtn').classList.add('bg-white', 'text-gray-600');
+  document.getElementById('calViewBtn').classList.remove('bg-blue-600', 'text-white');
+}
+
+function showCalendarView() {
+  document.getElementById('listView').classList.add('hidden');
+  document.getElementById('calendarView').classList.remove('hidden');
+  document.getElementById('calViewBtn').classList.add('bg-blue-600', 'text-white');
+  document.getElementById('calViewBtn').classList.remove('bg-white', 'text-gray-600');
+  document.getElementById('listViewBtn').classList.add('bg-white', 'text-gray-600');
+  document.getElementById('listViewBtn').classList.remove('bg-blue-600', 'text-white');
+
+  if (!calendarInitialized) {
+    var calendarEl = document.getElementById('bookingCalendar');
+    calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek'
+      },
+      events: function(info, successCallback, failureCallback) {
+        fetch('{{ url_for("student_bp.booking_calendar_data") }}')
+          .then(function(r) { return r.json(); })
+          .then(function(data) { successCallback(data); })
+          .catch(function(err) { failureCallback(err); });
+      },
+      eventClick: function(info) {
+        var props = info.event.extendedProps;
+        alert(info.event.title + '\nStatus: ' + props.status + '\nMode: ' + props.mode);
+      },
+      height: 'auto'
+    });
+    calendar.render();
+    calendarInitialized = true;
+  }
+}
+
+/* Close export dropdown on outside click */
+document.addEventListener('click', function(e) {
+  var dropdown = document.getElementById('exportDropdown');
+  var menu = document.getElementById('exportMenu');
+  if (dropdown && !dropdown.contains(e.target)) {
+    menu.classList.add('hidden');
+  }
+});
+</script>
 {% endblock %}

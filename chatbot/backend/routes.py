@@ -86,6 +86,10 @@ def send_message(conversation_id):
         result = do_send(conversation_id, content, user_id, user_role)
         if 'error' in result and 'message' not in result:
             return jsonify(result), 400
+
+        # D3: Follow-up action cards
+        follow_ups = _extract_follow_ups(result.get('message', ''), user_role)
+
         return jsonify({
             'reply': {
                 'content': result.get('message', ''),
@@ -94,6 +98,7 @@ def send_message(conversation_id):
             'conversation_id': result.get('conversation_id'),
             'tokens_used': result.get('tokens_used'),
             'status': result.get('status', 'active'),
+            'follow_ups': follow_ups,
         })
     except Exception as e:
         current_app.logger.error(f'Chatbot error: {e}')
@@ -114,3 +119,137 @@ def resolve_conversation(conversation_id):
 
     do_resolve(conversation_id)
     return jsonify({'status': 'resolved'})
+
+
+# D2: Delete/new conversation
+@chatbot_bp.route('/conversations/<conversation_id>', methods=['DELETE'])
+def delete_conversation(conversation_id):
+    from chatbot.backend.models import ChatbotConversation
+    conv = ChatbotConversation.query.get(conversation_id)
+    if not conv:
+        return jsonify({'error': 'Not found'}), 404
+
+    conv.status = 'resolved'
+    db.session.commit()
+    return jsonify({'status': 'deleted'})
+
+
+# D6: Message feedback
+@chatbot_bp.route('/conversations/<conversation_id>/messages/<message_id>/feedback', methods=['POST'])
+def message_feedback(conversation_id, message_id):
+    from chatbot.backend.models import ChatbotMessage
+
+    msg = ChatbotMessage.query.get(message_id)
+    if not msg or msg.conversation_id != conversation_id:
+        return jsonify({'error': 'Not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    feedback = data.get('feedback')
+    if feedback not in ('helpful', 'unhelpful'):
+        return jsonify({'error': 'Invalid feedback'}), 400
+
+    msg.feedback = feedback
+    db.session.commit()
+    return jsonify({'success': True, 'feedback': feedback})
+
+
+# D4: Booking modification via chatbot
+@chatbot_bp.route('/conversations/<conversation_id>/modify-booking', methods=['POST'])
+def modify_booking(conversation_id):
+    from chatbot.backend.models import ChatbotConversation
+    conv = ChatbotConversation.query.get(conversation_id)
+    if not conv:
+        return jsonify({'error': 'Not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    booking_id = data.get('booking_id')
+    action = data.get('action')  # cancel, reschedule
+
+    if not booking_id or not action:
+        return jsonify({'error': 'booking_id and action required'}), 400
+
+    from models.booking import Booking
+    booking = Booking.query.get(booking_id)
+    if not booking:
+        return jsonify({'error': 'Booking not found'}), 404
+
+    user_id, user_role = _user_info()
+
+    # Verify ownership
+    if user_role == 'student' and booking.student_id != user_id:
+        return jsonify({'error': 'Not your booking'}), 403
+    if user_role == 'tutor' and booking.tutor_id != user_id:
+        return jsonify({'error': 'Not your booking'}), 403
+
+    if action == 'cancel':
+        try:
+            from services.booking_service import cancel_booking
+            result = cancel_booking(booking, user_role, refund_pct=100)
+            return jsonify({'success': True, 'message': 'Booking cancelled successfully.'})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+
+    return jsonify({'error': f'Action "{action}" not supported yet'}), 400
+
+
+# D5: Quick replies
+@chatbot_bp.route('/quick-replies')
+def quick_replies():
+    user_id, user_role = _user_info()
+
+    replies = [
+        {'text': 'Help with my booking', 'icon': 'fa-calendar'},
+        {'text': 'I want a refund', 'icon': 'fa-undo'},
+        {'text': 'Find a tutor', 'icon': 'fa-search'},
+    ]
+
+    if user_role == 'student':
+        replies.extend([
+            {'text': 'Check my upcoming sessions', 'icon': 'fa-clock'},
+            {'text': 'Cancel a booking', 'icon': 'fa-times-circle'},
+        ])
+    elif user_role == 'tutor':
+        replies.extend([
+            {'text': 'View my schedule', 'icon': 'fa-calendar-alt'},
+            {'text': 'Check my earnings', 'icon': 'fa-dollar-sign'},
+        ])
+
+    replies.extend([
+        {'text': 'Trouble signing up', 'icon': 'fa-exclamation-circle'},
+        {'text': 'Talk to a human', 'icon': 'fa-user'},
+    ])
+
+    return jsonify(replies)
+
+
+def _extract_follow_ups(message, user_role):
+    """D3: Extract follow-up action suggestions from the assistant's response."""
+    follow_ups = []
+    msg_lower = (message or '').lower()
+
+    if any(w in msg_lower for w in ['cancel', 'cancellation', 'cancelled']):
+        follow_ups.append({
+            'text': 'Cancel another booking',
+            'action': 'cancel_booking',
+            'icon': 'fa-times-circle'
+        })
+    if any(w in msg_lower for w in ['refund', 'money back']):
+        follow_ups.append({
+            'text': 'Check refund status',
+            'action': 'check_refund',
+            'icon': 'fa-undo'
+        })
+    if any(w in msg_lower for w in ['book', 'session', 'schedule']):
+        follow_ups.append({
+            'text': 'Book a new session',
+            'action': 'book_session',
+            'icon': 'fa-calendar-plus'
+        })
+    if any(w in msg_lower for w in ['tutor', 'find', 'search']):
+        follow_ups.append({
+            'text': 'Search for tutors',
+            'action': 'search_tutors',
+            'icon': 'fa-search'
+        })
+
+    return follow_ups[:3]

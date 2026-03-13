@@ -4,6 +4,7 @@
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/location-picker.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@11.2.0/dist/css/shepherd.css">
 {% endblock %}
 
 {% block content %}
@@ -25,10 +26,10 @@
          class="text-red-600 hover:text-red-800 font-medium">
         <i class="fas fa-video mr-1"></i>Recordings</a>
       <a href="{{ url_for('tutor_bp.tutor_availability') }}"
-         class="text-indigo-600 hover:text-indigo-800 font-medium">
+         class="text-indigo-600 hover:text-indigo-800 font-medium" id="tour-availability">
         <i class="fas fa-calendar-alt mr-1"></i>Availability</a>
       <a href="{{ url_for('tutor_bp.tutor_earnings') }}"
-         class="text-green-600 hover:text-green-800 font-medium">
+         class="text-green-600 hover:text-green-800 font-medium" id="tour-earnings">
         <i class="fas fa-dollar-sign mr-1"></i>Earnings</a>
       <a href="{{ url_for('reschedule_bp.tutor_reschedule_requests') }}"
          class="text-purple-600 hover:text-purple-800 font-medium">
@@ -40,13 +41,71 @@
          class="text-green-600 hover:text-green-800 font-medium">
         <i class="fas fa-map-marker-alt mr-1"></i>Location</a>
       <a href="{{ url_for('tutor_bp.edit_profile') }}"
-         class="text-blue-600 hover:text-blue-800 font-medium">
+         class="text-blue-600 hover:text-blue-800 font-medium" id="tour-profile">
         <i class="fas fa-user-edit mr-1"></i>Edit Profile</a>
       <a href="{{ url_for('tutor_bp.logout') }}"
          class="text-red-500 hover:text-red-700 font-medium">
         <i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
     </div>
   </div>
+
+  <!-- Document Expiry Alert -->
+  {% if expiring_docs and expiring_docs|length > 0 %}
+  <div class="mb-6 p-4 rounded-lg border bg-amber-50 border-amber-300">
+    <div class="flex items-start">
+      <i class="fas fa-exclamation-triangle text-amber-600 mt-0.5 mr-3 text-lg"></i>
+      <div>
+        <p class="text-amber-800 font-semibold">Documents Expiring Soon</p>
+        <ul class="mt-2 space-y-1">
+          {% for doc in expiring_docs %}
+          <li class="text-sm text-amber-700">
+            <i class="fas fa-file-alt mr-1"></i>
+            <strong>{{ doc.original_filename }}</strong>
+            ({{ doc.document_type|replace("_"," ")|title }})
+            &mdash; expires {{ doc.expiry_date.strftime('%B %d, %Y') }}
+          </li>
+          {% endfor %}
+        </ul>
+        <a href="{{ url_for('doc_bp.upload_docs') }}"
+           class="inline-block mt-3 text-sm font-semibold text-amber-800 hover:text-amber-900 underline">
+          <i class="fas fa-upload mr-1"></i>Upload replacement documents</a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Stripe Connect Status Banners -->
+  {% if stripe_status == 'not_connected' %}
+  <div class="mb-6 p-4 rounded-lg border bg-red-50 border-red-300">
+    <div class="flex items-center justify-between">
+      <p class="text-red-800 font-medium">
+        <i class="fas fa-exclamation-circle mr-2"></i>
+        Stripe is not connected. You cannot receive payments until you connect your account.</p>
+      <a href="{{ url_for('payment_bp.stripe_onboard') }}"
+         class="ml-4 flex-shrink-0 bg-red-600 text-white text-sm px-4 py-2 rounded-lg
+                hover:bg-red-700 transition font-semibold">
+        <i class="fas fa-link mr-1"></i>Connect Stripe</a>
+    </div>
+  </div>
+  {% elif stripe_status == 'pending' %}
+  <div class="mb-6 p-4 rounded-lg border bg-amber-50 border-amber-300">
+    <div class="flex items-center justify-between">
+      <p class="text-amber-800 font-medium">
+        <i class="fas fa-hourglass-half mr-2"></i>
+        Stripe onboarding is in progress. Please complete your account setup to start receiving payouts.</p>
+      <a href="{{ url_for('payment_bp.stripe_onboard') }}"
+         class="ml-4 flex-shrink-0 bg-amber-600 text-white text-sm px-4 py-2 rounded-lg
+                hover:bg-amber-700 transition font-semibold">
+        <i class="fas fa-arrow-right mr-1"></i>Continue Setup</a>
+    </div>
+  </div>
+  {% elif stripe_status == 'active' %}
+  <div class="mb-6 p-4 rounded-lg border bg-green-50 border-green-200">
+    <p class="text-green-800 font-medium">
+      <i class="fas fa-check-circle mr-2"></i>
+      Stripe payouts connected. You will receive earnings directly.</p>
+  </div>
+  {% endif %}
 
   <!-- Verification Status -->
   <div class="mb-6 p-4 rounded-lg border
@@ -95,25 +154,6 @@
     {% endif %}
   </div>
 
-  <!-- Stripe Payouts -->
-  <div class="mb-6 p-4 rounded-lg border
-    {% if tutor.stripe_onboarding_complete %}bg-green-50 border-green-200
-    {% else %}bg-blue-50 border-blue-200{% endif %}">
-    {% if tutor.stripe_onboarding_complete %}
-      <p class="text-green-800 font-medium">
-        <i class="fas fa-check-circle mr-1"></i>
-        Stripe payouts connected. You will receive earnings directly.</p>
-    {% else %}
-      <p class="text-blue-800 font-medium">
-        <i class="fas fa-credit-card mr-1"></i>
-        Set up Stripe to receive payouts for your sessions.</p>
-      <a href="{{ url_for('payment_bp.stripe_onboard') }}"
-         class="inline-block mt-2 bg-purple-600 text-white text-sm px-4 py-2 rounded-lg
-                hover:bg-purple-700 transition font-semibold">
-        <i class="fas fa-link mr-1"></i>Connect Stripe</a>
-    {% endif %}
-  </div>
-
   <!-- Location Warning -->
   {% if offline_slots_no_location and offline_slots_no_location > 0 %}
   <div class="mb-6 p-4 rounded-lg border bg-orange-50 border-orange-200">
@@ -124,8 +164,76 @@
   </div>
   {% endif %}
 
+  <!-- Profile Completeness + Stats Row -->
+  <div class="grid md:grid-cols-3 gap-6 mb-8">
+    <!-- Profile Completion Ring -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6" id="tour-completion">
+      <h3 class="text-sm font-semibold text-gray-700 mb-4">
+        <i class="fas fa-user-check mr-1 text-blue-600"></i>Profile Completeness</h3>
+      <div class="flex items-center space-x-4">
+        <div class="relative flex-shrink-0">
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle cx="40" cy="40" r="35" fill="none" stroke="#e5e7eb" stroke-width="6"/>
+            <circle cx="40" cy="40" r="35" fill="none"
+                    stroke="{% if profile_completion.percentage < 40 %}#ef4444{% elif profile_completion.percentage <= 70 %}#f59e0b{% else %}#22c55e{% endif %}"
+                    stroke-width="6"
+                    stroke-dasharray="{{ (profile_completion.percentage / 100) * 219.91 }} 219.91"
+                    stroke-linecap="round"
+                    transform="rotate(-90 40 40)"/>
+            <text x="40" y="44" text-anchor="middle" font-size="16" font-weight="bold"
+                  fill="{% if profile_completion.percentage < 40 %}#ef4444{% elif profile_completion.percentage <= 70 %}#f59e0b{% else %}#22c55e{% endif %}">{{ profile_completion.percentage }}%</text>
+          </svg>
+        </div>
+        <div class="flex-1">
+          {% if profile_completion.missing %}
+          <ul class="space-y-1">
+            {% for item in profile_completion.missing[:4] %}
+            <li class="text-xs text-gray-600">
+              <a href="{{ item.url }}" class="hover:text-blue-600 hover:underline">
+                <i class="fas fa-circle text-gray-300 mr-1" style="font-size:6px;vertical-align:middle;"></i>
+                {{ item.label }}</a>
+            </li>
+            {% endfor %}
+            {% if profile_completion.missing|length > 4 %}
+            <li class="text-xs text-gray-400">+ {{ profile_completion.missing|length - 4 }} more</li>
+            {% endif %}
+          </ul>
+          {% else %}
+          <p class="text-sm text-green-600 font-medium">
+            <i class="fas fa-check-circle mr-1"></i>All complete!</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Earnings This Month -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h3 class="text-sm font-semibold text-gray-700 mb-2">
+        <i class="fas fa-dollar-sign mr-1 text-green-600"></i>Earnings This Month</h3>
+      <p class="text-3xl font-bold text-green-600">${{ '%.2f'|format(earnings_this_month) }}</p>
+      <div class="flex items-center mt-2 text-sm">
+        {% if earnings_change_pct > 0 %}
+        <span class="text-green-600 font-medium"><i class="fas fa-arrow-up mr-1"></i>{{ earnings_change_pct }}%</span>
+        {% elif earnings_change_pct < 0 %}
+        <span class="text-red-600 font-medium"><i class="fas fa-arrow-down mr-1"></i>{{ earnings_change_pct|abs }}%</span>
+        {% else %}
+        <span class="text-gray-500 font-medium"><i class="fas fa-minus mr-1"></i>0%</span>
+        {% endif %}
+        <span class="text-gray-400 ml-2">vs last month (${{ '%.2f'|format(earnings_last_month) }})</span>
+      </div>
+    </div>
+
+    <!-- Sessions This Month -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h3 class="text-sm font-semibold text-gray-700 mb-2">
+        <i class="fas fa-chalkboard-teacher mr-1 text-blue-600"></i>Sessions This Month</h3>
+      <p class="text-3xl font-bold text-blue-600">{{ total_sessions_month }}</p>
+      <p class="text-sm text-gray-400 mt-2">Completed sessions</p>
+    </div>
+  </div>
+
   <!-- Stats Cards -->
-  <div class="grid md:grid-cols-4 gap-6 mb-8">
+  <div class="grid md:grid-cols-4 gap-6 mb-8" id="tour-stats">
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
       <p class="text-3xl font-bold text-blue-600">{{ slots|length }}</p>
       <p class="text-gray-500 text-sm mt-1">Total Slots</p>
@@ -146,30 +254,44 @@
     </div>
   </div>
 
+  <!-- Charts Row -->
+  <div class="grid md:grid-cols-2 gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">
+        <i class="fas fa-chart-line mr-2 text-green-600"></i>Earnings (12 Months)</h2>
+      <canvas id="earningsChart" height="200"></canvas>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">
+        <i class="fas fa-chart-bar mr-2 text-blue-600"></i>Sessions (12 Months)</h2>
+      <canvas id="sessionsChart" height="200"></canvas>
+    </div>
+  </div>
+
   <!-- Add Slot Form -->
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8" id="tour-add-slot">
     <h2 class="text-xl font-bold text-gray-800 mb-4">
       <i class="fas fa-plus-circle mr-2 text-blue-600"></i>Add Time Slot</h2>
     <form method="POST" action="{{ url_for('tutor_bp.add_slot') }}"
           class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
-        <input type="date" name="date" required
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="slotDate">Date</label>
+        <input type="date" name="date" id="slotDate" required
                class="w-full px-3 py-2 border border-gray-300 rounded-lg
                       focus:ring-2 focus:ring-blue-500"></div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-        <input type="time" name="start_time" required
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="slotStart">Start Time</label>
+        <input type="time" name="start_time" id="slotStart" required
                class="w-full px-3 py-2 border border-gray-300 rounded-lg
                       focus:ring-2 focus:ring-blue-500"></div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-        <input type="time" name="end_time" required
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="slotEnd">End Time</label>
+        <input type="time" name="end_time" id="slotEnd" required
                class="w-full px-3 py-2 border border-gray-300 rounded-lg
                       focus:ring-2 focus:ring-blue-500"></div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Mode</label>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="slotMode">Mode</label>
         <select name="mode" id="slotMode"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg">
           <option value="online">Online</option>
@@ -225,13 +347,13 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-        <input type="text" name="subject" value="{{ tutor.subject }}"
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="slotSubject">Subject</label>
+        <input type="text" name="subject" id="slotSubject" value="{{ tutor.subject }}"
                class="w-full px-3 py-2 border border-gray-300 rounded-lg
                       focus:ring-2 focus:ring-blue-500"></div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
-        <input type="number" name="price" step="0.01" min="0" value="0"
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="slotPrice">Price ($)</label>
+        <input type="number" name="price" id="slotPrice" step="0.01" min="0" value="0"
                class="w-full px-3 py-2 border border-gray-300 rounded-lg
                       focus:ring-2 focus:ring-blue-500"></div>
       <div>
@@ -242,7 +364,8 @@
           <span class="text-sm font-medium text-gray-700">Group Session</span>
         </label>
         <div id="maxStudentsField" class="hidden mt-1">
-          <select name="max_students" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+          <select name="max_students" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  aria-label="Max students">
             <option value="2">2 students</option>
             <option value="3">3 students</option>
             <option value="4">4 students</option>
@@ -313,7 +436,7 @@
                         <i class="fas fa-comment-dots text-sm"></i></button>
                     </form>
                   </div>
-                {% else %}—{% endif %}
+                {% else %}&mdash;{% endif %}
               </td>
               <td class="py-3 px-2">
                 <div class="flex items-center space-x-1">
@@ -393,8 +516,11 @@
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
 <script src="{{ url_for('static', filename='js/location-picker.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/shepherd.js@11.2.0/dist/js/shepherd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // ---------- Location Picker for Add Slot ----------
   let slotPicker = null;
   const modeSelect = document.getElementById('slotMode');
   const locSection = document.getElementById('slotLocationSection');
@@ -405,7 +531,6 @@ document.addEventListener('DOMContentLoaded', function() {
     modeSelect.addEventListener('change', function() {
       if (this.value === 'in-person' || this.value === 'both') {
         locSection.classList.remove('hidden');
-        // Set defaults from tutor profile
         document.getElementById('locIsDefault').value = 'true';
         document.getElementById('slotLat').value = '{{ tutor.latitude or "" }}';
         document.getElementById('slotLng').value = '{{ tutor.longitude or "" }}';
@@ -423,7 +548,6 @@ document.addEventListener('DOMContentLoaded', function() {
         customFields.classList.remove('hidden');
         document.getElementById('locIsDefault').value = 'false';
         document.getElementById('radiusIsDefault').value = 'false';
-        // Init picker if not already
         if (!slotPicker) {
           setTimeout(function() {
             slotPicker = new LocationPicker({
@@ -452,13 +576,122 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Sync radius select to hidden field
   const radiusSelect = document.getElementById('slotRadiusMiles');
   if (radiusSelect) {
     radiusSelect.addEventListener('change', function() {
       document.getElementById('slotRadiusVal').value = this.value;
     });
   }
+
+  // ---------- Chart.js: Earnings Line Chart ----------
+  const sessionsData = {{ sessions_monthly|safe }};
+
+  fetch('{{ url_for("tutor_bp.earnings_chart_data") }}')
+    .then(r => r.json())
+    .then(data => {
+      new Chart(document.getElementById('earningsChart'), {
+        type: 'line',
+        data: {
+          labels: data.months.map(m => m.month),
+          datasets: [{
+            label: 'Earnings ($)',
+            data: data.months.map(m => m.amount),
+            borderColor: '#22c55e',
+            backgroundColor: 'rgba(34,197,94,0.1)',
+            fill: true, tension: 0.3,
+            pointRadius: 3, pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
+        }
+      });
+    });
+
+  // ---------- Chart.js: Sessions Bar Chart ----------
+  new Chart(document.getElementById('sessionsChart'), {
+    type: 'bar',
+    data: {
+      labels: sessionsData.map(m => m.month),
+      datasets: [{
+        label: 'Sessions',
+        data: sessionsData.map(m => m.count),
+        backgroundColor: 'rgba(59,130,246,0.6)',
+        borderColor: '#3b82f6',
+        borderWidth: 1, borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+    }
+  });
+
+  // ---------- Shepherd.js Onboarding Tour ----------
+  {% if not tutor.has_seen_tour %}
+  const tour = new Shepherd.Tour({
+    useModalOverlay: true,
+    defaultStepOptions: {
+      scrollTo: true,
+      cancelIcon: { enabled: true },
+      classes: 'shadow-xl rounded-lg'
+    }
+  });
+
+  tour.addStep({
+    id: 'welcome',
+    text: 'Welcome to TeachWise! Let us show you around your dashboard.',
+    buttons: [{ text: 'Next', action: tour.next }]
+  });
+  tour.addStep({
+    id: 'profile',
+    text: 'Complete your profile to attract more students. Check your completion percentage here.',
+    attachTo: { element: '#tour-completion', on: 'bottom' },
+    buttons: [{ text: 'Back', action: tour.back }, { text: 'Next', action: tour.next }]
+  });
+  tour.addStep({
+    id: 'stats',
+    text: 'Track your performance with these real-time stats cards.',
+    attachTo: { element: '#tour-stats', on: 'bottom' },
+    buttons: [{ text: 'Back', action: tour.back }, { text: 'Next', action: tour.next }]
+  });
+  tour.addStep({
+    id: 'add-slot',
+    text: 'Create time slots here so students can book sessions with you.',
+    attachTo: { element: '#tour-add-slot', on: 'top' },
+    buttons: [{ text: 'Back', action: tour.back }, { text: 'Next', action: tour.next }]
+  });
+  tour.addStep({
+    id: 'availability',
+    text: 'Manage your weekly schedule template and calendar from the Availability page.',
+    attachTo: { element: '#tour-availability', on: 'bottom' },
+    buttons: [{ text: 'Back', action: tour.back }, { text: 'Next', action: tour.next }]
+  });
+  tour.addStep({
+    id: 'earnings',
+    text: 'View your earnings, export reports, and manage Stripe payouts here.',
+    attachTo: { element: '#tour-earnings', on: 'bottom' },
+    buttons: [{ text: 'Back', action: tour.back }, { text: 'Done', action: tour.complete }]
+  });
+
+  tour.on('complete', function() {
+    fetch('{{ url_for("tutor_bp.complete_tutor_onboarding") }}', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': '{{ csrf_token() }}', 'Content-Type': 'application/json' }
+    });
+  });
+  tour.on('cancel', function() {
+    fetch('{{ url_for("tutor_bp.complete_tutor_onboarding") }}', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': '{{ csrf_token() }}', 'Content-Type': 'application/json' }
+    });
+  });
+
+  tour.start();
+  {% endif %}
 });
 </script>
 {% endblock %}

@@ -1,0 +1,70 @@
+<!-- Student Sidebar (include partial) -->
+<div id="studentSidebar" class="tw-sidebar w-56 flex-shrink-0">
+  <nav class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sticky top-24">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold text-gray-800 text-sm tw-sidebar-label">Student Menu</h3>
+      <button onclick="document.getElementById('studentSidebar').classList.toggle('tw-sidebar-collapsed')"
+              class="text-gray-400 hover:text-blue-600 focus:outline-none" title="Toggle sidebar">
+        <i class="fas fa-bars text-sm"></i>
+      </button>
+    </div>
+    <div class="space-y-1">
+      <a href="{{ url_for('student_bp.dashboard') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'student_bp.dashboard' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-blue-50{% endif %}">
+        <i class="fas fa-home mr-2 w-4"></i><span class="tw-sidebar-text">Dashboard</span></a>
+
+      <a href="{{ url_for('search_bp.search_page') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'search_bp.search_page' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-blue-50{% endif %}">
+        <i class="fas fa-search mr-2 w-4"></i><span class="tw-sidebar-text">Find Tutors</span></a>
+
+      <a href="{{ url_for('student_bp.student_bookings') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'student_bp.student_bookings' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-blue-50{% endif %}">
+        <i class="fas fa-calendar-check mr-2 w-4"></i><span class="tw-sidebar-text">My Bookings</span></a>
+
+      <a href="{{ url_for('chat_bp.chat_page') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'chat_bp.chat_page' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-blue-50{% endif %}">
+        <i class="fas fa-comments mr-2 w-4"></i><span class="tw-sidebar-text">Messages</span></a>
+
+      <a href="{{ url_for('assignment_bp.student_assignments') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'assignment_bp.student_assignments' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-blue-50{% endif %}">
+        <i class="fas fa-tasks mr-2 w-4"></i><span class="tw-sidebar-text">Assignments</span></a>
+
+      <a href="{{ url_for('progress_bp.student_progress') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'progress_bp.student_progress' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-blue-50{% endif %}">
+        <i class="fas fa-chart-bar mr-2 w-4"></i><span class="tw-sidebar-text">Progress</span></a>
+
+      <a href="{{ url_for('recording_bp.student_recordings') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'recording_bp.student_recordings' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-blue-50{% endif %}">
+        <i class="fas fa-video mr-2 w-4"></i><span class="tw-sidebar-text">Recordings</span></a>
+
+      <a href="{{ url_for('student_bp.favorites_page') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'student_bp.favorites_page' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-blue-50{% endif %}">
+        <i class="fas fa-heart mr-2 w-4"></i><span class="tw-sidebar-text">Favorites</span></a>
+
+      <a href="{{ url_for('student_bp.saved_locations') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'student_bp.saved_locations' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-blue-50{% endif %}">
+        <i class="fas fa-map-marker-alt mr-2 w-4"></i><span class="tw-sidebar-text">Saved Locations</span></a>
+
+      <hr class="my-2 border-gray-100">
+
+      <a href="{{ url_for('notif_center_bp.notification_center') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'notif_center_bp.notification_center' %}text-white bg-blue-600{% else %}text-gray-600 hover:bg-blue-50{% endif %}">
+        <i class="fas fa-bell mr-2 w-4"></i><span class="tw-sidebar-text">Notifications</span>
+        {% if sidebar_unread_notifs is defined and sidebar_unread_notifs > 0 %}
+          <span class="ml-auto bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+            {{ sidebar_unread_notifs }}</span>
+        {% endif %}
+      </a>
+    </div>
+  </nav>
+</div>

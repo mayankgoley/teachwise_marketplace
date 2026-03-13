@@ -5,27 +5,29 @@
 <div class="max-w-md mx-auto mt-12 mb-16">
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
     <h2 class="text-2xl font-bold text-gray-800 text-center mb-6">
-      Tutor Login</h2>
+      <i class="fas fa-chalkboard-teacher mr-2 text-blue-600"></i>Tutor Login</h2>
 
-    <form method="POST" action="{{ url_for('tutor_bp.login') }}">
+    <form method="POST" action="{{ url_for('tutor_bp.login') }}" novalidate>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-        <input type="email" name="email" required
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="loginEmail">Email</label>
+        <input type="email" name="email" id="loginEmail" required autocomplete="email"
+               aria-label="Email address" aria-required="true"
                class="w-full px-4 py-2 border border-gray-300 rounded-lg
                       focus:ring-2 focus:ring-blue-500 focus:border-transparent"></div>
 
       <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-        <input type="password" name="password" required
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="loginPassword">Password</label>
+        <input type="password" name="password" id="loginPassword" required autocomplete="current-password"
+               aria-label="Password" aria-required="true"
                class="w-full px-4 py-2 border border-gray-300 rounded-lg
                       focus:ring-2 focus:ring-blue-500 focus:border-transparent"></div>
 
       <button type="submit"
               class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold
                      hover:bg-blue-700 transition">
-        Log In</button>
+        <i class="fas fa-sign-in-alt mr-1"></i>Log In</button>
     </form>
 
     <p class="text-center text-sm text-gray-500 mt-3">

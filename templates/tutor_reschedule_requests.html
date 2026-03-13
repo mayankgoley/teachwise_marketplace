@@ -4,32 +4,59 @@
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 py-8">
   <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold text-gray-800">Reschedule Requests</h1>
+    <h1 class="text-2xl font-bold text-gray-800">
+      <i class="fas fa-exchange-alt mr-2 text-purple-600"></i>Reschedule Requests</h1>
     <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
        class="text-blue-600 hover:underline font-medium">
       <i class="fas fa-arrow-left mr-1"></i>Back to Dashboard</a>
   </div>
 
   {% if requests %}
+    <!-- Bulk Actions -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+      <div class="flex items-center justify-between">
+        <label class="flex items-center space-x-2 cursor-pointer">
+          <input type="checkbox" id="selectAllCheckbox"
+                 class="w-4 h-4 text-purple-600 rounded" aria-label="Select all requests">
+          <span class="text-sm font-medium text-gray-700">Select All</span>
+        </label>
+        <div id="bulkActionBar" class="hidden flex items-center space-x-2">
+          <span id="bulkSelectedCount" class="text-sm text-gray-500 mr-2">0 selected</span>
+          <button type="button" onclick="bulkAction('accept')"
+                  class="px-4 py-1.5 text-sm font-medium text-white bg-green-600
+                         rounded-lg hover:bg-green-700 transition">
+            <i class="fas fa-check-double mr-1"></i>Accept All</button>
+          <button type="button" onclick="bulkAction('decline')"
+                  class="px-4 py-1.5 text-sm font-medium text-red-600 border border-red-300
+                         rounded-lg hover:bg-red-50 transition">
+            <i class="fas fa-times mr-1"></i>Decline All</button>
+        </div>
+      </div>
+    </div>
+
     <div class="space-y-4">
       {% for rr in requests %}
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div class="flex items-start justify-between">
-          <div>
-            <p class="font-semibold text-gray-800">
-              {{ rr.booking.student.name if rr.booking.student else 'Student' }}</p>
-            <div class="mt-2 text-sm text-gray-600 space-y-1">
-              <p><span class="text-gray-400">Current:</span>
-                {{ rr.original_slot.date.strftime('%b %d, %Y') }}
-                {{ rr.original_slot.start_time|local_time(rr.original_slot.date, user_timezone) }}</p>
-              <p><span class="text-gray-400">Proposed:</span>
-                {{ rr.proposed_slot.date.strftime('%b %d, %Y') }}
-                {{ rr.proposed_slot.start_time|local_time(rr.proposed_slot.date, user_timezone) }}</p>
-              {% if rr.reason %}
-                <p><span class="text-gray-400">Reason:</span> {{ rr.reason }}</p>
-              {% endif %}
-              <p class="text-xs text-gray-400">
-                Expires {{ rr.expires_at.strftime('%b %d at %I:%M %p') }} UTC</p>
+          <div class="flex items-start space-x-3">
+            <input type="checkbox" class="rr-checkbox w-4 h-4 text-purple-600 rounded mt-1"
+                   value="{{ rr.id }}" aria-label="Select request from {{ rr.booking.student.name if rr.booking.student else 'Student' }}">
+            <div>
+              <p class="font-semibold text-gray-800">
+                {{ rr.booking.student.name if rr.booking.student else 'Student' }}</p>
+              <div class="mt-2 text-sm text-gray-600 space-y-1">
+                <p><span class="text-gray-400">Current:</span>
+                  {{ rr.original_slot.date.strftime('%b %d, %Y') }}
+                  {{ rr.original_slot.start_time|local_time(rr.original_slot.date, user_timezone) }}</p>
+                <p><span class="text-gray-400">Proposed:</span>
+                  {{ rr.proposed_slot.date.strftime('%b %d, %Y') }}
+                  {{ rr.proposed_slot.start_time|local_time(rr.proposed_slot.date, user_timezone) }}</p>
+                {% if rr.reason %}
+                  <p><span class="text-gray-400">Reason:</span> {{ rr.reason }}</p>
+                {% endif %}
+                <p class="text-xs text-gray-400">
+                  Expires {{ rr.expires_at.strftime('%b %d at %I:%M %p') }} UTC</p>
+              </div>
             </div>
           </div>
           <div class="flex space-x-2 flex-shrink-0 ml-4">
@@ -57,8 +84,75 @@
     </div>
   {% else %}
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+      <i class="fas fa-exchange-alt text-4xl text-gray-300 mb-3"></i>
       <p class="text-gray-400">No pending reschedule requests.</p>
     </div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const selectAll = document.getElementById('selectAllCheckbox');
+  const checkboxes = document.querySelectorAll('.rr-checkbox');
+  const bulkBar = document.getElementById('bulkActionBar');
+  const countDisplay = document.getElementById('bulkSelectedCount');
+
+  function updateBulkBar() {
+    const checked = document.querySelectorAll('.rr-checkbox:checked');
+    const count = checked.length;
+    if (count > 0) {
+      bulkBar.classList.remove('hidden');
+      countDisplay.textContent = count + ' selected';
+    } else {
+      bulkBar.classList.add('hidden');
+    }
+    selectAll.checked = checkboxes.length > 0 && checked.length === checkboxes.length;
+    selectAll.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+      updateBulkBar();
+    });
+  }
+
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', updateBulkBar);
+  });
+});
+
+function bulkAction(action) {
+  const checked = document.querySelectorAll('.rr-checkbox:checked');
+  if (checked.length === 0) return;
+
+  const ids = Array.from(checked).map(cb => parseInt(cb.value));
+  const actionLabel = action === 'accept' ? 'accept' : 'decline';
+
+  if (!confirm(`${actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1)} ${ids.length} request(s)?`)) return;
+
+  fetch('{{ url_for("reschedule_bp.bulk_reschedule_action") }}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': '{{ csrf_token() }}'
+    },
+    body: JSON.stringify({ action: action, request_ids: ids })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.processed > 0) {
+      alert(`${data.processed} request(s) ${actionLabel}ed.` + (data.errors.length ? '\nErrors: ' + data.errors.join(', ') : ''));
+      location.reload();
+    } else {
+      alert('No requests processed.' + (data.errors.length ? '\n' + data.errors.join('\n') : ''));
+    }
+  })
+  .catch(() => {
+    alert('Failed to process bulk action. Please try again.');
+  });
+}
+</script>
 {% endblock %}

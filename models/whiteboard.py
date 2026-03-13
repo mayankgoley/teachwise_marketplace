@@ -8,6 +8,7 @@ class WhiteboardSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     slot_id = db.Column(db.Integer, db.ForeignKey('tutor_slots.id'), nullable=False)
     json_state = db.Column(db.Text, nullable=True)  # Fabric.js canvas JSON
+    thumbnail = db.Column(db.Text, nullable=True)  # base64 PNG thumbnail
     snapshots = db.Column(db.JSON, default=list)  # [{url, key, encryption_key, created_at}]
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -20,6 +20,10 @@ class Guardian(UserMixin, db.Model):
         'booking_notifications': True, 'session_reminders': True,
         'spending_alerts': True
     })
+    child_notification_config = db.Column(db.JSON, default=lambda: {})  # B3
+    weekly_spending_limit = db.Column(db.Float, nullable=True)  # B6
+    monthly_spending_limit = db.Column(db.Float, nullable=True)  # B6
+
     last_login = db.Column(db.DateTime, nullable=True)
 
     failed_login_attempts = db.Column(db.Integer, default=0)

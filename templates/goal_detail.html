@@ -1,6 +1,24 @@
 {% extends "base.html" %}
 {% block title %}{{ goal.title }} | TeachWise{% endblock %}
 
+{% block extra_head %}
+<style>
+  /* Celebration overlay */
+  .celebration-overlay {
+    position: fixed; inset: 0; z-index: 100; display: flex; align-items: center;
+    justify-content: center; background: rgba(0,0,0,0.5); animation: fadeIn 0.3s;
+  }
+  .celebration-card {
+    background: white; border-radius: 1.5rem; padding: 3rem; text-align: center;
+    max-width: 400px; width: 90%; box-shadow: 0 24px 48px rgba(0,0,0,0.2);
+    animation: scaleIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes scaleIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .confetti-emoji { font-size: 3rem; display: block; margin-bottom: 1rem; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 py-8">
   <!-- Header -->
@@ -22,6 +40,17 @@
       {% if goal.description %}
       <p class="text-gray-500 mt-1">{{ goal.description }}</p>
       {% endif %}
+
+      <!-- Skill tag badges -->
+      {% if goal.skill_tags %}
+      <div class="flex flex-wrap gap-1.5 mt-2">
+        {% for tag in goal.skill_tags %}
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+          <i class="fas fa-tag mr-1 text-indigo-400"></i>{{ tag }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
       <div class="flex items-center space-x-4 mt-2 text-sm text-gray-500">
         <span><i class="fas fa-chalkboard-teacher mr-1"></i>{{ tutor.name }}</span>
         <span><i class="fas fa-user-graduate mr-1"></i>{{ student.name }}</span>
@@ -32,6 +61,12 @@
       </div>
     </div>
     <div class="flex items-center space-x-2">
+      <!-- PDF Report button -->
+      <a href="{{ url_for('progress_bp.goal_report_pdf', goal_id=goal.id) }}"
+         class="px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+         title="Download PDF Report">
+        <i class="fas fa-file-pdf mr-1 text-red-500"></i>PDF Report</a>
+
       <!-- Status change buttons -->
       <form method="POST" action="{{ url_for('progress_bp.update_goal_status', goal_id=goal.id) }}" class="inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -63,6 +98,17 @@
       {% endif %}
     </div>
   </div>
+
+  <!-- Progress Chart -->
+  {% if chart_labels and chart_ratings %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+    <h2 class="text-lg font-bold text-gray-800 mb-3">
+      <i class="fas fa-chart-line mr-2 text-blue-500"></i>Progress Over Time</h2>
+    <div style="max-height: 280px;">
+      <canvas id="progressChart"></canvas>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- Add Entry Form -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -166,4 +212,72 @@
   </div>
   {% endif %}
 </div>
+
+<!-- Celebration overlay (shown via flash) -->
+<div id="celebrationOverlay" class="celebration-overlay" style="display:none;">
+  <div class="celebration-card">
+    <span class="confetti-emoji">&#127881;</span>
+    <h2 class="text-2xl font-bold text-gray-800 mb-2">Goal Completed!</h2>
+    <p class="text-gray-500 mb-4">Congratulations on achieving your learning goal!</p>
+    <button onclick="document.getElementById('celebrationOverlay').style.display='none'"
+            class="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition">
+      <i class="fas fa-thumbs-up mr-1"></i>Awesome!</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+<script>
+// Celebration overlay trigger
+(function() {
+  try {
+    var flashData = document.getElementById('flash-data');
+    if (flashData) {
+      var messages = JSON.parse(flashData.textContent);
+      messages.forEach(function(f) {
+        if (f.message === '__CELEBRATION__') {
+          document.getElementById('celebrationOverlay').style.display = '';
+        }
+      });
+    }
+  } catch(e) {}
+})();
+
+{% if chart_labels and chart_ratings %}
+// Progress chart
+(function() {
+  var ctx = document.getElementById('progressChart');
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: {{ chart_labels|tojson }},
+      datasets: [{
+        label: 'Session Rating',
+        data: {{ chart_ratings|tojson }},
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        tension: 0.3,
+        fill: true,
+        pointBackgroundColor: '#3b82f6',
+        pointRadius: 5,
+        pointHoverRadius: 7
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { min: 0, max: 5, ticks: { stepSize: 1 } }
+      },
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
+})();
+{% endif %}
+</script>
 {% endblock %}

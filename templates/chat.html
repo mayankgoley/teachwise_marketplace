@@ -1,14 +1,99 @@
 {% extends "base.html" %}
 {% block title %}Chat | TeachWise{% endblock %}
 
+{% block extra_head %}
+<style>
+  /* Message status indicators */
+  .msg-status .fa-check { color: #9ca3af; }
+  .msg-status .fa-check-double.delivered { color: #9ca3af; }
+  .msg-status .fa-check-double.read { color: #3b82f6; }
+
+  /* Typing indicator */
+  .typing-dots { display: inline-flex; align-items: center; gap: 3px; }
+  .typing-dots span {
+    width: 6px; height: 6px; border-radius: 50%; background: #22c55e;
+    animation: bounce-dot 1.4s infinite ease-in-out both;
+  }
+  .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+  .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+  @keyframes bounce-dot {
+    0%,80%,100% { transform: scale(0); }
+    40% { transform: scale(1); }
+  }
+
+  /* Connection banner */
+  #connectionBanner {
+    transition: all 0.3s ease;
+  }
+
+  /* File upload progress */
+  .upload-progress { height: 3px; border-radius: 2px; overflow: hidden; background: #e5e7eb; }
+  .upload-progress-bar { height: 100%; background: #3b82f6; transition: width 0.2s; }
+
+  /* Context menu */
+  .ctx-menu {
+    position: fixed; z-index: 100; background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    min-width: 160px; padding: 4px 0;
+  }
+  .ctx-menu-item {
+    display: block; width: 100%; text-align: left; padding: 8px 16px;
+    font-size: 13px; color: #374151; cursor: pointer; border: none; background: none;
+  }
+  .ctx-menu-item:hover { background: #f3f4f6; }
+  .ctx-menu-item.danger { color: #dc2626; }
+
+  /* Emoji picker */
+  .emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 200px; overflow-y: auto; }
+  .emoji-btn { font-size: 20px; padding: 4px; cursor: pointer; border: none; background: none; border-radius: 4px; }
+  .emoji-btn:hover { background: #f3f4f6; }
+
+  /* Inline edit */
+  .inline-edit-form { margin-top: 4px; }
+
+  /* Search results dropdown */
+  .search-results {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;
+    max-height: 300px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  /* Block modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-box {
+    background: #fff; border-radius: 12px; padding: 24px; max-width: 400px;
+    width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+
+  /* File message */
+  .file-attachment {
+    background: rgba(255,255,255,0.15); border-radius: 8px;
+    padding: 8px 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .file-attachment-incoming {
+    background: rgba(0,0,0,0.04);
+  }
+
+  /* Deleted message */
+  .deleted-msg { font-style: italic; opacity: 0.6; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-6">
+  <!-- Connection Status Banner -->
+  <div id="connectionBanner" class="hidden mb-3 px-4 py-2 rounded-lg text-sm font-medium text-center">
+  </div>
+
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
        style="height: calc(100vh - 180px);">
     <div class="flex h-full">
 
       <!-- Sidebar: Conversation List -->
-      <div class="w-80 border-r border-gray-200 flex flex-col">
+      <div class="w-80 border-r border-gray-200 flex flex-col flex-shrink-0">
         <div class="p-4 border-b border-gray-200">
           <h2 class="font-bold text-gray-800">
             <i class="fas fa-comments mr-2 text-blue-600"></i>Messages</h2>
@@ -40,7 +125,8 @@
                     {{ conv.last_message_at.strftime('%b %d') if conv.last_message_at else '' }}</p>
                   {% if unread.get(conv.id, 0) > 0 %}
                   <span class="conv-badge mt-1 bg-red-500 text-white text-xs rounded-full w-5 h-5
-                               flex items-center justify-center">
+                               flex items-center justify-center font-bold"
+                        id="badge-{{ conv.id }}">
                     {{ unread[conv.id] }}</span>
                   {% endif %}
                 </div>
@@ -60,10 +146,10 @@
       </div>
 
       <!-- Main: Chat Area -->
-      <div class="flex-1 flex flex-col">
+      <div class="flex-1 flex flex-col min-w-0">
         {% if active_conv %}
           <!-- Chat Header -->
-          <div class="p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+          <div class="p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between flex-shrink-0">
             <div class="flex items-center space-x-3">
               <div class="w-10 h-10 rounded-full flex items-center justify-center
                 {% if user_type == 'student' %}bg-blue-100{% else %}bg-green-100{% endif %}">
@@ -77,18 +163,25 @@
                 <p class="font-bold text-gray-800">
                   {% if user_type == 'student' %}{{ active_conv.tutor.name }}
                   {% else %}{{ active_conv.student.name }}{% endif %}</p>
-                <p id="typingIndicator" class="text-xs text-green-500 hidden">typing...</p>
+                <div id="typingIndicator" class="text-xs text-green-500 hidden">
+                  <span class="typing-dots"><span></span><span></span><span></span></span>
+                  <span id="typingName"></span> is typing
+                </div>
               </div>
             </div>
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center space-x-3">
+              <!-- Message Search -->
+              <div class="relative" id="searchWrapper">
+                <input type="text" id="msgSearchInput" placeholder="Search messages..."
+                       class="w-48 px-3 py-1.5 border border-gray-300 rounded-full text-xs
+                              focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                       oninput="debounceSearch()">
+                <div id="searchResults" class="search-results hidden"></div>
+              </div>
+              <!-- Block/Unblock -->
               {% if not active_conv.is_blocked() %}
-              <form method="POST" action="{{ url_for('chat_bp.block_conversation', conv_id=active_conv.id) }}"
-                    onsubmit="return confirm('Block this conversation? You won\'t receive new messages.');">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="text-gray-400 hover:text-red-500 text-sm"
-                        title="Block conversation">
-                  <i class="fas fa-ban"></i></button>
-              </form>
+              <button onclick="showBlockModal()" class="text-gray-400 hover:text-red-500 text-sm" title="Block conversation">
+                <i class="fas fa-ban"></i></button>
               {% else %}
               <form method="POST" action="{{ url_for('chat_bp.unblock_conversation', conv_id=active_conv.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -112,25 +205,65 @@
                   </div>
                   {% set prev_date.val = msg_date %}
                 {% endif %}
+
+                {% if msg.is_deleted %}
                 <div class="flex {% if msg.sender_type == user_type %}justify-end{% else %}justify-start{% endif %}"
                      data-msg-id="{{ msg.id }}">
+                  <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-2xl text-sm
+                    {% if msg.sender_type == user_type %}bg-gray-300 text-gray-500 rounded-br-md
+                    {% else %}bg-gray-200 text-gray-500 rounded-bl-md{% endif %}">
+                    <p class="deleted-msg"><i class="fas fa-ban mr-1"></i>This message was deleted</p>
+                  </div>
+                </div>
+                {% else %}
+                <div class="flex {% if msg.sender_type == user_type %}justify-end{% else %}justify-start{% endif %}"
+                     data-msg-id="{{ msg.id }}"
+                     {% if msg.sender_type == user_type %}oncontextmenu="showContextMenu(event, {{ msg.id }}, '{{ msg.created_at.isoformat() }}')"{% endif %}>
                   <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-2xl text-sm shadow-sm
                     {% if msg.sender_type == user_type %}bg-blue-600 text-white rounded-br-md
-                    {% else %}bg-white text-gray-800 border border-gray-200 rounded-bl-md{% endif %}">
-                    <p class="whitespace-pre-wrap break-words">{{ msg.content }}</p>
-                    <div class="flex items-center justify-end space-x-1 mt-1">
+                    {% else %}bg-white text-gray-800 border border-gray-200 rounded-bl-md{% endif %}"
+                    id="msg-bubble-{{ msg.id }}">
+
+                    {% if msg.message_type in ('image',) and msg.file_url %}
+                    <img src="{{ msg.file_url }}" alt="{{ msg.file_name or 'Image' }}"
+                         class="rounded-lg max-w-full mb-1 cursor-pointer"
+                         onclick="window.open('{{ msg.file_url }}', '_blank')" loading="lazy">
+                    {% elif msg.message_type == 'file' and msg.file_url %}
+                    <div class="file-attachment {% if msg.sender_type != user_type %}file-attachment-incoming{% endif %}">
+                      <i class="fas fa-file text-lg"></i>
+                      <div class="min-w-0 flex-1">
+                        <p class="text-xs font-medium truncate">{{ msg.file_name or 'File' }}</p>
+                        {% if msg.file_size %}<p class="text-xs opacity-70">{{ (msg.file_size / 1024)|round(1) }} KB</p>{% endif %}
+                      </div>
+                      <a href="{{ msg.file_url }}" target="_blank" download class="opacity-80 hover:opacity-100">
+                        <i class="fas fa-download"></i></a>
+                    </div>
+                    {% endif %}
+
+                    {% if msg.content %}
+                    <p class="whitespace-pre-wrap break-words" id="msg-content-{{ msg.id }}">{{ msg.content }}</p>
+                    {% endif %}
+
+                    {% if msg.edited_at %}
+                    <span class="text-xs opacity-50 italic">edited</span>
+                    {% endif %}
+
+                    <div class="flex items-center justify-end space-x-1 mt-1 msg-status">
                       <span class="text-xs {% if msg.sender_type == user_type %}text-blue-200{% else %}text-gray-400{% endif %}">
                         {{ msg.created_at.strftime('%I:%M %p') }}</span>
                       {% if msg.sender_type == user_type %}
-                        {% if msg.is_read %}
-                        <i class="fas fa-check-double text-blue-200 text-xs" title="Read"></i>
+                        {% if msg.status == 'read' or msg.is_read %}
+                        <i class="fas fa-check-double read text-xs" title="Read"></i>
+                        {% elif msg.status == 'delivered' %}
+                        <i class="fas fa-check-double delivered text-xs" title="Delivered"></i>
                         {% else %}
-                        <i class="fas fa-check text-blue-300 text-xs" title="Sent"></i>
+                        <i class="fas fa-check text-xs" title="Sent"></i>
                         {% endif %}
                       {% endif %}
                     </div>
                   </div>
                 </div>
+                {% endif %}
               {% endfor %}
             {% else %}
               <div class="flex justify-center py-8">
@@ -141,22 +274,55 @@
 
           <!-- Typing / Blocked Banner -->
           {% if active_conv.is_blocked() %}
-          <div class="p-3 bg-red-50 border-t border-red-200 text-center">
+          <div class="p-3 bg-red-50 border-t border-red-200 text-center flex-shrink-0">
             <p class="text-red-600 text-sm">
               <i class="fas fa-ban mr-1"></i>This conversation is blocked.</p>
           </div>
           {% else %}
           <!-- Input Area -->
-          <div class="p-4 border-t border-gray-200 bg-white">
-            <form id="chatForm" class="flex space-x-2"
-                  {% if not active_conv.is_blocked() %}
-                  onsubmit="return sendMessage(event)"
-                  {% endif %}>
+          <div class="p-4 border-t border-gray-200 bg-white flex-shrink-0">
+            <!-- Upload progress -->
+            <div id="uploadProgress" class="hidden mb-2">
+              <div class="flex items-center space-x-2 text-xs text-gray-500 mb-1">
+                <i class="fas fa-paperclip"></i>
+                <span id="uploadFileName">Uploading...</span>
+                <span id="uploadPct">0%</span>
+              </div>
+              <div class="upload-progress">
+                <div id="uploadBar" class="upload-progress-bar" style="width:0%"></div>
+              </div>
+            </div>
+
+            <form id="chatForm" class="flex items-center space-x-2"
+                  onsubmit="return sendMessage(event)">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+              <!-- Paperclip (file upload) -->
+              <button type="button" onclick="document.getElementById('fileInput').click()"
+                      class="text-gray-400 hover:text-gray-600 p-2" title="Attach file">
+                <i class="fas fa-paperclip text-lg"></i></button>
+              <input type="file" id="fileInput" class="hidden"
+                     accept="image/*,.pdf,.doc,.docx,.txt,.zip"
+                     onchange="handleFileUpload(this)">
+
+              <!-- Emoji Picker Toggle -->
+              <div class="relative">
+                <button type="button" onclick="toggleEmojiPicker()"
+                        class="text-gray-400 hover:text-gray-600 p-2" title="Emoji">
+                  <i class="fas fa-smile text-lg"></i></button>
+                <div id="emojiPicker" class="hidden absolute bottom-12 left-0 bg-white border border-gray-200 rounded-xl shadow-lg p-3 z-50" style="width:280px;">
+                  <div class="emoji-grid">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Message Input -->
               <input type="text" id="msgInput" name="content" maxlength="2000" required
                      placeholder="Type a message..." autocomplete="off"
                      class="flex-1 px-4 py-2.5 border border-gray-300 rounded-full
                             focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+
+              <!-- Send Button -->
               <button type="submit" id="sendBtn"
                       class="bg-blue-600 text-white px-5 py-2.5 rounded-full
                              hover:bg-blue-700 transition flex items-center">
@@ -179,10 +345,43 @@
     </div>
   </div>
 </div>
+
+<!-- Block Confirmation Modal -->
+<div id="blockModal" class="hidden">
+  <div class="modal-overlay" onclick="hideBlockModal()">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="text-center mb-4">
+        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+          <i class="fas fa-ban text-red-500 text-xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-gray-800">Block this conversation?</h3>
+        <p class="text-gray-500 text-sm mt-2">
+          You will no longer receive messages from this user. You can unblock them later.
+        </p>
+      </div>
+      {% if active_conv %}
+      <form method="POST" action="{{ url_for('chat_bp.block_conversation', conv_id=active_conv.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="flex space-x-3">
+          <button type="button" onclick="hideBlockModal()"
+                  class="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition">
+            Cancel</button>
+          <button type="submit"
+                  class="flex-1 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition">
+            Block</button>
+        </div>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Context Menu (right-click on own messages) -->
+<div id="contextMenu" class="ctx-menu hidden"></div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/socket.io-client@4/dist/socket.io.min.js"></script>
 <script>
 const messageArea = document.getElementById('messageArea');
 const msgInput = document.getElementById('msgInput');
@@ -190,26 +389,29 @@ const typingIndicator = document.getElementById('typingIndicator');
 const userType = '{{ user_type }}';
 const userId = {{ user_id or 0 }};
 const csrfToken = '{{ csrf_token() }}';
+const currentUserName = '{{ current_user.name if current_user.is_authenticated else "" }}';
 
 {% if active_conv %}
 const convId = {{ active_conv.id }};
 const isBlocked = {{ 'true' if active_conv.is_blocked() else 'false' }};
+const otherName = '{{ (active_conv.tutor.name if user_type == "student" else active_conv.student.name)|e }}';
 {% else %}
 const convId = null;
 const isBlocked = false;
+const otherName = '';
 {% endif %}
 
 // Auto-scroll to bottom
 if (messageArea) messageArea.scrollTop = messageArea.scrollHeight;
 
 // ── SocketIO Setup ──────────────────────────────────────
-let socket;
+let socket, connected = false;
 try {
-  socket = io({
-    transports: ['websocket', 'polling']
-  });
+  socket = io({ transports: ['websocket', 'polling'] });
 
   socket.on('connect', () => {
+    connected = true;
+    updateConnectionBanner(true);
     if (convId) {
       socket.emit('join_conversation', {
         conversation_id: convId,
@@ -219,25 +421,39 @@ try {
     }
   });
 
+  socket.on('disconnect', () => {
+    connected = false;
+    updateConnectionBanner(false);
+  });
+
+  socket.on('reconnect', () => {
+    connected = true;
+    updateConnectionBanner(true, true);
+  });
+
   // Receive new messages
   socket.on('new_message', (data) => {
-    if (!messageArea) return;
-    // Don't duplicate own messages (already appended optimistically)
-    if (data.sender_type === userType && data._from_self) return;
+    if (!messageArea || data.conversation_id !== convId) return;
     if (data.sender_type !== userType) {
       appendMessage(data);
-      // Mark as read since we're viewing
+      // Acknowledge receipt
+      socket.emit('message_received', { message_id: data.id });
+      // Mark as read
       fetch(`/api/chat/${convId}/read`, {
         method: 'POST',
         headers: {'X-CSRFToken': csrfToken}
       });
+      // Remove badge from sidebar
+      const badge = document.getElementById('badge-' + convId);
+      if (badge) badge.classList.add('hidden');
     }
   });
 
   // Typing indicator
   socket.on('user_typing', (data) => {
     if (typingIndicator && data.user_type !== userType) {
-      typingIndicator.textContent = data.user_name + ' is typing...';
+      const nameEl = document.getElementById('typingName');
+      if (nameEl) nameEl.textContent = data.user_name || otherName;
       typingIndicator.classList.remove('hidden');
       clearTimeout(window._typingTimeout);
       window._typingTimeout = setTimeout(() => {
@@ -246,19 +462,83 @@ try {
     }
   });
 
-  // Read receipts
-  socket.on('read_receipt', (data) => {
+  socket.on('user_stopped_typing', (data) => {
+    if (typingIndicator && data.user_type !== userType) {
+      typingIndicator.classList.add('hidden');
+    }
+  });
+
+  // Read receipts - update icons
+  socket.on('messages_read', (data) => {
     if (data.read_by !== userType) {
-      // Update our sent message icons to double-check
-      document.querySelectorAll('[data-msg-id] .fa-check').forEach(icon => {
-        icon.classList.remove('fa-check');
-        icon.classList.add('fa-check-double');
+      document.querySelectorAll('.msg-status .fa-check, .msg-status .fa-check-double.delivered').forEach(icon => {
+        icon.className = 'fas fa-check-double read text-xs';
         icon.title = 'Read';
       });
     }
   });
+
+  // Message status updates
+  socket.on('message_status', (data) => {
+    if (data.conversation_id !== convId) return;
+    const msgEl = document.querySelector(`[data-msg-id="${data.message_id}"] .msg-status i`);
+    if (msgEl && data.status === 'delivered') {
+      msgEl.className = 'fas fa-check-double delivered text-xs';
+      msgEl.title = 'Delivered';
+    } else if (msgEl && data.status === 'read') {
+      msgEl.className = 'fas fa-check-double read text-xs';
+      msgEl.title = 'Read';
+    }
+  });
+
+  // Message edited
+  socket.on('message_edited', (data) => {
+    const contentEl = document.getElementById('msg-content-' + data.message_id);
+    if (contentEl) {
+      contentEl.textContent = data.content;
+      // Add edited indicator
+      const bubble = document.getElementById('msg-bubble-' + data.message_id);
+      if (bubble && !bubble.querySelector('.edited-indicator')) {
+        const span = document.createElement('span');
+        span.className = 'text-xs opacity-50 italic edited-indicator';
+        span.textContent = 'edited';
+        bubble.querySelector('.msg-status').before(span);
+      }
+    }
+  });
+
+  // Message deleted
+  socket.on('message_deleted', (data) => {
+    const msgDiv = document.querySelector(`[data-msg-id="${data.message_id}"]`);
+    if (msgDiv) {
+      const bubble = msgDiv.querySelector('div');
+      if (bubble) {
+        bubble.innerHTML = '<p class="deleted-msg"><i class="fas fa-ban mr-1"></i>This message was deleted</p>';
+        bubble.className = bubble.className.replace('bg-blue-600', 'bg-gray-300').replace('text-white', 'text-gray-500')
+          .replace('bg-white text-gray-800 border border-gray-200', 'bg-gray-200 text-gray-500');
+      }
+    }
+  });
 } catch(e) {
   console.log('SocketIO not available, using form fallback');
+}
+
+// ── Connection Banner ───────────────────────────────────
+function updateConnectionBanner(isConnected, isReconnect) {
+  const banner = document.getElementById('connectionBanner');
+  if (!banner) return;
+  if (!isConnected) {
+    banner.classList.remove('hidden', 'bg-green-100', 'text-green-700');
+    banner.classList.add('bg-red-100', 'text-red-700');
+    banner.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>Connection lost. Trying to reconnect...';
+  } else if (isReconnect) {
+    banner.classList.remove('hidden', 'bg-red-100', 'text-red-700');
+    banner.classList.add('bg-green-100', 'text-green-700');
+    banner.innerHTML = '<i class="fas fa-check-circle mr-2"></i>Reconnected!';
+    setTimeout(() => banner.classList.add('hidden'), 3000);
+  } else {
+    banner.classList.add('hidden');
+  }
 }
 
 // ── Send Message ────────────────────────────────────────
@@ -271,11 +551,14 @@ function sendMessage(e) {
   msgInput.focus();
 
   // Optimistic append
+  const tempId = Date.now();
   appendMessage({
+    id: tempId,
     sender_type: userType,
     content: content,
     timestamp: new Date().toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'}),
     is_read: false,
+    status: 'sent',
     _optimistic: true
   });
 
@@ -287,8 +570,11 @@ function sendMessage(e) {
       'X-CSRFToken': csrfToken
     },
     body: JSON.stringify({content: content})
-  }).then(r => r.json()).catch(() => {
-    // Fallback: reload on error
+  }).then(r => r.json()).then(data => {
+    // Update the temp message with real id
+    const tempEl = document.querySelector(`[data-msg-id="${tempId}"]`);
+    if (tempEl) tempEl.setAttribute('data-msg-id', data.id);
+  }).catch(() => {
     window.location.reload();
   });
 
@@ -302,23 +588,39 @@ function appendMessage(data) {
   div.className = `flex ${isMe ? 'justify-end' : 'justify-start'}`;
   if (data.id) div.setAttribute('data-msg-id', data.id);
 
-  const readIcon = isMe
-    ? (data.is_read
-      ? '<i class="fas fa-check-double text-blue-200 text-xs" title="Read"></i>'
-      : '<i class="fas fa-check text-blue-300 text-xs" title="Sent"></i>')
-    : '';
+  let statusIcon = '';
+  if (isMe) {
+    if (data.status === 'read' || data.is_read) {
+      statusIcon = '<i class="fas fa-check-double read text-xs" title="Read"></i>';
+    } else if (data.status === 'delivered') {
+      statusIcon = '<i class="fas fa-check-double delivered text-xs" title="Delivered"></i>';
+    } else {
+      statusIcon = '<i class="fas fa-check text-xs" title="Sent"></i>';
+    }
+  }
+
+  let fileHtml = '';
+  if (data.message_type === 'image' && data.file_url) {
+    fileHtml = `<img src="${data.file_url}" alt="${data.file_name || 'Image'}" class="rounded-lg max-w-full mb-1 cursor-pointer" onclick="window.open('${data.file_url}','_blank')" loading="lazy">`;
+  } else if (data.message_type === 'file' && data.file_url) {
+    fileHtml = `<div class="file-attachment ${!isMe ? 'file-attachment-incoming' : ''}">
+      <i class="fas fa-file text-lg"></i>
+      <div class="min-w-0 flex-1"><p class="text-xs font-medium truncate">${escapeHtml(data.file_name || 'File')}</p></div>
+      <a href="${data.file_url}" target="_blank" download class="opacity-80 hover:opacity-100"><i class="fas fa-download"></i></a></div>`;
+  }
 
   div.innerHTML = `
     <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-2xl text-sm shadow-sm
-      ${isMe ? 'bg-blue-600 text-white rounded-br-md' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-md'}">
-      <p class="whitespace-pre-wrap break-words">${escapeHtml(data.content)}</p>
-      <div class="flex items-center justify-end space-x-1 mt-1">
-        <span class="text-xs ${isMe ? 'text-blue-200' : 'text-gray-400'}">${data.timestamp}</span>
-        ${readIcon}
+      ${isMe ? 'bg-blue-600 text-white rounded-br-md' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-md'}"
+      id="msg-bubble-${data.id || ''}">
+      ${fileHtml}
+      ${data.content ? `<p class="whitespace-pre-wrap break-words" id="msg-content-${data.id || ''}">${escapeHtml(data.content)}</p>` : ''}
+      <div class="flex items-center justify-end space-x-1 mt-1 msg-status">
+        <span class="text-xs ${isMe ? 'text-blue-200' : 'text-gray-400'}">${data.timestamp || ''}</span>
+        ${statusIcon}
       </div>
     </div>`;
 
-  // Remove "Start the conversation" placeholder
   const placeholder = messageArea.querySelector('.justify-center.py-8');
   if (placeholder) placeholder.remove();
 
@@ -339,21 +641,290 @@ if (msgInput && socket && convId) {
     const now = Date.now();
     if (now - lastTyping > 2000) {
       lastTyping = now;
-      socket.emit('typing', {
+      socket.emit('typing_start', {
         conversation_id: convId,
         user_type: userType,
-        user_name: '{{ (active_conv.student.name if user_type == "student" else active_conv.tutor.name) if active_conv else "" }}'
+        user_name: currentUserName
       });
     }
   });
 
-  // Enter to send
   msgInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       document.getElementById('chatForm').dispatchEvent(new Event('submit'));
     }
   });
+}
+
+// ── File Upload ─────────────────────────────────────────
+function handleFileUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const maxSize = 10 * 1024 * 1024;
+  if (file.size > maxSize) {
+    alert('File too large (max 10 MB)');
+    input.value = '';
+    return;
+  }
+
+  const progressDiv = document.getElementById('uploadProgress');
+  const progressBar = document.getElementById('uploadBar');
+  const fileName = document.getElementById('uploadFileName');
+  const pctLabel = document.getElementById('uploadPct');
+
+  progressDiv.classList.remove('hidden');
+  fileName.textContent = file.name;
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('conversation_id', convId);
+
+  const xhr = new XMLHttpRequest();
+  xhr.upload.addEventListener('progress', (e) => {
+    if (e.lengthComputable) {
+      const pct = Math.round((e.loaded / e.total) * 100);
+      progressBar.style.width = pct + '%';
+      pctLabel.textContent = pct + '%';
+    }
+  });
+
+  xhr.addEventListener('load', () => {
+    progressDiv.classList.add('hidden');
+    progressBar.style.width = '0%';
+    input.value = '';
+
+    if (xhr.status === 200) {
+      const data = JSON.parse(xhr.responseText);
+      // Send as message
+      fetch(`/api/chat/${convId}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({
+          content: '',
+          type: data.message_type,
+          file_url: data.url,
+          file_name: data.file_name,
+          file_size: data.file_size,
+          file_mime_type: data.mime_type
+        })
+      }).then(r => r.json()).then(msgData => {
+        appendMessage({
+          ...msgData,
+          timestamp: new Date().toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'})
+        });
+      });
+    } else {
+      const err = JSON.parse(xhr.responseText);
+      alert(err.error || 'Upload failed');
+    }
+  });
+
+  xhr.addEventListener('error', () => {
+    progressDiv.classList.add('hidden');
+    alert('Upload failed');
+    input.value = '';
+  });
+
+  xhr.open('POST', '/chat/upload');
+  xhr.setRequestHeader('X-CSRFToken', csrfToken);
+  xhr.send(formData);
+}
+
+// ── Emoji Picker ────────────────────────────────────────
+const emojis = [
+  '😀','😂','😍','🥰','😊','😎','🤔','😢','😡','👍','👎','❤️','🔥','⭐','🎉','💯',
+  '👏','🙌','🤝','✅','💡','📚','✏️','📝','🎓','💻','🕐','📅','🙏','💪','🎯','👋',
+  '😅','🤗','😇','🥳','🤩','😴','💤','☕','🍕','🌟','💬','📩','🔔','🎵','🎨','📎'
+];
+
+function initEmojiPicker() {
+  const grid = document.querySelector('.emoji-grid');
+  if (!grid) return;
+  emojis.forEach(e => {
+    const btn = document.createElement('button');
+    btn.className = 'emoji-btn';
+    btn.textContent = e;
+    btn.type = 'button';
+    btn.onclick = () => {
+      if (msgInput) {
+        msgInput.value += e;
+        msgInput.focus();
+      }
+      toggleEmojiPicker();
+    };
+    grid.appendChild(btn);
+  });
+}
+initEmojiPicker();
+
+function toggleEmojiPicker() {
+  document.getElementById('emojiPicker').classList.toggle('hidden');
+}
+
+// Close emoji picker on outside click
+document.addEventListener('click', (e) => {
+  const picker = document.getElementById('emojiPicker');
+  if (picker && !picker.classList.contains('hidden') &&
+      !picker.contains(e.target) && !e.target.closest('.fa-smile')?.parentElement) {
+    picker.classList.add('hidden');
+  }
+});
+
+// ── Message Search ──────────────────────────────────────
+let searchTimeout;
+function debounceSearch() {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(doSearch, 400);
+}
+
+function doSearch() {
+  const q = document.getElementById('msgSearchInput').value.trim();
+  const resultsDiv = document.getElementById('searchResults');
+  if (q.length < 2 || !convId) {
+    resultsDiv.classList.add('hidden');
+    return;
+  }
+
+  fetch(`/chat/${convId}/search?q=${encodeURIComponent(q)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.results && data.results.length > 0) {
+        resultsDiv.classList.remove('hidden');
+        resultsDiv.innerHTML = data.results.map(r =>
+          `<div class="px-4 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+                onclick="scrollToMessage(${r.id})">
+            <p class="text-xs font-medium text-gray-600">${escapeHtml(r.sender_name)} <span class="text-gray-400">${r.created_at}</span></p>
+            <p class="text-sm text-gray-800 truncate">${escapeHtml(r.content)}</p>
+          </div>`
+        ).join('');
+      } else {
+        resultsDiv.classList.remove('hidden');
+        resultsDiv.innerHTML = '<p class="px-4 py-3 text-sm text-gray-400 text-center">No results found</p>';
+      }
+    });
+}
+
+function scrollToMessage(msgId) {
+  document.getElementById('searchResults').classList.add('hidden');
+  const el = document.querySelector(`[data-msg-id="${msgId}"]`);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.querySelector('div').style.outline = '2px solid #3b82f6';
+    setTimeout(() => { el.querySelector('div').style.outline = ''; }, 2000);
+  }
+}
+
+// Close search on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#searchWrapper')) {
+    document.getElementById('searchResults')?.classList.add('hidden');
+  }
+});
+
+// ── Context Menu (Edit/Delete) ──────────────────────────
+function showContextMenu(e, msgId, createdAt) {
+  e.preventDefault();
+  const menu = document.getElementById('contextMenu');
+
+  // Check if within 15-min edit window
+  const created = new Date(createdAt);
+  const elapsed = (Date.now() - created.getTime()) / 60000;
+  const canEdit = elapsed <= 15;
+
+  menu.innerHTML = '';
+  if (canEdit) {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'ctx-menu-item';
+    editBtn.innerHTML = '<i class="fas fa-edit mr-2"></i>Edit Message';
+    editBtn.onclick = () => { hideContextMenu(); startInlineEdit(msgId); };
+    menu.appendChild(editBtn);
+  }
+  const delBtn = document.createElement('button');
+  delBtn.className = 'ctx-menu-item danger';
+  delBtn.innerHTML = '<i class="fas fa-trash mr-2"></i>Delete Message';
+  delBtn.onclick = () => { hideContextMenu(); deleteMessage(msgId); };
+  menu.appendChild(delBtn);
+
+  menu.style.left = e.clientX + 'px';
+  menu.style.top = e.clientY + 'px';
+  menu.classList.remove('hidden');
+}
+
+function hideContextMenu() {
+  document.getElementById('contextMenu').classList.add('hidden');
+}
+document.addEventListener('click', hideContextMenu);
+
+function startInlineEdit(msgId) {
+  const contentEl = document.getElementById('msg-content-' + msgId);
+  if (!contentEl) return;
+  const oldText = contentEl.textContent;
+  const bubble = document.getElementById('msg-bubble-' + msgId);
+
+  contentEl.innerHTML = `<div class="inline-edit-form">
+    <input type="text" id="edit-input-${msgId}" value="${escapeHtml(oldText)}" maxlength="2000"
+           class="w-full px-2 py-1 rounded text-gray-800 text-sm border border-blue-300 focus:ring-1 focus:ring-blue-400 mb-1">
+    <div class="flex space-x-1">
+      <button onclick="saveEdit(${msgId})" class="text-xs bg-green-500 text-white px-2 py-0.5 rounded hover:bg-green-600">Save</button>
+      <button onclick="cancelEdit(${msgId}, '${escapeHtml(oldText).replace(/'/g, "\\'")}')" class="text-xs bg-gray-400 text-white px-2 py-0.5 rounded hover:bg-gray-500">Cancel</button>
+    </div>
+  </div>`;
+
+  const input = document.getElementById('edit-input-' + msgId);
+  if (input) { input.focus(); input.select(); }
+}
+
+function saveEdit(msgId) {
+  const input = document.getElementById('edit-input-' + msgId);
+  if (!input) return;
+  const newContent = input.value.trim();
+  if (!newContent) return;
+
+  fetch(`/chat/message/${msgId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+    body: JSON.stringify({ content: newContent })
+  }).then(r => r.json()).then(d => {
+    const contentEl = document.getElementById('msg-content-' + msgId);
+    if (d.success && contentEl) {
+      contentEl.textContent = d.content;
+    } else {
+      alert(d.error || 'Edit failed');
+      contentEl.textContent = newContent;
+    }
+  }).catch(() => alert('Edit failed'));
+}
+
+function cancelEdit(msgId, originalText) {
+  const contentEl = document.getElementById('msg-content-' + msgId);
+  if (contentEl) contentEl.textContent = originalText;
+}
+
+function deleteMessage(msgId) {
+  if (!confirm('Delete this message? This cannot be undone.')) return;
+  fetch(`/chat/message/${msgId}`, {
+    method: 'DELETE',
+    headers: { 'X-CSRFToken': csrfToken }
+  }).then(r => r.json()).then(d => {
+    if (d.success) {
+      const msgDiv = document.querySelector(`[data-msg-id="${msgId}"]`);
+      if (msgDiv) {
+        const bubble = msgDiv.querySelector('div');
+        bubble.innerHTML = '<p class="deleted-msg"><i class="fas fa-ban mr-1"></i>This message was deleted</p>';
+        bubble.className = bubble.className.replace('bg-blue-600', 'bg-gray-300').replace('text-white', 'text-gray-500');
+      }
+    } else { alert(d.error || 'Delete failed'); }
+  }).catch(() => alert('Delete failed'));
+}
+
+// ── Block Modal ─────────────────────────────────────────
+function showBlockModal() {
+  document.getElementById('blockModal').classList.remove('hidden');
+}
+function hideBlockModal() {
+  document.getElementById('blockModal').classList.add('hidden');
 }
 
 // ── Unread Badge Polling ────────────────────────────────
@@ -363,12 +934,8 @@ function updateUnreadBadge() {
     .then(data => {
       const badge = document.getElementById('chatUnreadBadge');
       if (badge) {
-        if (data.count > 0) {
-          badge.textContent = data.count;
-          badge.classList.remove('hidden');
-        } else {
-          badge.classList.add('hidden');
-        }
+        if (data.count > 0) { badge.textContent = data.count; badge.classList.remove('hidden'); }
+        else { badge.classList.add('hidden'); }
       }
     }).catch(() => {});
 }

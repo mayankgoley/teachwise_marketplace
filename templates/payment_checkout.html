@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Checkout | TeachWise{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-10">
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
+      <h1 class="text-xl font-bold">
+        <i class="fas fa-credit-card mr-2"></i>Payment Checkout</h1>
+      <p class="text-blue-200 text-sm mt-1">Review your booking details before proceeding</p>
+    </div>
+
+    <div class="p-6">
+      <!-- Session Details -->
+      <div class="mb-6">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Session Details</h2>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-500"><i class="fas fa-chalkboard-teacher mr-2 text-blue-400"></i>Tutor</span>
+            <span class="text-gray-800 font-medium">{{ tutor.name }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500"><i class="fas fa-book mr-2 text-blue-400"></i>Subject</span>
+            <span class="text-gray-800 font-medium">{{ slot.subject or tutor.subject or 'General' }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500"><i class="fas fa-calendar mr-2 text-blue-400"></i>Date</span>
+            <span class="text-gray-800 font-medium">{{ slot.date.strftime('%B %d, %Y') }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500"><i class="fas fa-clock mr-2 text-blue-400"></i>Time</span>
+            <span class="text-gray-800 font-medium">
+              {{ slot.start_time.strftime('%I:%M %p') }} - {{ slot.end_time.strftime('%I:%M %p') }}
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500"><i class="fas fa-laptop mr-2 text-blue-400"></i>Mode</span>
+            <span class="text-gray-800 font-medium">{{ (slot.mode or 'online')|title }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <hr class="border-gray-200 mb-6">
+
+      <!-- Fee Breakdown -->
+      <div class="mb-6">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Fee Breakdown</h2>
+        <table class="w-full text-sm">
+          <tbody>
+            <tr class="border-b border-gray-100">
+              <td class="py-2 text-gray-600">Session Fee</td>
+              <td class="py-2 text-right text-gray-800 font-medium">&pound;{{ "%.2f"|format(price) }}</td>
+            </tr>
+            <tr class="border-b border-gray-100">
+              <td class="py-2 text-gray-600">
+                Platform Fee
+                <span class="text-xs text-gray-400">({{ fee_pct }}%)</span>
+              </td>
+              <td class="py-2 text-right text-gray-800 font-medium">&pound;{{ "%.2f"|format(platform_fee) }}</td>
+            </tr>
+            <tr class="bg-gray-50">
+              <td class="py-3 text-gray-800 font-bold">Total</td>
+              <td class="py-3 text-right text-gray-800 font-bold text-lg">&pound;{{ "%.2f"|format(total) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Refund Policy -->
+      <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
+        <p class="text-xs text-blue-700">
+          <i class="fas fa-info-circle mr-1"></i>
+          <strong>Refund Policy:</strong> Full refund if cancelled 24+ hours before the session.
+          50% refund within 24 hours. No refund after the session starts.
+        </p>
+      </div>
+
+      <!-- Stripe Security Note -->
+      <div class="flex items-center text-xs text-gray-400 mb-6">
+        <i class="fas fa-lock mr-2 text-green-500"></i>
+        Payments are processed securely via Stripe. We never store your card details.
+      </div>
+
+      <!-- Pay Button -->
+      <form method="POST" action="{{ url_for('payment_bp.payment_checkout_proceed', booking_id=booking.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit"
+                class="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-lg
+                       hover:bg-green-700 transition flex items-center justify-center">
+          <i class="fas fa-lock mr-2"></i>Pay &pound;{{ "%.2f"|format(total) }}
+        </button>
+      </form>
+
+      <p class="text-center mt-4">
+        <a href="{{ url_for('student_bp.dashboard') }}"
+           class="text-gray-500 hover:text-gray-700 text-sm">
+          <i class="fas fa-arrow-left mr-1"></i>Cancel and go back</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

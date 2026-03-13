@@ -7,14 +7,43 @@
      class="text-blue-600 hover:text-blue-800 text-sm font-medium mb-4 inline-block">
     <i class="fas fa-arrow-left mr-1"></i>Back to Assignments</a>
 
+  <!-- Late submission warning/blocked banner -->
+  {% if late_blocked is defined and late_blocked %}
+  <div class="bg-red-50 border border-red-300 rounded-xl p-5 mb-6 text-center">
+    <i class="fas fa-ban text-red-500 text-3xl mb-2"></i>
+    <h3 class="text-lg font-bold text-red-700 mb-1">Submissions Closed</h3>
+    <p class="text-sm text-red-600">This assignment is past the due date and no longer accepts submissions.</p>
+  </div>
+  {% elif is_overdue is defined and is_overdue %}
+  <div class="bg-yellow-50 border border-yellow-300 rounded-xl p-4 mb-6 flex items-center gap-3">
+    <i class="fas fa-exclamation-triangle text-yellow-500 text-xl"></i>
+    <div>
+      <p class="font-medium text-yellow-800">Late Submission Warning</p>
+      <p class="text-sm text-yellow-700">
+        This assignment is overdue by {{ '%.1f'|format(late_hours) }} hours.
+        {% if assignment.late_penalty_percent %}
+        A {{ assignment.late_penalty_percent }}% penalty will be applied.
+        {% endif %}
+      </p>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Assignment Details -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
     <h1 class="text-2xl font-bold text-gray-800 mb-2">{{ assignment.title }}</h1>
     <p class="text-sm text-gray-500">
       <i class="fas fa-chalkboard-teacher mr-1"></i>{{ assignment.tutor.name }}
-      &bull; Due: {{ assignment.due_date.strftime('%b %d, %Y %I:%M %p') }}</p>
+      &bull; Due: {{ assignment.due_date.strftime('%b %d, %Y %I:%M %p') }}
+      {% if assignment.subject %}
+      &bull; <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs">{{ assignment.subject }}</span>
+      {% endif %}
+    </p>
     {% if assignment.description %}
-    <p class="text-gray-600 mt-3">{{ assignment.description }}</p>
+    <div class="text-gray-600 mt-3 prose prose-sm max-w-none">{{ assignment.description|safe }}</div>
     {% endif %}
+
+    <!-- Assignment attachments -->
     {% if assignment.file_urls %}
     <div class="flex flex-wrap gap-2 mt-3">
       {% for f in assignment.file_urls %}
@@ -24,31 +53,184 @@
       {% endfor %}
     </div>
     {% endif %}
+
+    <!-- Rubric display (read-only for students) -->
+    {% if assignment.rubric %}
+    <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+      <h3 class="text-sm font-bold text-gray-700 mb-2"><i class="fas fa-clipboard-list mr-1"></i>Grading Criteria</h3>
+      <div class="space-y-1">
+        {% for c in assignment.rubric %}
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-gray-600">{{ c.criterion }}</span>
+          <span class="text-gray-400 text-xs">{{ c.max_points }} pts</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- File type restrictions display -->
+    <div class="mt-4 p-3 bg-blue-50 rounded-lg flex items-start gap-2">
+      <i class="fas fa-info-circle text-blue-400 mt-0.5"></i>
+      <div class="text-xs text-blue-700">
+        <p class="font-medium mb-0.5">Accepted file types:</p>
+        <p>{{ allowed_ext }}</p>
+        <p class="mt-0.5">Maximum file size: {{ max_file_mb }}MB per file</p>
+      </div>
+    </div>
   </div>
 
+  <!-- Submission Form -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-    <h2 class="text-lg font-bold text-gray-800 mb-4">Your Submission</h2>
-    <form method="POST" enctype="multipart/form-data">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-gray-800">Your Submission</h2>
+      <!-- Draft status indicator -->
+      <div id="draftStatus" class="text-xs text-gray-400 flex items-center gap-1">
+        {% if draft %}
+        <span class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>
+        Draft saved
+        {% endif %}
+      </div>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" id="submitForm">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="save_as_draft" value="0" id="saveDraftFlag">
 
       <div class="mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-1">Written Response</label>
-        <textarea name="text_response" rows="6"
+        <textarea name="text_response" id="textResponse" rows="6" maxlength="5000"
                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                  placeholder="Type your answer here..."></textarea>
+                  placeholder="Type your answer here...">{{ (draft.text_response or '') if draft else '' }}</textarea>
+        <div class="flex justify-end mt-1">
+          <span id="textCharCount" class="text-xs text-gray-400">0 / 5000</span>
+        </div>
       </div>
 
-      <div class="mb-6">
+      <div class="mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-1">
-          Upload Files <span class="text-gray-400">(PDF, JPG, PNG, DOC, DOCX - max 5MB each)</span></label>
-        <input type="file" name="files" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+          Upload Files
+          <span class="text-gray-400 text-xs">({{ allowed_ext }} - max {{ max_file_mb }}MB each)</span>
+        </label>
+        <input type="file" name="files" multiple accept="{{ allowed_accept }}" id="fileInput"
                class="w-full border border-gray-300 rounded-lg px-3 py-2">
+        <div id="fileSizeError" class="text-xs text-red-500 mt-1 hidden">
+          <i class="fas fa-exclamation-triangle mr-1"></i>One or more files exceed the {{ max_file_mb }}MB limit.</div>
+
+        <!-- Show existing draft files -->
+        {% if draft and draft.file_urls %}
+        <div class="mt-2 flex flex-wrap gap-2">
+          <span class="text-xs text-gray-400">Previously uploaded:</span>
+          {% for f in draft.file_urls %}
+          <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+            <i class="fas fa-file mr-1"></i>{{ f.name }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
 
-      <button type="submit"
-              class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-        <i class="fas fa-paper-plane mr-1"></i>Submit Assignment</button>
+      <!-- Action buttons -->
+      <div class="flex gap-3">
+        {% if not (late_blocked is defined and late_blocked) %}
+        <button type="submit" id="submitBtn"
+                class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+          <i class="fas fa-paper-plane mr-1"></i>Submit Assignment</button>
+        {% endif %}
+        <button type="button" id="saveDraftBtn"
+                class="px-5 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition text-sm">
+          <i class="fas fa-save mr-1"></i>Save Draft</button>
+      </div>
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  var textArea = document.getElementById('textResponse');
+  var charCount = document.getElementById('textCharCount');
+  var fileInput = document.getElementById('fileInput');
+  var fileSizeError = document.getElementById('fileSizeError');
+  var draftStatus = document.getElementById('draftStatus');
+  var saveDraftFlag = document.getElementById('saveDraftFlag');
+  var submitForm = document.getElementById('submitForm');
+  var maxFileSize = {{ max_file_mb }} * 1024 * 1024;
+  var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  var autoSaveTimer = null;
+  var assignmentId = {{ assignment.id }};
+
+  // Character count
+  function updateCharCount() {
+    charCount.textContent = textArea.value.length + ' / 5000';
+  }
+  textArea.addEventListener('input', updateCharCount);
+  updateCharCount();
+
+  // Client-side file size validation
+  fileInput.addEventListener('change', function() {
+    var oversized = false;
+    for (var i = 0; i < this.files.length; i++) {
+      if (this.files[i].size > maxFileSize) {
+        oversized = true;
+        break;
+      }
+    }
+    if (oversized) {
+      fileSizeError.classList.remove('hidden');
+      var submitBtn = document.getElementById('submitBtn');
+      if (submitBtn) submitBtn.disabled = true;
+    } else {
+      fileSizeError.classList.add('hidden');
+      var submitBtn = document.getElementById('submitBtn');
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+
+  // Save draft button
+  document.getElementById('saveDraftBtn').addEventListener('click', function() {
+    saveDraftFlag.value = '1';
+    submitForm.submit();
+  });
+
+  // Submit button ensures draft flag is off
+  var submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
+    submitBtn.addEventListener('click', function() {
+      saveDraftFlag.value = '0';
+    });
+  }
+
+  // Auto-save every 60 seconds
+  function autoSave() {
+    var text = textArea.value.trim();
+    if (!text) return;
+
+    fetch('/student/assignments/' + assignmentId + '/auto-save', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify({ text_response: text })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        draftStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span> Auto-saved at ' + d.saved_at;
+        setTimeout(function() {
+          draftStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span> Draft saved';
+        }, 3000);
+      }
+    })
+    .catch(function() {});
+  }
+
+  textArea.addEventListener('input', function() {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(autoSave, 60000);
+    draftStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-gray-300 inline-block animate-pulse"></span> Unsaved changes';
+  });
+})();
+</script>
 {% endblock %}

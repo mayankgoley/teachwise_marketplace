@@ -10,6 +10,10 @@
     <a href="{{ url_for('student_bp.dashboard') }}"
        class="text-blue-600 hover:text-blue-800 text-sm font-medium">
       <i class="fas fa-arrow-left mr-1"></i>Dashboard</a>
+    {% elif role == 'guardian' %}
+    <a href="{{ url_for('guardian_bp.guardian_dashboard') }}"
+       class="text-purple-600 hover:text-purple-800 text-sm font-medium">
+      <i class="fas fa-arrow-left mr-1"></i>Guardian Dashboard</a>
     {% else %}
     <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
        class="text-blue-600 hover:text-blue-800 text-sm font-medium">
@@ -17,44 +21,115 @@
     {% endif %}
   </div>
 
-  {% if recordings %}
-  <div class="space-y-3">
-    {% for rec in recordings %}
-    <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4 flex items-center justify-between">
+  {% if role == 'guardian' %}
+  <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-6">
+    <div class="flex items-center space-x-2">
+      <i class="fas fa-user-shield text-purple-500"></i>
+      <span class="text-purple-700 text-sm font-medium">Guardian View</span>
+      <span class="text-purple-600 text-sm">- Viewing recordings for your linked student(s).</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Expiry Warning Banner -->
+  {% if expiring_soon %}
+  <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+    <div class="flex items-start space-x-3">
+      <i class="fas fa-exclamation-triangle text-amber-500 mt-0.5"></i>
       <div>
-        <div class="flex items-center space-x-3">
-          <i class="fas fa-film text-red-400"></i>
-          <p class="font-semibold text-gray-800">Session {{ rec.slot_id }}</p>
-          {% if rec.is_expired %}
-          <span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Expired</span>
-          {% else %}
-          <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Available</span>
-          {% endif %}
-        </div>
-        <p class="text-sm text-gray-500 mt-1">
-          {{ rec.created_at.strftime('%B %d, %Y at %I:%M %p') }}
-          {% if rec.duration_seconds %}
-          &bull; {{ (rec.duration_seconds // 60) }}m {{ rec.duration_seconds % 60 }}s
-          {% endif %}
-          {% if rec.expires_at %}
-          &bull; Expires {{ rec.expires_at.strftime('%b %d, %Y') }}
-          {% endif %}
+        <p class="text-amber-800 font-semibold text-sm">Recordings expiring soon</p>
+        <p class="text-amber-700 text-xs mt-1">
+          {{ expiring_soon|length }} recording{{ 's' if expiring_soon|length != 1 else '' }}
+          will expire within 3 days. Download them before they are removed.
         </p>
       </div>
-      {% if not rec.is_expired and not rec.is_deleted %}
-      <a href="{{ url_for('recording_bp.view_recording', recording_id=rec.id) }}"
-         class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transition">
-        <i class="fas fa-play mr-1"></i>Play</a>
-      {% else %}
-      <span class="text-gray-400 text-sm italic">Unavailable</span>
-      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if recordings %}
+  <p class="text-sm text-gray-400 mb-4">{{ recordings|length }} recording{{ 's' if recordings|length != 1 else '' }}</p>
+  <div class="space-y-3">
+    {% for rec in recordings %}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4
+                {% if rec.id in expiring_soon %}border-l-4 border-l-amber-400{% endif %}">
+      <div class="flex items-center justify-between">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center space-x-3 flex-wrap gap-y-1">
+            <i class="fas fa-film text-red-400"></i>
+            <p class="font-semibold text-gray-800">Session {{ rec.slot_id }}</p>
+
+            <!-- Status Badge -->
+            {% if rec.is_expired or rec.is_deleted %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
+              <i class="fas fa-times-circle mr-0.5"></i>
+              {% if rec.is_expired %}Expired{% else %}Deleted{% endif %}
+            </span>
+            {% elif rec.id in expiring_soon %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium animate-pulse">
+              <i class="fas fa-clock mr-0.5"></i>Expiring Soon
+            </span>
+            {% else %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+              <i class="fas fa-check-circle mr-0.5"></i>Available
+            </span>
+            {% endif %}
+
+            <!-- Quality Badge -->
+            {% if rec.quality and quality_presets.get(rec.quality) %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+              <i class="fas fa-signal mr-0.5"></i>{{ quality_presets[rec.quality].label }}
+            </span>
+            {% endif %}
+
+            <!-- Consent Badges -->
+            <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium"
+                  title="Both parties consented to this recording">
+              <i class="fas fa-shield-alt mr-0.5 text-green-500"></i>
+              {% if rec.consent_student and rec.consent_tutor %}
+              Both Consented
+              {% elif rec.consent_student %}
+              Student Consented
+              {% elif rec.consent_tutor %}
+              Tutor Consented
+              {% endif %}
+            </span>
+          </div>
+
+          <p class="text-sm text-gray-500 mt-1">
+            {{ rec.created_at.strftime('%B %d, %Y at %I:%M %p') }}
+            {% if rec.duration_seconds %}
+            &bull; <i class="fas fa-clock text-gray-400 mr-0.5"></i>{{ (rec.duration_seconds // 60) }}m {{ rec.duration_seconds % 60 }}s
+            {% endif %}
+            {% if rec.file_size_bytes %}
+            &bull; <i class="fas fa-hdd text-gray-400 mr-0.5"></i>{{ (rec.file_size_bytes / (1024*1024))|round(1) }} MB
+            {% endif %}
+            {% if rec.expires_at %}
+            &bull; <span class="{% if rec.id in expiring_soon %}text-amber-600 font-medium{% else %}text-gray-500{% endif %}">
+              Expires {{ rec.expires_at.strftime('%b %d, %Y') }}</span>
+            {% endif %}
+          </p>
+        </div>
+
+        <div class="flex items-center space-x-2 ml-4 flex-shrink-0">
+          {% if not rec.is_expired and not rec.is_deleted %}
+          <a href="{{ url_for('recording_bp.view_recording', recording_id=rec.id) }}"
+             class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transition">
+            <i class="fas fa-play mr-1"></i>Play</a>
+          {% else %}
+          <span class="text-gray-400 text-sm italic">Unavailable</span>
+          {% endif %}
+        </div>
+      </div>
     </div>
     {% endfor %}
   </div>
   {% else %}
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
     <i class="fas fa-video-slash text-gray-300 text-4xl mb-4"></i>
-    <p class="text-gray-400">No recordings found. Recordings are created during live sessions when both parties consent.</p>
+    <p class="text-gray-400">No recordings found.</p>
+    <p class="text-gray-300 text-sm mt-1">
+      Recordings are created during live sessions when both parties consent.</p>
   </div>
   {% endif %}
 </div>

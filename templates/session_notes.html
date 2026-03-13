@@ -1,6 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Session Notes | TeachWise{% endblock %}
 
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+<style>
+  .ql-editor { min-height: 120px; font-family: 'Inter', sans-serif; font-size: 14px; }
+  .ql-toolbar { border-radius: 8px 8px 0 0 !important; border-color: #e5e7eb !important; }
+  .ql-container { border-radius: 0 0 8px 8px !important; border-color: #e5e7eb !important; }
+  .note-content { font-size: 14px; line-height: 1.6; }
+  .note-content h1,.note-content h2,.note-content h3 { font-weight: 700; margin: 0.5em 0 0.3em; }
+  .note-content ul,.note-content ol { padding-left: 1.5em; }
+  .note-content blockquote { border-left: 3px solid #3b82f6; padding-left: 12px; color: #6b7280; }
+
+  /* Version history modal */
+  .version-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200;
+    display: flex; align-items: center; justify-content: center; }
+  .version-box { background: #fff; border-radius: 12px; max-width: 600px; width: 90%;
+    max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 py-8">
   <!-- Header -->
@@ -32,23 +51,77 @@
     </div>
   </div>
 
-  <!-- Add Note Form -->
+  <!-- Search Form -->
+  <div class="mb-6">
+    <form method="GET" action="{{ url_for('note_bp.view_notes', slot_id=slot.id) }}" class="flex items-center space-x-2">
+      <div class="relative flex-1">
+        <i class="fas fa-search text-gray-400 absolute left-3 top-2.5"></i>
+        <input type="text" name="q" value="{{ search_q }}" placeholder="Search notes..."
+               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm
+                      focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+      </div>
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
+        Search</button>
+      {% if search_q %}
+      <a href="{{ url_for('note_bp.view_notes', slot_id=slot.id) }}" class="text-gray-500 hover:text-gray-700 text-sm">
+        <i class="fas fa-times"></i> Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Add Note Form with Quill Editor -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-    <h2 class="text-lg font-bold text-gray-800 mb-3">
-      <i class="fas fa-plus-circle mr-2 text-green-500"></i>Add a Note</h2>
-    <form method="POST" action="{{ url_for('note_bp.add_note', slot_id=slot.id) }}">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-bold text-gray-800">
+        <i class="fas fa-plus-circle mr-2 text-green-500"></i>Add a Note</h2>
+      <!-- Note Templates Dropdown -->
+      <div class="relative">
+        <button type="button" onclick="document.getElementById('templateMenu').classList.toggle('hidden')"
+                class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+          <i class="fas fa-file-alt mr-1"></i>Templates
+        </button>
+        <div id="templateMenu" class="hidden absolute right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 w-48">
+          {% for tmpl in note_templates %}
+          <button type="button" onclick="applyTemplate({{ loop.index0 }})"
+                  class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100 last:border-0">
+            <i class="fas fa-file-alt mr-2 text-gray-400"></i>{{ tmpl.name }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('note_bp.add_note', slot_id=slot.id) }}" enctype="multipart/form-data" id="addNoteForm">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <textarea name="content" rows="4" maxlength="5000"
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500
-                       focus:border-transparent resize-y text-sm"
-                placeholder="Write your session notes here... (key points, topics covered, homework reminders, etc.)"
-                required></textarea>
-      <div class="flex items-center justify-between mt-3">
-        <label class="flex items-center space-x-2 text-sm text-gray-600">
-          <input type="checkbox" name="is_private"
-                 class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-          <span><i class="fas fa-lock mr-1 text-gray-400"></i>Private (only you can see this)</span>
+      <input type="hidden" name="content" id="noteContent">
+
+      <!-- Quill Editor -->
+      <div id="quill-editor" class="mb-3"></div>
+
+      <!-- Attachments -->
+      <div class="mb-3">
+        <label class="block text-xs font-medium text-gray-500 mb-1">
+          <i class="fas fa-paperclip mr-1"></i>Attachments
+          <span class="text-gray-400">({{ allowed_ext }}, max {{ max_file_mb }}MB each)</span>
         </label>
+        <input type="file" name="attachments" multiple
+               accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt"
+               class="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg
+                      file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-600
+                      hover:file:bg-blue-100">
+      </div>
+
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+          <!-- Visibility Toggle -->
+          <label class="flex items-center space-x-2 text-sm text-gray-600 cursor-pointer">
+            <input type="checkbox" name="is_private" id="visibilityToggle"
+                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+            <span id="visibilityLabel">
+              <i class="fas fa-globe mr-1 text-green-500"></i>Shared
+            </span>
+          </label>
+        </div>
         <button type="submit"
                 class="bg-green-600 text-white px-5 py-2 rounded-lg font-semibold
                        hover:bg-green-700 transition text-sm">
@@ -60,6 +133,9 @@
   <!-- Notes List -->
   <div class="space-y-4">
     {% if notes %}
+    <p class="text-sm text-gray-400 mb-2">{{ notes|length }} note{{ 's' if notes|length != 1 else '' }}
+      {% if search_q %} matching "{{ search_q }}"{% endif %}
+    </p>
     {% for note in notes %}
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5
                 {% if note.is_private %}border-l-4 border-l-yellow-400{% endif %}"
@@ -67,20 +143,20 @@
       <div class="flex items-start justify-between mb-2">
         <div class="flex items-center space-x-2">
           {% if note.author_type == 'tutor' %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                       bg-purple-100 text-purple-700">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
             <i class="fas fa-chalkboard-teacher mr-1"></i>Tutor</span>
           {% else %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                       bg-blue-100 text-blue-700">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
             <i class="fas fa-user-graduate mr-1"></i>Student</span>
           {% endif %}
           <span class="font-medium text-gray-800 text-sm">
             {{ author_names.get(note.author_type ~ '_' ~ note.author_id, 'Unknown') }}</span>
           {% if note.is_private %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                       bg-yellow-100 text-yellow-700">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
             <i class="fas fa-lock mr-1"></i>Private</span>
+          {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+            <i class="fas fa-globe mr-1"></i>Shared</span>
           {% endif %}
         </div>
         <div class="flex items-center space-x-2">
@@ -91,9 +167,23 @@
         </div>
       </div>
 
-      <!-- Note content -->
-      <div class="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed"
-           id="note-content-{{ note.id }}">{{ note.content }}</div>
+      <!-- Note content (rich text) -->
+      <div class="note-content text-gray-700" id="note-content-{{ note.id }}">{{ note.content|safe }}</div>
+
+      <!-- Attachments -->
+      {% if note.attachments %}
+      <div class="mt-3 pt-3 border-t border-gray-100">
+        <p class="text-xs font-medium text-gray-500 mb-2"><i class="fas fa-paperclip mr-1"></i>Attachments</p>
+        <div class="flex flex-wrap gap-2">
+          {% for att in note.attachments %}
+          <span class="inline-flex items-center px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
+            <i class="fas fa-file mr-1 text-gray-400"></i>{{ att.name }}
+            {% if att.size %}<span class="ml-1 text-gray-400">({{ (att.size / 1024)|round(1) }} KB)</span>{% endif %}
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
 
       <!-- Actions: only for own notes -->
       {% if note.author_type == user_type and note.author_id == user_id %}
@@ -101,6 +191,11 @@
         <button onclick="toggleEdit({{ note.id }})"
                 class="text-xs text-blue-600 hover:text-blue-800 font-medium">
           <i class="fas fa-edit mr-1"></i>Edit</button>
+        {% if note.versions is defined and note.versions %}
+        <button onclick="showVersionHistory({{ note.id }})"
+                class="text-xs text-purple-600 hover:text-purple-800 font-medium">
+          <i class="fas fa-history mr-1"></i>History</button>
+        {% endif %}
         <form method="POST" action="{{ url_for('note_bp.delete_note', note_id=note.id) }}"
               onsubmit="return confirm('Delete this note?');" class="inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -113,9 +208,8 @@
       <div id="edit-form-{{ note.id }}" class="hidden mt-3 pt-3 border-t border-gray-100">
         <form method="POST" action="{{ url_for('note_bp.edit_note', note_id=note.id) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <textarea name="content" rows="3" maxlength="5000"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
-                           focus:ring-2 focus:ring-blue-500 resize-y">{{ note.content }}</textarea>
+          <div id="edit-quill-{{ note.id }}" class="mb-2" style="min-height:80px;"></div>
+          <input type="hidden" name="content" id="edit-content-{{ note.id }}">
           <div class="flex items-center justify-between mt-2">
             <label class="flex items-center space-x-2 text-xs text-gray-600">
               <input type="checkbox" name="is_private"
@@ -125,11 +219,11 @@
             </label>
             <div class="flex space-x-2">
               <button type="button" onclick="toggleEdit({{ note.id }})"
-                      class="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded-lg
-                             hover:bg-gray-50">Cancel</button>
+                      class="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
               <button type="submit"
-                      class="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg
-                             hover:bg-blue-700 font-medium">Save</button>
+                      class="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                      onclick="document.getElementById('edit-content-{{ note.id }}').value = editQuills[{{ note.id }}].root.innerHTML">
+                Save</button>
             </div>
           </div>
         </form>
@@ -140,21 +234,142 @@
     {% else %}
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
       <i class="fas fa-sticky-note text-4xl text-gray-300 mb-3"></i>
+      {% if search_q %}
+      <p class="text-gray-500">No notes matching "{{ search_q }}".</p>
+      {% else %}
       <p class="text-gray-500">No notes yet for this session.</p>
       <p class="text-gray-400 text-sm mt-1">Add your first note above to get started!</p>
+      {% endif %}
     </div>
     {% endif %}
+  </div>
+</div>
+
+<!-- Version History Modal -->
+<div id="versionModal" class="hidden">
+  <div class="version-modal" onclick="hideVersionModal()">
+    <div class="version-box" onclick="event.stopPropagation()">
+      <div class="p-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="font-bold text-gray-800">
+          <i class="fas fa-history mr-2 text-purple-500"></i>Version History</h3>
+        <button onclick="hideVersionModal()" class="text-gray-400 hover:text-gray-600">
+          <i class="fas fa-times"></i></button>
+      </div>
+      <div id="versionList" class="p-4 space-y-4"></div>
+    </div>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
 <script>
+// Quill for add note
+const quill = new Quill('#quill-editor', {
+  theme: 'snow',
+  placeholder: 'Write your session notes here... (key points, topics covered, homework)',
+  modules: {
+    toolbar: [
+      [{ header: [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ list: 'ordered' }, { list: 'bullet' }],
+      ['blockquote', 'code-block'],
+      ['link'],
+      ['clean']
+    ]
+  }
+});
+
+// Sync quill content to hidden input on form submit
+document.getElementById('addNoteForm').addEventListener('submit', function() {
+  document.getElementById('noteContent').value = quill.root.innerHTML;
+});
+
+// Note templates
+const templates = [
+  {% for tmpl in note_templates %}
+  { name: '{{ tmpl.name }}', content: `{{ tmpl.content|e }}` }{{ ',' if not loop.last else '' }}
+  {% endfor %}
+];
+
+function applyTemplate(index) {
+  const tmpl = templates[index];
+  if (tmpl) {
+    quill.root.innerHTML = tmpl.content;
+  }
+  document.getElementById('templateMenu').classList.add('hidden');
+}
+
+// Close template menu on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#templateMenu') && !e.target.closest('[onclick*="templateMenu"]')) {
+    document.getElementById('templateMenu').classList.add('hidden');
+  }
+});
+
+// Visibility toggle label
+const visToggle = document.getElementById('visibilityToggle');
+const visLabel = document.getElementById('visibilityLabel');
+if (visToggle) {
+  visToggle.addEventListener('change', function() {
+    if (this.checked) {
+      visLabel.innerHTML = '<i class="fas fa-lock mr-1 text-yellow-500"></i>Private';
+    } else {
+      visLabel.innerHTML = '<i class="fas fa-globe mr-1 text-green-500"></i>Shared';
+    }
+  });
+}
+
+// Edit quills
+const editQuills = {};
+
 function toggleEdit(noteId) {
   const form = document.getElementById(`edit-form-${noteId}`);
   const content = document.getElementById(`note-content-${noteId}`);
   form.classList.toggle('hidden');
   content.classList.toggle('hidden');
+
+  if (!form.classList.contains('hidden') && !editQuills[noteId]) {
+    editQuills[noteId] = new Quill(`#edit-quill-${noteId}`, {
+      theme: 'snow',
+      modules: {
+        toolbar: [
+          [{ header: [1, 2, 3, false] }],
+          ['bold', 'italic', 'underline'],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          ['clean']
+        ]
+      }
+    });
+    editQuills[noteId].root.innerHTML = content.innerHTML;
+  }
+}
+
+// Version history
+function showVersionHistory(noteId) {
+  fetch(`/session/notes/${noteId}/history`)
+    .then(r => r.json())
+    .then(data => {
+      const list = document.getElementById('versionList');
+      if (data.versions && data.versions.length > 0) {
+        list.innerHTML = data.versions.map((v, i) =>
+          `<div class="border border-gray-200 rounded-lg p-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-medium text-gray-500">Version ${data.versions.length - i}</span>
+              <span class="text-xs text-gray-400">${v.created_at}</span>
+            </div>
+            <div class="note-content text-sm text-gray-700">${v.content}</div>
+          </div>`
+        ).join('');
+      } else {
+        list.innerHTML = '<p class="text-gray-400 text-center py-4">No previous versions found.</p>';
+      }
+      document.getElementById('versionModal').classList.remove('hidden');
+    });
+}
+
+function hideVersionModal() {
+  document.getElementById('versionModal').classList.add('hidden');
 }
 </script>
 {% endblock %}

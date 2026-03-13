@@ -7,7 +7,19 @@
 {% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 py-8">
+<div class="max-w-5xl mx-auto px-4 py-8">
+  <!-- Booking Conflict Flash -->
+  {% with messages = get_flashed_messages(category_filter=['booking_conflict']) %}
+  {% if messages %}
+  <div class="mb-6 p-4 rounded-lg border bg-amber-50 border-amber-300">
+    {% for msg in messages %}
+    <p class="text-amber-800 font-medium">
+      <i class="fas fa-exclamation-triangle mr-2"></i>{{ msg }}</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
   <!-- Profile Header -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
     <div class="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6">
@@ -25,7 +37,8 @@
           {% if current_user is defined and current_user.is_authenticated %}
           <button id="favBtn" onclick="toggleFavorite({{ tutor.id }})"
                   class="text-2xl transition {% if is_favorited %}text-red-500{% else %}text-gray-300 hover:text-red-400{% endif %}"
-                  title="{% if is_favorited %}Remove from favorites{% else %}Add to favorites{% endif %}">
+                  title="{% if is_favorited %}Remove from favorites{% else %}Add to favorites{% endif %}"
+                  aria-label="Toggle favorite">
             <i class="{% if is_favorited %}fas{% else %}far{% endif %} fa-heart"></i></button>
           {% endif %}
         </div>
@@ -101,13 +114,10 @@
                            hover:bg-blue-700 transition text-sm">
               Book</button>
             {% else %}
-            <form method="POST" action="{{ url_for('tutor_bp.book_session', slot_id=slot.id) }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit"
-                      class="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold
-                             hover:bg-blue-700 transition text-sm">
-                Book</button>
-            </form>
+            <button type="button" onclick="confirmBooking({{ slot.id }})"
+                    class="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold
+                           hover:bg-blue-700 transition text-sm">
+              Book</button>
             {% endif %}
           {% endif %}
         </div>
@@ -119,32 +129,43 @@
     {% endif %}
   </div>
 
-  <!-- Reviews -->
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-    <h2 class="text-xl font-bold text-gray-800 mb-4">
-      <i class="fas fa-star mr-2 text-yellow-500"></i>Student Reviews</h2>
+  <!-- Rating Distribution Chart -->
+  <div class="grid md:grid-cols-2 gap-6 mb-8">
+    <!-- Rating Distribution -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">
+        <i class="fas fa-chart-bar mr-2 text-blue-600"></i>Rating Distribution</h2>
+      <canvas id="ratingDistChart" height="180"></canvas>
+    </div>
 
     <!-- Dimension Averages -->
     {% if dim_avgs %}
-    <div class="mb-6 p-4 bg-gray-50 rounded-lg">
-      <h3 class="text-sm font-semibold text-gray-700 mb-3">Rating Breakdown</h3>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h3 class="text-lg font-bold text-gray-800 mb-4">
+        <i class="fas fa-sliders-h mr-2 text-yellow-500"></i>Rating Breakdown</h3>
       {% set dim_labels = {'knowledge': 'Knowledge', 'communication': 'Communication', 'punctuality': 'Punctuality', 'value': 'Value'} %}
       {% for key, label in dim_labels.items() %}
-      <div class="flex items-center mb-2">
-        <span class="text-xs text-gray-600 w-28">{{ label }}</span>
+      <div class="flex items-center mb-3">
+        <span class="text-sm text-gray-600 w-28">{{ label }}</span>
         <div class="flex-1 bg-gray-200 rounded-full h-2.5 mx-3">
           <div class="bg-yellow-400 h-2.5 rounded-full" style="width: {{ (dim_avgs.get(key, 0) / 5 * 100) }}%"></div>
         </div>
-        <span class="text-xs font-bold text-gray-700 w-8">{{ '%.1f'|format(dim_avgs.get(key, 0)) }}</span>
+        <span class="text-sm font-bold text-gray-700 w-8">{{ '%.1f'|format(dim_avgs.get(key, 0)) }}</span>
       </div>
       {% endfor %}
     </div>
     {% endif %}
+  </div>
+
+  <!-- Reviews Section -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">
+      <i class="fas fa-star mr-2 text-yellow-500"></i>Student Reviews</h2>
 
     {% if reviews %}
       <div class="space-y-4">
         {% for review in reviews %}
-        <div class="p-4 bg-gray-50 rounded-lg">
+        <div class="p-4 bg-gray-50 rounded-lg" id="review-{{ review.id }}">
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2">
               <p class="font-semibold text-gray-800">{{ review.student.name }}</p>
@@ -154,8 +175,26 @@
                 <i class="fas fa-check-circle mr-1"></i>Verified</span>
               {% endif %}
             </div>
-            <div class="text-yellow-500">
-              {% for i in range(review.rating) %}&#11088;{% endfor %}
+            <div class="flex items-center space-x-3">
+              <div class="text-yellow-500">
+                {% for i in range(review.rating) %}&#11088;{% endfor %}
+              </div>
+              <!-- Flag/Report Button -->
+              {% if current_user is defined and current_user.is_authenticated %}
+              <div class="relative" id="reportWrap-{{ review.id }}">
+                <button type="button" onclick="toggleReportMenu({{ review.id }})"
+                        class="text-gray-400 hover:text-red-500 transition text-sm"
+                        title="Report this review" aria-label="Report review">
+                  <i class="fas fa-flag"></i></button>
+                <div id="reportMenu-{{ review.id }}" class="hidden absolute right-0 mt-1 bg-white border
+                            border-gray-200 rounded-lg shadow-lg z-20 w-40 py-1">
+                  <button onclick="reportReview({{ review.id }}, 'spam')" class="block w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100">Spam</button>
+                  <button onclick="reportReview({{ review.id }}, 'inappropriate')" class="block w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100">Inappropriate</button>
+                  <button onclick="reportReview({{ review.id }}, 'fake')" class="block w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100">Fake Review</button>
+                  <button onclick="reportReview({{ review.id }}, 'other')" class="block w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100">Other</button>
+                </div>
+              </div>
+              {% endif %}
             </div>
           </div>
           {% if review.rating_knowledge is not none %}
@@ -169,13 +208,138 @@
           {% if review.comment %}
             <p class="text-gray-600 text-sm mt-2">{{ review.comment }}</p>
           {% endif %}
-          <p class="text-gray-400 text-xs mt-2">{{ review.created_at.strftime('%B %d, %Y') }}</p>
+          <div class="flex items-center justify-between mt-3">
+            <p class="text-gray-400 text-xs">{{ review.created_at.strftime('%B %d, %Y') }}</p>
+            <!-- Thumbs up/down voting -->
+            {% if current_user is defined and current_user.is_authenticated %}
+            <div class="flex items-center space-x-3">
+              <button type="button" onclick="voteReview({{ review.id }}, true)"
+                      class="flex items-center text-sm transition
+                             {% if user_votes.get(review.id) == true %}text-green-600{% else %}text-gray-400 hover:text-green-500{% endif %}"
+                      id="vote-up-{{ review.id }}" aria-label="Helpful">
+                <i class="fas fa-thumbs-up mr-1"></i>
+                <span id="helpful-count-{{ review.id }}">{{ review.helpful_count }}</span>
+              </button>
+              <button type="button" onclick="voteReview({{ review.id }}, false)"
+                      class="flex items-center text-sm transition
+                             {% if user_votes.get(review.id) == false %}text-red-600{% else %}text-gray-400 hover:text-red-500{% endif %}"
+                      id="vote-down-{{ review.id }}" aria-label="Not helpful">
+                <i class="fas fa-thumbs-down mr-1"></i>
+                <span id="unhelpful-count-{{ review.id }}">{{ review.unhelpful_count }}</span>
+              </button>
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Tutor Response -->
+          {% if review.tutor_response %}
+          <div class="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+            <p class="text-xs font-semibold text-blue-700 mb-1">
+              <i class="fas fa-reply mr-1"></i>Tutor Response
+              {% if review.tutor_response_at %}
+              <span class="font-normal text-blue-500 ml-1">({{ review.tutor_response_at.strftime('%b %d, %Y') }})</span>
+              {% endif %}
+            </p>
+            <p class="text-sm text-blue-800">{{ review.tutor_response }}</p>
+          </div>
+          {% elif current_user is defined and current_user.is_authenticated and current_user.user_type == 'tutor' and current_user.id == tutor.id %}
+          <!-- Inline Response Form -->
+          <div class="mt-3">
+            <form method="POST" action="{{ url_for('tutor_bp.respond_to_review', review_id=review.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="flex space-x-2">
+                <input type="text" name="tutor_response" placeholder="Write a response (min 10 chars)..."
+                       minlength="10" maxlength="1000" required
+                       class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm
+                              focus:ring-2 focus:ring-blue-500"
+                       aria-label="Response to review">
+                <button type="submit"
+                        class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium
+                               hover:bg-blue-700 transition">
+                  <i class="fas fa-reply mr-1"></i>Respond</button>
+              </div>
+            </form>
+          </div>
+          {% endif %}
         </div>
         {% endfor %}
       </div>
+
+      <!-- Review Pagination -->
+      {% if total_pages > 1 %}
+      <div class="flex items-center justify-center space-x-2 mt-6">
+        {% if page > 1 %}
+        <a href="{{ url_for('tutor_bp.view_tutor_profile', tutor_id=tutor.id, page=page-1) }}"
+           class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+          <i class="fas fa-chevron-left mr-1"></i>Prev</a>
+        {% endif %}
+        {% for p in range(1, total_pages + 1) %}
+        <a href="{{ url_for('tutor_bp.view_tutor_profile', tutor_id=tutor.id, page=p) }}"
+           class="px-3 py-1.5 text-sm border rounded-lg transition
+                  {% if p == page %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 hover:bg-gray-50{% endif %}">{{ p }}</a>
+        {% endfor %}
+        {% if page < total_pages %}
+        <a href="{{ url_for('tutor_bp.view_tutor_profile', tutor_id=tutor.id, page=page+1) }}"
+           class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+          Next<i class="fas fa-chevron-right ml-1"></i></a>
+        {% endif %}
+      </div>
+      {% endif %}
     {% else %}
       <p class="text-gray-400 text-center py-8">No reviews yet.</p>
     {% endif %}
+  </div>
+
+  <!-- Similar Tutors -->
+  {% if similar_tutors %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">
+      <i class="fas fa-user-friends mr-2 text-purple-600"></i>Similar Tutors</h2>
+    <div class="grid md:grid-cols-4 gap-4">
+      {% for st in similar_tutors %}
+      <a href="{{ url_for('tutor_bp.view_tutor_profile', tutor_id=st.id) }}"
+         class="block bg-gray-50 rounded-lg p-4 text-center hover:shadow-md transition group">
+        <div class="w-16 h-16 mx-auto mb-3 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center">
+          {% if st.profile_photo %}
+          <img src="{{ st.profile_photo|photo_url }}" class="w-16 h-16 object-cover rounded-full" alt="{{ st.name }}">
+          {% else %}
+          <i class="fas fa-user text-blue-400 text-2xl"></i>
+          {% endif %}
+        </div>
+        <h3 class="font-semibold text-gray-800 text-sm group-hover:text-blue-600 transition">{{ st.name }}</h3>
+        <p class="text-xs text-gray-500">{{ st.subject }}</p>
+        {% if st.hourly_rate %}
+        <p class="text-blue-600 font-bold text-sm mt-1">${{ '%.2f'|format(st.hourly_rate) }}/hr</p>
+        {% endif %}
+        <div class="text-yellow-500 text-xs mt-1">
+          {% for i in range(st.average_rating|int) %}&#11088;{% endfor %}
+          <span class="text-gray-400">({{ st.total_reviews }})</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Booking Confirmation Modal -->
+  <div id="bookingConfirmModal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full mx-4">
+      <h3 class="font-bold text-gray-800 mb-3">
+        <i class="fas fa-check-circle mr-2 text-blue-600"></i>Confirm Booking</h3>
+      <p class="text-sm text-gray-600 mb-4">Are you sure you want to book this session?</p>
+      <form method="POST" id="confirmBookingForm" action="">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="flex space-x-2">
+          <button type="submit"
+                  class="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold
+                         hover:bg-blue-700 transition text-sm">
+            <i class="fas fa-check mr-1"></i>Confirm</button>
+          <button type="button" onclick="document.getElementById('bookingConfirmModal').classList.add('hidden')"
+                  class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300
+                         rounded-lg hover:bg-gray-50 transition">Cancel</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Meeting Location Modal -->
@@ -206,7 +370,8 @@
         <div id="newMeetingLocFields" class="hidden">
           <div class="mb-3 relative">
             <input type="text" id="meetSearch" placeholder="Search address..."
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                   aria-label="Search meeting address">
           </div>
           <div id="meetMap" style="height:250px;" class="rounded-lg mb-3"></div>
           <label class="flex items-center space-x-2 text-sm text-gray-600 mb-3">
@@ -237,7 +402,32 @@
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
 <script src="{{ url_for('static', filename='js/location-picker.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
 <script>
+// ---------- Rating Distribution Chart ----------
+const ratingDist = {{ rating_distribution|tojson }};
+new Chart(document.getElementById('ratingDistChart'), {
+  type: 'bar',
+  data: {
+    labels: ['1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars'],
+    datasets: [{
+      data: ratingDist,
+      backgroundColor: ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e'],
+      borderRadius: 4
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { beginAtZero: true, ticks: { stepSize: 1 } },
+      y: { grid: { display: false } }
+    }
+  }
+});
+
+// ---------- Favorites ----------
 function toggleFavorite(tutorId) {
   fetch(`/student/favorite/${tutorId}`, {
     method: 'POST',
@@ -259,6 +449,53 @@ function toggleFavorite(tutorId) {
   });
 }
 
+// ---------- Report Review ----------
+function toggleReportMenu(reviewId) {
+  document.getElementById('reportMenu-' + reviewId).classList.toggle('hidden');
+}
+// Close report menus on outside click
+document.addEventListener('click', function(e) {
+  document.querySelectorAll('[id^="reportMenu-"]').forEach(menu => {
+    if (!menu.parentElement.contains(e.target)) menu.classList.add('hidden');
+  });
+});
+
+function reportReview(reviewId, reason) {
+  document.getElementById('reportMenu-' + reviewId).classList.add('hidden');
+  fetch(`/review/${reviewId}/report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+    body: JSON.stringify({ reason: reason })
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      alert('Thank you for your report. We will review it.');
+    } else {
+      alert(d.error || 'Could not submit report.');
+    }
+  }).catch(() => alert('Failed to submit report.'));
+}
+
+// ---------- Vote Review ----------
+function voteReview(reviewId, isHelpful) {
+  fetch(`/review/${reviewId}/vote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+    body: JSON.stringify({ is_helpful: isHelpful })
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      document.getElementById('helpful-count-' + reviewId).textContent = d.helpful;
+      document.getElementById('unhelpful-count-' + reviewId).textContent = d.unhelpful;
+    }
+  });
+}
+
+// ---------- Booking Confirmation (online slots) ----------
+function confirmBooking(slotId) {
+  document.getElementById('confirmBookingForm').action = '/book/' + slotId;
+  document.getElementById('bookingConfirmModal').classList.remove('hidden');
+}
+
+// ---------- Booking Location Modal ----------
 let meetingPicker = null;
 let currentSlotLat = null;
 let currentSlotLng = null;
@@ -274,7 +511,6 @@ function openBookingModal(slotId, slotLat, slotLng, slotRadius, slotLabel) {
   document.getElementById('distanceDisplay').classList.add('hidden');
   document.getElementById('newMeetingLocFields').classList.add('hidden');
 
-  // Load saved locations via API
   const cardsDiv = document.getElementById('savedLocCards');
   if (cardsDiv) {
     cardsDiv.innerHTML = '<p class="text-gray-400 text-sm">Loading saved locations...</p>';
@@ -297,7 +533,6 @@ function openBookingModal(slotId, slotLat, slotLng, slotRadius, slotLabel) {
             ${loc.is_primary ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Primary</span>' : ''}
           </div>
         `).join('');
-        // Auto-select primary
         const primary = locations.find(l => l.is_primary);
         if (primary) {
           selectSavedLocation(primary.latitude, primary.longitude, primary.address, primary.location_type, primary.label);
@@ -325,13 +560,11 @@ function validateDistance(lat, lng) {
   const btn = document.getElementById('bookSubmitBtn');
 
   if (!currentSlotLat || !currentSlotLng) {
-    // No slot location set — allow booking
     display.classList.add('hidden');
     btn.disabled = false;
     return;
   }
 
-  // Haversine in JS
   const R = 6371;
   const dLat = (currentSlotLat - lat) * Math.PI / 180;
   const dLng = (currentSlotLng - lng) * Math.PI / 180;
@@ -351,7 +584,6 @@ function validateDistance(lat, lng) {
   }
 }
 
-// Show new location fields
 document.getElementById('useNewLocBtn')?.addEventListener('click', function() {
   const fields = document.getElementById('newMeetingLocFields');
   fields.classList.toggle('hidden');

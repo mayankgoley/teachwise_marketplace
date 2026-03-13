@@ -4,74 +4,145 @@
 {% block extra_head %}
 <style>
   #jitsi-container { width: 100%; transition: width 0.3s; }
-  .session-main { height: calc(100vh - 160px); }
+  .session-main { height: calc(100vh - 80px); }
   #notes-panel { transition: transform 0.3s, opacity 0.3s; }
   #notes-panel.hidden-panel { transform: translateX(100%); opacity: 0; pointer-events: none; position: absolute; }
+
+  /* Connection quality indicator */
+  .conn-bar { width: 4px; border-radius: 2px; transition: background-color 0.3s; }
+  .conn-bar.active-green { background-color: #22c55e; }
+  .conn-bar.active-amber { background-color: #f59e0b; }
+  .conn-bar.active-red { background-color: #ef4444; }
+  .conn-bar.inactive { background-color: #d1d5db; }
+
+  /* Countdown overlay */
+  #countdown-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    transition: opacity 0.5s;
+  }
+  #countdown-overlay.fade-out { opacity: 0; pointer-events: none; }
+  #countdown-number { font-size: 6rem; font-weight: 800; line-height: 1; }
+
+  /* Pause overlay */
+  #pause-overlay {
+    position: fixed; inset: 0; z-index: 90;
+    background: rgba(0,0,0,0.7);
+    display: none; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+  }
+  #pause-overlay.active { display: flex; }
+
+  /* Custom toolbar */
+  .session-toolbar-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 50%;
+    transition: all 0.15s; cursor: pointer; border: none;
+    font-size: 1rem;
+  }
+  .session-toolbar-btn:hover { transform: scale(1.1); }
+  .session-toolbar-btn.active { background-color: #3b82f6 !important; color: #fff !important; }
+  .session-toolbar-btn.recording { animation: pulse-record 1.5s infinite; }
+  @keyframes pulse-record { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.6); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
+
+  /* Late arrival toast */
+  .late-toast {
+    position: fixed; top: 80px; right: 24px; z-index: 60;
+    background: #fef3c7; border: 1px solid #f59e0b; border-radius: 12px;
+    padding: 12px 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    animation: slideInRight 0.4s ease-out;
+  }
+  @keyframes slideInRight { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 py-4">
-  <!-- Session Header (responsive) -->
-  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
-    <div>
-      <h1 class="text-lg sm:text-xl font-bold text-gray-800">
-        <i class="fas fa-video mr-2 text-blue-600"></i>Live Session</h1>
-      <p class="text-gray-500 text-xs sm:text-sm">
-        {{ tutor.name }} &bull; {{ slot.subject or tutor.subject }} &bull;
-        {{ slot.date.strftime('%B %d, %Y') }}
-        {{ slot.start_time.strftime('%I:%M %p') }} - {{ slot.end_time.strftime('%I:%M %p') }}
-      </p>
+<!-- Countdown Overlay (before session starts) -->
+<div id="countdown-overlay" class="hidden">
+  <p class="text-lg text-gray-300 mb-2 uppercase tracking-wide">Session starting in</p>
+  <div id="countdown-number">--</div>
+  <p class="text-sm text-gray-400 mt-4">
+    <i class="fas fa-user mr-1"></i>{{ other_name }} &bull; {{ slot.subject or tutor.subject }}
+  </p>
+</div>
+
+<!-- Pause Overlay -->
+<div id="pause-overlay">
+  <i class="fas fa-pause-circle text-6xl mb-4 text-yellow-400"></i>
+  <p class="text-2xl font-bold mb-2">Session Paused</p>
+  <p id="pause-info" class="text-gray-300 mb-4"></p>
+  <p id="pause-timer" class="text-xl font-mono text-yellow-300 mb-6"></p>
+  <button onclick="resumeSession()" class="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition">
+    <i class="fas fa-play mr-1"></i>Resume</button>
+</div>
+
+<!-- Late Arrival Toast Container -->
+<div id="late-toast-container"></div>
+
+<div class="flex flex-col h-screen">
+  <!-- Session Header Bar -->
+  <div class="bg-gray-900 text-white px-4 py-2 flex items-center justify-between flex-shrink-0">
+    <div class="flex items-center space-x-4">
+      <!-- Connection Quality Indicator -->
+      <div id="conn-quality" class="flex items-end space-x-0.5 h-5" title="Connection quality: checking...">
+        <div class="conn-bar inactive" style="height: 6px;" id="bar1"></div>
+        <div class="conn-bar inactive" style="height: 10px;" id="bar2"></div>
+        <div class="conn-bar inactive" style="height: 14px;" id="bar3"></div>
+      </div>
+      <div>
+        <span class="font-semibold text-sm">{{ slot.subject or tutor.subject }}</span>
+        <span class="text-gray-400 text-xs ml-2">{{ tutor.name }} &bull; {{ slot.date.strftime('%b %d, %Y') }}</span>
+      </div>
     </div>
-    <div class="flex flex-wrap items-center gap-2">
-      <a href="{{ url_for('whiteboard_bp.session_whiteboard', slot_id=slot.id) }}"
-         class="bg-indigo-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-semibold hover:bg-indigo-700 transition text-xs sm:text-sm">
-        <i class="fas fa-chalkboard mr-1"></i><span class="hidden sm:inline">Whiteboard</span><span class="sm:hidden">Board</span></a>
-      <button id="notesToggle" onclick="toggleNotesPanel()"
-              class="bg-yellow-500 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-semibold hover:bg-yellow-600 transition text-xs sm:text-sm">
-        <i class="fas fa-sticky-note mr-1"></i><span class="hidden sm:inline">Notes</span><span class="sm:hidden">Notes</span>
-        <span id="notesCount" class="ml-1 bg-white text-yellow-600 rounded-full px-1.5 text-xs font-bold hidden">0</span></button>
-      <a href="{{ url_for('note_bp.view_notes', slot_id=slot.id) }}"
-         class="text-gray-500 hover:text-gray-700 px-2 py-1.5 text-xs" title="Open notes in full page">
-        <i class="fas fa-external-link-alt"></i></a>
-      <button id="recordBtn" onclick="toggleRecording()"
-              class="bg-gray-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-semibold hover:bg-gray-700 transition text-xs sm:text-sm">
-        <i class="fas fa-circle mr-1" id="recordIcon"></i><span id="recordLabel">Record</span></button>
-      <span id="sessionTimer" class="text-xs sm:text-sm font-mono text-gray-600 bg-gray-100 px-2 py-1 sm:px-3 rounded-lg"></span>
+
+    <div class="flex items-center space-x-3">
+      <!-- Session Timer -->
+      <div id="sessionTimer"
+           class="text-sm font-mono bg-gray-800 px-3 py-1 rounded-lg flex items-center space-x-2">
+        <i class="fas fa-clock text-gray-400 text-xs"></i>
+        <span id="timerElapsed">00:00</span>
+        <span class="text-gray-500">/</span>
+        <span id="timerTotal">{{ session_duration_minutes }}:00</span>
+      </div>
+
+      <!-- Pause counter -->
+      <span id="pauseCounter" class="text-xs text-gray-400" title="Pauses used">
+        <i class="fas fa-pause text-gray-500"></i> <span id="pauseCount">0</span>/3
+      </span>
+
+      <!-- End Session -->
       <form method="POST" action="{{ url_for('session_bp.end_session', slot_id=slot.id) }}"
             onsubmit="return confirm('End this session? This will mark it as completed.');">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit"
-                class="bg-red-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-semibold
-                       hover:bg-red-700 transition text-xs sm:text-sm">
-          <i class="fas fa-phone-slash mr-1"></i>End</button>
+                class="bg-red-600 text-white px-4 py-1.5 rounded-lg font-semibold hover:bg-red-700 transition text-sm">
+          <i class="fas fa-phone-slash mr-1"></i>End Session</button>
       </form>
     </div>
   </div>
 
-  <!-- Main content: Jitsi + Notes Sidebar -->
-  <div class="flex gap-4 session-main">
+  <!-- Main Content: Jitsi + Notes -->
+  <div class="flex flex-1 overflow-hidden session-main">
     <!-- Jitsi Container -->
-    <div id="jitsi-container" class="flex-1 rounded-xl overflow-hidden border border-gray-200 shadow-sm"></div>
+    <div id="jitsi-container" class="flex-1 bg-gray-900"></div>
 
     <!-- Notes Sidebar Panel -->
-    <div id="notes-panel" class="hidden-panel w-80 flex-shrink-0 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden">
-      <!-- Notes Header -->
+    <div id="notes-panel" class="hidden-panel w-80 flex-shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
       <div class="p-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
         <h3 class="font-bold text-sm text-gray-800">
-          <i class="fas fa-sticky-note mr-1 text-yellow-500"></i>Session Notes</h3>
+          <i class="fas fa-sticky-note mr-1 text-yellow-500"></i>Session Notes
+          <span id="noteAutoSaveStatus" class="text-xs text-gray-400 font-normal ml-2"></span>
+        </h3>
         <button onclick="toggleNotesPanel()" class="text-gray-400 hover:text-gray-600">
           <i class="fas fa-times"></i></button>
       </div>
-
-      <!-- Notes List (scrollable) -->
       <div id="notesList" class="flex-1 overflow-y-auto p-3 space-y-3">
         <p class="text-xs text-gray-400 text-center py-4" id="noNotesMsg">
           <i class="fas fa-sticky-note text-2xl text-gray-200 block mb-2"></i>
           No notes yet. Add one below!</p>
       </div>
-
-      <!-- Add Note Form -->
       <div class="p-3 border-t border-gray-200 bg-gray-50">
         <textarea id="noteInput" rows="2" maxlength="5000"
                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs resize-none
@@ -83,24 +154,109 @@
             <span><i class="fas fa-lock text-gray-400"></i> Private</span>
           </label>
           <button onclick="addNoteFromPanel()"
-                  class="bg-yellow-500 text-white px-3 py-1 rounded-lg text-xs font-semibold
-                         hover:bg-yellow-600 transition">
+                  class="bg-yellow-500 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-yellow-600 transition">
             <i class="fas fa-plus mr-1"></i>Add</button>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Custom Toolbar (bottom bar) -->
+  <div class="bg-gray-900 px-4 py-2 flex items-center justify-center space-x-3 flex-shrink-0">
+    <button id="btnMic" onclick="toggleMic()" class="session-toolbar-btn bg-gray-700 text-white active" title="Toggle Microphone (M)">
+      <i class="fas fa-microphone"></i></button>
+    <button id="btnCam" onclick="toggleCam()" class="session-toolbar-btn bg-gray-700 text-white active" title="Toggle Camera (V)">
+      <i class="fas fa-video"></i></button>
+    <button id="btnScreen" onclick="toggleScreen()" class="session-toolbar-btn bg-gray-700 text-white" title="Share Screen (S)">
+      <i class="fas fa-desktop"></i></button>
+    <div class="w-px h-8 bg-gray-600"></div>
+    <button id="btnChat" onclick="toggleJitsiChat()" class="session-toolbar-btn bg-gray-700 text-white" title="Toggle Chat (C)">
+      <i class="fas fa-comment-dots"></i></button>
+    <button id="btnNotes" onclick="toggleNotesPanel()" class="session-toolbar-btn bg-gray-700 text-white" title="Toggle Notes (N)">
+      <i class="fas fa-sticky-note"></i>
+      <span id="notesCount" class="absolute -top-1 -right-1 bg-yellow-500 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center hidden" style="font-size:10px;"></span>
+    </button>
+    <button id="btnRecord" onclick="toggleRecording()" class="session-toolbar-btn bg-gray-700 text-white" title="Record Session (R)">
+      <i class="fas fa-circle" id="recordIcon"></i></button>
+    <div class="w-px h-8 bg-gray-600"></div>
+    <button id="btnPause" onclick="pauseSession()" class="session-toolbar-btn bg-gray-700 text-white" title="Pause Session (P)">
+      <i class="fas fa-pause"></i></button>
+    <a href="{{ url_for('whiteboard_bp.session_whiteboard', slot_id=slot.id) }}"
+       class="session-toolbar-btn bg-indigo-600 text-white" title="Open Whiteboard (W)">
+      <i class="fas fa-chalkboard"></i></a>
+    <a href="{{ url_for('note_bp.view_notes', slot_id=slot.id) }}" target="_blank"
+       class="session-toolbar-btn bg-gray-700 text-white" title="Notes Full Page">
+      <i class="fas fa-external-link-alt text-xs"></i></a>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://meet.jit.si/external_api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/socket.io-client@4/dist/socket.io.min.js"></script>
 <script>
 (function() {
+  const SLOT_ID = {{ slot.id }};
+  const CSRF = '{{ csrf_token() }}';
   const domain = "{{ jitsi_domain }}";
   const roomName = "{{ room_name }}";
   const displayName = "{{ display_name }}";
+  const otherName = "{{ other_name }}";
+  const userType = "{{ user_type }}";
+  const sessionStart = new Date("{{ session_start.isoformat() }}Z");
+  const sessionEnd = new Date("{{ session_end.isoformat() }}Z");
+  const sessionDuration = {{ session_duration_minutes }};
+  const minutesLate = {{ minutes_late }};
 
+  let micOn = true, camOn = true, screenOn = false;
+  let isRecording = false, mediaRecorder = null, recordedChunks = [], recordingStartTime = null;
+  let isPaused = false, pausesUsed = 0, pauseTimerInterval = null, pauseStartTime = null;
+  const MAX_PAUSES = 3, MAX_PAUSE_SECS = 300;
+
+  // ── Socket.IO for session events ──────────────────────
+  let socket;
+  try {
+    socket = io({ transports: ['websocket', 'polling'] });
+    socket.on('connect', () => {
+      socket.emit('join_session', { slot_id: SLOT_ID });
+    });
+    socket.on('late_arrival', (data) => {
+      showLateToast(data.user_name, data.minutes_late);
+    });
+    socket.on('session_paused', (data) => {
+      showPauseOverlay(data.paused_by, data.paused_by_type);
+    });
+    socket.on('session_resumed', () => {
+      hidePauseOverlay();
+    });
+    socket.on('note_updated', (data) => {
+      if (notesPanelOpen) loadNotes();
+    });
+  } catch(e) {}
+
+  // ── Countdown Overlay ─────────────────────────────────
+  const now = new Date();
+  if (now < sessionStart) {
+    const overlay = document.getElementById('countdown-overlay');
+    overlay.classList.remove('hidden');
+    const numEl = document.getElementById('countdown-number');
+
+    function updateCountdown() {
+      const diff = sessionStart - new Date();
+      if (diff <= 0) {
+        overlay.classList.add('fade-out');
+        setTimeout(() => overlay.remove(), 600);
+        return;
+      }
+      const mins = Math.floor(diff / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      numEl.textContent = mins > 0 ? `${mins}:${String(secs).padStart(2,'0')}` : secs;
+    }
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+  }
+
+  // ── Jitsi Embed ───────────────────────────────────────
   const api = new JitsiMeetExternalAPI(domain, {
     roomName: roomName,
     parentNode: document.getElementById('jitsi-container'),
@@ -108,274 +264,414 @@
     configOverwrite: {
       startWithAudioMuted: false,
       startWithVideoMuted: false,
-      disableDeepLinking: true
+      disableDeepLinking: true,
+      prejoinPageEnabled: false
     },
     interfaceConfigOverwrite: {
       SHOW_JITSI_WATERMARK: false,
       SHOW_WATERMARK_FOR_GUESTS: false,
-      DEFAULT_BACKGROUND: '#f8fafc',
-      TOOLBAR_BUTTONS: [
-        'microphone', 'camera', 'desktop', 'chat',
-        'raisehand', 'tileview', 'fullscreen'
-      ]
+      DEFAULT_BACKGROUND: '#111827',
+      TOOLBAR_BUTTONS: []
     }
   });
 
-  // Session countdown timer
-  const endTime = new Date("{{ session_end.isoformat() }}Z");
-  const timerEl = document.getElementById('sessionTimer');
+  // ── Connection Quality ────────────────────────────────
+  api.addEventListener('connectionEstablished', () => updateConnQuality('good'));
 
-  function updateTimer() {
-    const now = new Date();
-    const diff = endTime - now;
-    if (diff <= 0) {
-      timerEl.textContent = "Session time ended";
-      timerEl.classList.add('text-red-600');
+  // Poll connection stats
+  setInterval(() => {
+    try {
+      api.getConnectionQuality().then(q => {
+        const pct = q && q.connectionQuality ? q.connectionQuality : null;
+        if (pct === null) return;
+        if (pct > 70) updateConnQuality('good');
+        else if (pct > 30) updateConnQuality('fair');
+        else updateConnQuality('poor');
+      }).catch(() => {});
+    } catch(e) {
+      // Fallback: assume connected
+    }
+  }, 5000);
+
+  function updateConnQuality(level) {
+    const bars = [document.getElementById('bar1'), document.getElementById('bar2'), document.getElementById('bar3')];
+    const wrapper = document.getElementById('conn-quality');
+    const colors = { good: 'active-green', fair: 'active-amber', poor: 'active-red' };
+    const labels = { good: 'Good', fair: 'Fair', poor: 'Poor' };
+    const activeBars = level === 'good' ? 3 : level === 'fair' ? 2 : 1;
+
+    bars.forEach((bar, i) => {
+      bar.className = 'conn-bar ' + (i < activeBars ? colors[level] : 'inactive');
+    });
+    wrapper.title = 'Connection quality: ' + labels[level];
+  }
+  updateConnQuality('good');
+
+  // ── Session Timer ─────────────────────────────────────
+  const timerElapsed = document.getElementById('timerElapsed');
+  const timerDiv = document.getElementById('sessionTimer');
+
+  function updateSessionTimer() {
+    const nowMs = Date.now();
+    const startMs = sessionStart.getTime();
+    const endMs = sessionEnd.getTime();
+    const elapsed = Math.max(0, Math.floor((nowMs - startMs) / 1000));
+    const remaining = Math.max(0, Math.floor((endMs - nowMs) / 1000));
+    const elMins = Math.floor(elapsed / 60);
+    const elSecs = elapsed % 60;
+    timerElapsed.textContent = String(elMins).padStart(2,'0') + ':' + String(elSecs).padStart(2,'0');
+
+    // Color warnings
+    if (remaining <= 60) {
+      timerDiv.classList.remove('bg-gray-800');
+      timerDiv.classList.add('bg-red-700');
+    } else if (remaining <= 300) {
+      timerDiv.classList.remove('bg-gray-800');
+      timerDiv.classList.add('bg-amber-700');
+    }
+
+    if (remaining <= 0) {
+      timerElapsed.textContent = 'TIME UP';
+    }
+  }
+  updateSessionTimer();
+  setInterval(updateSessionTimer, 1000);
+
+  // ── Custom Toolbar Actions ────────────────────────────
+  window.toggleMic = function() {
+    api.executeCommand('toggleAudio');
+    micOn = !micOn;
+    const btn = document.getElementById('btnMic');
+    btn.querySelector('i').className = micOn ? 'fas fa-microphone' : 'fas fa-microphone-slash';
+    btn.classList.toggle('active', micOn);
+    if (!micOn) btn.style.backgroundColor = '#dc2626';
+    else { btn.style.backgroundColor = ''; }
+  };
+
+  window.toggleCam = function() {
+    api.executeCommand('toggleVideo');
+    camOn = !camOn;
+    const btn = document.getElementById('btnCam');
+    btn.querySelector('i').className = camOn ? 'fas fa-video' : 'fas fa-video-slash';
+    btn.classList.toggle('active', camOn);
+    if (!camOn) btn.style.backgroundColor = '#dc2626';
+    else { btn.style.backgroundColor = ''; }
+  };
+
+  window.toggleScreen = function() {
+    api.executeCommand('toggleShareScreen');
+    screenOn = !screenOn;
+    document.getElementById('btnScreen').classList.toggle('active', screenOn);
+  };
+
+  window.toggleJitsiChat = function() {
+    api.executeCommand('toggleChat');
+    document.getElementById('btnChat').classList.toggle('active');
+  };
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    switch(e.key.toLowerCase()) {
+      case 'm': toggleMic(); break;
+      case 'v': toggleCam(); break;
+      case 's': toggleScreen(); break;
+      case 'c': toggleJitsiChat(); break;
+      case 'n': toggleNotesPanel(); break;
+      case 'r': toggleRecording(); break;
+      case 'p': pauseSession(); break;
+      case 'w': window.location.href = "{{ url_for('whiteboard_bp.session_whiteboard', slot_id=slot.id) }}"; break;
+    }
+  });
+
+  // ── Pause / Break ─────────────────────────────────────
+  window.pauseSession = function() {
+    if (isPaused) { resumeSession(); return; }
+    if (pausesUsed >= MAX_PAUSES) {
+      alert('Maximum pauses reached (3). No more pauses available.');
       return;
     }
-    const mins = Math.floor(diff / 60000);
-    const secs = Math.floor((diff % 60000) / 1000);
-    timerEl.textContent = mins + ":" + (secs < 10 ? "0" : "") + secs + " remaining";
-  }
+    if (!confirm('Pause the session? (Max 5 min, ' + (MAX_PAUSES - pausesUsed) + ' pauses remaining)')) return;
+    isPaused = true;
+    pausesUsed++;
+    pauseStartTime = Date.now();
+    document.getElementById('pauseCount').textContent = pausesUsed;
+    document.getElementById('btnPause').classList.add('active');
 
-  updateTimer();
-  setInterval(updateTimer, 1000);
-})();
-
-// ── Recording with consent ──────────────────────────────
-const SLOT_ID = {{ slot.id }};
-const CSRF = '{{ csrf_token() }}';
-let mediaRecorder = null;
-let recordedChunks = [];
-let recordingStartTime = null;
-let isRecording = false;
-
-function toggleRecording() {
-  if (isRecording) {
-    stopRecording();
-  } else {
-    startRecordingFlow();
-  }
-}
-
-function startRecordingFlow() {
-  // First give consent
-  if (!confirm('Do you consent to recording this session? Both parties must consent.')) return;
-
-  fetch(`/session/${SLOT_ID}/record/consent`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-    body: JSON.stringify({consent: true})
-  }).then(r => r.json()).then(d => {
-    if (!d.both_consented) {
-      alert('Waiting for the other party to consent. Your consent has been recorded.');
-      document.getElementById('recordBtn').classList.replace('bg-gray-600', 'bg-yellow-600');
-      document.getElementById('recordLabel').textContent = 'Waiting...';
-      // Poll for consent
-      pollConsent();
-      return;
+    if (socket) {
+      socket.emit('session_pause', { slot_id: SLOT_ID, user_name: displayName, user_type: userType });
     }
-    startActualRecording();
-  }).catch(() => alert('Failed to submit consent'));
-}
+    showPauseOverlay(displayName, userType);
+  };
 
-function pollConsent() {
-  const interval = setInterval(() => {
+  window.resumeSession = function() {
+    isPaused = false;
+    clearInterval(pauseTimerInterval);
+    document.getElementById('btnPause').classList.remove('active');
+
+    if (socket) {
+      socket.emit('session_resume', { slot_id: SLOT_ID, user_name: displayName });
+    }
+    hidePauseOverlay();
+  };
+
+  function showPauseOverlay(name, type) {
+    const overlay = document.getElementById('pause-overlay');
+    overlay.classList.add('active');
+    document.getElementById('pause-info').textContent = 'Paused by ' + name;
+    pauseStartTime = pauseStartTime || Date.now();
+
+    clearInterval(pauseTimerInterval);
+    const pTimer = document.getElementById('pause-timer');
+    pauseTimerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - pauseStartTime) / 1000);
+      const remaining = MAX_PAUSE_SECS - elapsed;
+      if (remaining <= 0) {
+        resumeSession();
+        return;
+      }
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      pTimer.textContent = `${m}:${String(s).padStart(2,'0')} remaining`;
+    }, 1000);
+  }
+
+  function hidePauseOverlay() {
+    document.getElementById('pause-overlay').classList.remove('active');
+    clearInterval(pauseTimerInterval);
+    pauseStartTime = null;
+  }
+
+  // ── Late Arrival ──────────────────────────────────────
+  if (minutesLate >= 5) {
+    showLateToast(displayName, minutesLate);
+  }
+
+  function showLateToast(name, mins) {
+    const container = document.getElementById('late-toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'late-toast';
+    toast.innerHTML = '<i class="fas fa-clock text-yellow-600 mr-2"></i>' +
+      '<span class="text-sm font-medium text-yellow-800">' + name + ' joined ' + mins + ' minutes late</span>' +
+      '<button onclick="this.parentElement.remove()" class="ml-4 text-yellow-600 hover:text-yellow-800"><i class="fas fa-times"></i></button>';
+    container.appendChild(toast);
+    setTimeout(() => { if (toast.parentElement) toast.remove(); }, 10000);
+  }
+
+  // ── Recording ─────────────────────────────────────────
+  window.toggleRecording = function() {
+    if (isRecording) { stopRecording(); } else { startRecordingFlow(); }
+  };
+
+  function startRecordingFlow() {
+    if (!confirm('Do you consent to recording this session? Both parties must consent.')) return;
     fetch(`/session/${SLOT_ID}/record/consent`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
       body: JSON.stringify({consent: true})
     }).then(r => r.json()).then(d => {
-      if (d.both_consented) {
-        clearInterval(interval);
-        startActualRecording();
+      if (!d.both_consented) {
+        alert('Waiting for the other party to consent.');
+        document.getElementById('btnRecord').style.backgroundColor = '#d97706';
+        pollConsent();
+        return;
       }
-    });
-  }, 5000);
-}
-
-function startActualRecording() {
-  // Use screen + audio capture
-  navigator.mediaDevices.getDisplayMedia({video: true, audio: true})
-    .then(stream => {
-      recordedChunks = [];
-      mediaRecorder = new MediaRecorder(stream, {mimeType: 'video/webm'});
-      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-      mediaRecorder.onstop = uploadRecording;
-      mediaRecorder.start(1000);
-      recordingStartTime = Date.now();
-      isRecording = true;
-
-      const btn = document.getElementById('recordBtn');
-      btn.classList.remove('bg-gray-600', 'bg-yellow-600');
-      btn.classList.add('bg-red-600');
-      document.getElementById('recordIcon').classList.add('animate-pulse');
-      document.getElementById('recordLabel').textContent = 'Stop';
-    })
-    .catch(() => {
-      alert('Screen capture permission denied. Recording cancelled.');
-      resetRecordButton();
-    });
-}
-
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
-    mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      startActualRecording();
+    }).catch(() => alert('Failed to submit consent'));
   }
-  isRecording = false;
-}
 
-function uploadRecording() {
-  const blob = new Blob(recordedChunks, {type: 'video/webm'});
-  const duration = Math.round((Date.now() - recordingStartTime) / 1000);
-
-  const formData = new FormData();
-  formData.append('recording', blob, 'recording.webm');
-  formData.append('duration', duration);
-
-  document.getElementById('recordLabel').textContent = 'Uploading...';
-
-  fetch(`/session/${SLOT_ID}/record/upload`, {
-    method: 'POST',
-    headers: {'X-CSRFToken': CSRF},
-    body: formData
-  }).then(r => r.json()).then(d => {
-    if (d.ok) {
-      alert('Recording saved successfully!');
-    } else {
-      alert(d.error || 'Upload failed');
-    }
-    resetRecordButton();
-  }).catch(() => {
-    alert('Upload failed');
-    resetRecordButton();
-  });
-}
-
-function resetRecordButton() {
-  const btn = document.getElementById('recordBtn');
-  btn.classList.remove('bg-red-600', 'bg-yellow-600');
-  btn.classList.add('bg-gray-600');
-  document.getElementById('recordIcon').classList.remove('animate-pulse');
-  document.getElementById('recordLabel').textContent = 'Record';
-  isRecording = false;
-}
-
-// ── Notes Panel ───────────────────────────────────────────
-let notesPanelOpen = false;
-
-function toggleNotesPanel() {
-  const panel = document.getElementById('notes-panel');
-  notesPanelOpen = !notesPanelOpen;
-  if (notesPanelOpen) {
-    panel.classList.remove('hidden-panel');
-    panel.style.position = 'relative';
-    loadNotes();
-  } else {
-    panel.classList.add('hidden-panel');
-    setTimeout(() => { panel.style.position = 'absolute'; }, 300);
-  }
-}
-
-function loadNotes() {
-  fetch(`/api/session/${SLOT_ID}/notes`, {
-    headers: {'X-CSRFToken': CSRF}
-  }).then(r => r.json()).then(d => {
-    const list = document.getElementById('notesList');
-    const noMsg = document.getElementById('noNotesMsg');
-    const countBadge = document.getElementById('notesCount');
-
-    if (d.notes && d.notes.length > 0) {
-      if (noMsg) noMsg.remove();
-      list.innerHTML = '';
-      d.notes.forEach(note => {
-        list.appendChild(createNoteElement(note));
+  function pollConsent() {
+    const interval = setInterval(() => {
+      fetch(`/session/${SLOT_ID}/record/consent-status`).then(r => r.json()).then(d => {
+        if (d.both) { clearInterval(interval); startActualRecording(); }
       });
-      countBadge.textContent = d.notes.length;
-      countBadge.classList.remove('hidden');
-    } else {
-      list.innerHTML = '<p class="text-xs text-gray-400 text-center py-4" id="noNotesMsg">' +
-        '<i class="fas fa-sticky-note text-2xl text-gray-200 block mb-2"></i>No notes yet. Add one below!</p>';
-      countBadge.classList.add('hidden');
-    }
-    // Scroll to bottom
-    list.scrollTop = list.scrollHeight;
-  }).catch(() => {});
-}
-
-function createNoteElement(note) {
-  const div = document.createElement('div');
-  div.className = 'rounded-lg p-2.5 text-xs ' +
-    (note.is_private ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50 border border-gray-200');
-  div.id = `panel-note-${note.id}`;
-
-  const badge = note.author_type === 'tutor'
-    ? '<span class="text-purple-600 font-semibold"><i class="fas fa-chalkboard-teacher mr-1"></i>Tutor</span>'
-    : '<span class="text-blue-600 font-semibold"><i class="fas fa-user-graduate mr-1"></i>Student</span>';
-  const privateBadge = note.is_private
-    ? ' <span class="text-yellow-600"><i class="fas fa-lock"></i></span>' : '';
-  const deleteBtn = note.is_own
-    ? ` <button onclick="deleteNoteFromPanel(${note.id})" class="text-red-400 hover:text-red-600 ml-1" title="Delete"><i class="fas fa-times"></i></button>`
-    : '';
-
-  div.innerHTML = `
-    <div class="flex items-center justify-between mb-1">
-      <div>${badge} <span class="text-gray-600">${note.author_name}</span>${privateBadge}</div>
-      <div class="text-gray-400">${deleteBtn}</div>
-    </div>
-    <div class="text-gray-700 whitespace-pre-wrap leading-relaxed">${escapeHtml(note.content)}</div>
-    <div class="text-gray-400 mt-1">${note.created_at}</div>
-  `;
-  return div;
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-function addNoteFromPanel() {
-  const input = document.getElementById('noteInput');
-  const content = input.value.trim();
-  if (!content) return;
-
-  const isPrivate = document.getElementById('notePrivate').checked;
-
-  fetch(`/api/session/${SLOT_ID}/notes`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-    body: JSON.stringify({content: content, is_private: isPrivate})
-  }).then(r => r.json()).then(d => {
-    if (d.ok) {
-      input.value = '';
-      document.getElementById('notePrivate').checked = false;
-      loadNotes();
-    } else {
-      alert(d.error || 'Failed to add note');
-    }
-  }).catch(() => alert('Failed to add note'));
-}
-
-function deleteNoteFromPanel(noteId) {
-  if (!confirm('Delete this note?')) return;
-  fetch(`/api/session/notes/${noteId}`, {
-    method: 'DELETE',
-    headers: {'X-CSRFToken': CSRF}
-  }).then(r => r.json()).then(d => {
-    if (d.ok) loadNotes();
-    else alert(d.error || 'Failed to delete');
-  }).catch(() => alert('Failed to delete'));
-}
-
-// Load initial note count on page load
-fetch(`/api/session/${SLOT_ID}/notes`).then(r => r.json()).then(d => {
-  if (d.notes && d.notes.length > 0) {
-    const badge = document.getElementById('notesCount');
-    badge.textContent = d.notes.length;
-    badge.classList.remove('hidden');
+    }, 5000);
   }
-}).catch(() => {});
+
+  function startActualRecording() {
+    navigator.mediaDevices.getDisplayMedia({video: true, audio: true})
+      .then(stream => {
+        recordedChunks = [];
+        mediaRecorder = new MediaRecorder(stream, {mimeType: 'video/webm'});
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+        mediaRecorder.onstop = uploadRecording;
+        mediaRecorder.start(1000);
+        recordingStartTime = Date.now();
+        isRecording = true;
+        const btn = document.getElementById('btnRecord');
+        btn.style.backgroundColor = '#dc2626';
+        btn.classList.add('recording');
+        document.getElementById('recordIcon').classList.add('animate-pulse');
+      })
+      .catch(() => {
+        alert('Screen capture permission denied.');
+        resetRecordButton();
+      });
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    }
+    isRecording = false;
+  }
+
+  function uploadRecording() {
+    const blob = new Blob(recordedChunks, {type: 'video/webm'});
+    const duration = Math.round((Date.now() - recordingStartTime) / 1000);
+    const formData = new FormData();
+    formData.append('recording', blob, 'recording.webm');
+    formData.append('duration', duration);
+
+    const btn = document.getElementById('btnRecord');
+    btn.style.backgroundColor = '#d97706';
+
+    fetch(`/session/${SLOT_ID}/record/upload`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': CSRF},
+      body: formData
+    }).then(r => r.json()).then(d => {
+      if (d.ok) alert('Recording saved!');
+      else alert(d.error || 'Upload failed');
+      resetRecordButton();
+    }).catch(() => { alert('Upload failed'); resetRecordButton(); });
+  }
+
+  function resetRecordButton() {
+    const btn = document.getElementById('btnRecord');
+    btn.style.backgroundColor = '';
+    btn.classList.remove('recording');
+    document.getElementById('recordIcon').classList.remove('animate-pulse');
+    isRecording = false;
+  }
+
+  // ── Notes Panel ───────────────────────────────────────
+  let notesPanelOpen = false;
+  let noteAutoSaveInterval = null;
+
+  window.toggleNotesPanel = function() {
+    const panel = document.getElementById('notes-panel');
+    notesPanelOpen = !notesPanelOpen;
+    document.getElementById('btnNotes').classList.toggle('active', notesPanelOpen);
+    if (notesPanelOpen) {
+      panel.classList.remove('hidden-panel');
+      panel.style.position = 'relative';
+      loadNotes();
+      // Start auto-save every 30s
+      noteAutoSaveInterval = setInterval(autoSaveNote, 30000);
+    } else {
+      panel.classList.add('hidden-panel');
+      setTimeout(() => { panel.style.position = 'absolute'; }, 300);
+      if (noteAutoSaveInterval) clearInterval(noteAutoSaveInterval);
+    }
+  };
+
+  function autoSaveNote() {
+    const input = document.getElementById('noteInput');
+    const content = input.value.trim();
+    if (!content) return;
+    const status = document.getElementById('noteAutoSaveStatus');
+    status.textContent = 'Auto-saving...';
+
+    const isPrivate = document.getElementById('notePrivate').checked;
+    fetch(`/api/session/${SLOT_ID}/notes`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({content: content, is_private: isPrivate})
+    }).then(r => r.json()).then(d => {
+      if (d.ok) {
+        input.value = '';
+        status.textContent = 'Auto-saved';
+        loadNotes();
+        setTimeout(() => { status.textContent = ''; }, 2000);
+      }
+    }).catch(() => { status.textContent = 'Save failed'; });
+  }
+
+  function loadNotes() {
+    fetch(`/api/session/${SLOT_ID}/notes`, {
+      headers: {'X-CSRFToken': CSRF}
+    }).then(r => r.json()).then(d => {
+      const list = document.getElementById('notesList');
+      const countBadge = document.getElementById('notesCount');
+      if (d.notes && d.notes.length > 0) {
+        list.innerHTML = '';
+        d.notes.forEach(note => { list.appendChild(createNoteElement(note)); });
+        countBadge.textContent = d.notes.length;
+        countBadge.classList.remove('hidden');
+      } else {
+        list.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">' +
+          '<i class="fas fa-sticky-note text-2xl text-gray-200 block mb-2"></i>No notes yet.</p>';
+        countBadge.classList.add('hidden');
+      }
+      list.scrollTop = list.scrollHeight;
+    }).catch(() => {});
+  }
+
+  function createNoteElement(note) {
+    const div = document.createElement('div');
+    div.className = 'rounded-lg p-2.5 text-xs ' +
+      (note.is_private ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50 border border-gray-200');
+    const badge = note.author_type === 'tutor'
+      ? '<span class="text-purple-600 font-semibold"><i class="fas fa-chalkboard-teacher mr-1"></i>Tutor</span>'
+      : '<span class="text-blue-600 font-semibold"><i class="fas fa-user-graduate mr-1"></i>Student</span>';
+    const privateBadge = note.is_private ? ' <span class="text-yellow-600"><i class="fas fa-lock"></i></span>' : '';
+    const deleteBtn = note.is_own
+      ? ` <button onclick="deleteNoteFromPanel(${note.id})" class="text-red-400 hover:text-red-600 ml-1" title="Delete"><i class="fas fa-times"></i></button>` : '';
+    div.innerHTML = `<div class="flex items-center justify-between mb-1">
+        <div>${badge} <span class="text-gray-600">${note.author_name}</span>${privateBadge}</div>
+        <div class="text-gray-400">${deleteBtn}</div>
+      </div>
+      <div class="text-gray-700 whitespace-pre-wrap leading-relaxed">${escapeHtml(note.content)}</div>
+      <div class="text-gray-400 mt-1">${note.created_at}</div>`;
+    return div;
+  }
+
+  function escapeHtml(text) {
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
+  }
+
+  window.addNoteFromPanel = function() {
+    const input = document.getElementById('noteInput');
+    const content = input.value.trim();
+    if (!content) return;
+    const isPrivate = document.getElementById('notePrivate').checked;
+    fetch(`/api/session/${SLOT_ID}/notes`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({content: content, is_private: isPrivate})
+    }).then(r => r.json()).then(d => {
+      if (d.ok) {
+        input.value = '';
+        document.getElementById('notePrivate').checked = false;
+        loadNotes();
+        if (socket) socket.emit('session_note_saved', { slot_id: SLOT_ID, user_name: displayName });
+      } else { alert(d.error || 'Failed to add note'); }
+    }).catch(() => alert('Failed to add note'));
+  };
+
+  window.deleteNoteFromPanel = function(noteId) {
+    if (!confirm('Delete this note?')) return;
+    fetch(`/api/session/notes/${noteId}`, {
+      method: 'DELETE',
+      headers: {'X-CSRFToken': CSRF}
+    }).then(r => r.json()).then(d => {
+      if (d.ok) loadNotes();
+      else alert(d.error || 'Failed to delete');
+    }).catch(() => alert('Failed to delete'));
+  };
+
+  // Load initial note count
+  fetch(`/api/session/${SLOT_ID}/notes`).then(r => r.json()).then(d => {
+    if (d.notes && d.notes.length > 0) {
+      const badge = document.getElementById('notesCount');
+      badge.textContent = d.notes.length;
+      badge.classList.remove('hidden');
+    }
+  }).catch(() => {});
+})();
 </script>
 {% endblock %}

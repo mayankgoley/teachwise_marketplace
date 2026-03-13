@@ -1,0 +1,82 @@
+<!-- Tutor Sidebar (include partial) -->
+<div id="tutorSidebar" class="tw-sidebar w-56 flex-shrink-0">
+  <nav class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sticky top-24">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold text-gray-800 text-sm tw-sidebar-label">Tutor Menu</h3>
+      <button onclick="document.getElementById('tutorSidebar').classList.toggle('tw-sidebar-collapsed')"
+              class="text-gray-400 hover:text-green-600 focus:outline-none" title="Toggle sidebar">
+        <i class="fas fa-bars text-sm"></i>
+      </button>
+    </div>
+    <div class="space-y-1">
+      <a href="{{ url_for('tutor_bp.tutor_dashboard') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'tutor_bp.tutor_dashboard' %}text-white bg-green-600{% else %}text-gray-600 hover:bg-green-50{% endif %}">
+        <i class="fas fa-home mr-2 w-4"></i><span class="tw-sidebar-text">Dashboard</span></a>
+
+      <a href="{{ url_for('tutor_bp.my_students') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'tutor_bp.my_students' %}text-white bg-green-600{% else %}text-gray-600 hover:bg-green-50{% endif %}">
+        <i class="fas fa-user-graduate mr-2 w-4"></i><span class="tw-sidebar-text">My Students</span></a>
+
+      <a href="{{ url_for('chat_bp.chat_page') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'chat_bp.chat_page' %}text-white bg-green-600{% else %}text-gray-600 hover:bg-green-50{% endif %}">
+        <i class="fas fa-comments mr-2 w-4"></i><span class="tw-sidebar-text">Messages</span></a>
+
+      <a href="{{ url_for('tutor_bp.tutor_availability') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'tutor_bp.tutor_availability' %}text-white bg-green-600{% else %}text-gray-600 hover:bg-green-50{% endif %}">
+        <i class="fas fa-clock mr-2 w-4"></i><span class="tw-sidebar-text">Availability</span></a>
+
+      <a href="{{ url_for('reschedule_bp.tutor_reschedule_requests') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'reschedule_bp.tutor_reschedule_requests' %}text-white bg-green-600{% else %}text-gray-600 hover:bg-green-50{% endif %}">
+        <i class="fas fa-calendar-alt mr-2 w-4"></i><span class="tw-sidebar-text">Reschedule Requests</span></a>
+
+      <a href="{{ url_for('assignment_bp.tutor_assignments') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'assignment_bp.tutor_assignments' %}text-white bg-green-600{% else %}text-gray-600 hover:bg-green-50{% endif %}">
+        <i class="fas fa-tasks mr-2 w-4"></i><span class="tw-sidebar-text">Assignments</span></a>
+
+      <a href="{{ url_for('recording_bp.tutor_recordings') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'recording_bp.tutor_recordings' %}text-white bg-green-600{% else %}text-gray-600 hover:bg-green-50{% endif %}">
+        <i class="fas fa-video mr-2 w-4"></i><span class="tw-sidebar-text">Recordings</span></a>
+
+      <a href="{{ url_for('tutor_bp.tutor_earnings') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'tutor_bp.tutor_earnings' %}text-white bg-green-600{% else %}text-gray-600 hover:bg-green-50{% endif %}">
+        <i class="fas fa-wallet mr-2 w-4"></i><span class="tw-sidebar-text">Earnings</span></a>
+
+      <hr class="my-2 border-gray-100">
+
+      <a href="{{ url_for('tutor_bp.edit_profile') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'tutor_bp.edit_profile' %}text-white bg-green-600{% else %}text-gray-600 hover:bg-green-50{% endif %}">
+        <i class="fas fa-user-edit mr-2 w-4"></i><span class="tw-sidebar-text">Edit Profile</span></a>
+
+      <a href="{{ url_for('tutor_bp.tutor_location_settings') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'tutor_bp.tutor_location_settings' %}text-white bg-green-600{% else %}text-gray-600 hover:bg-green-50{% endif %}">
+        <i class="fas fa-map-marker-alt mr-2 w-4"></i><span class="tw-sidebar-text">Location</span></a>
+
+      <a href="{{ url_for('doc_bp.tutor_upload_docs') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'doc_bp.tutor_upload_docs' %}text-white bg-green-600{% else %}text-gray-600 hover:bg-green-50{% endif %}">
+        <i class="fas fa-file-upload mr-2 w-4"></i><span class="tw-sidebar-text">Documents</span></a>
+
+      <hr class="my-2 border-gray-100">
+
+      <a href="{{ url_for('notif_center_bp.notification_center') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'notif_center_bp.notification_center' %}text-white bg-green-600{% else %}text-gray-600 hover:bg-green-50{% endif %}">
+        <i class="fas fa-bell mr-2 w-4"></i><span class="tw-sidebar-text">Notifications</span>
+        {% if sidebar_unread_notifs is defined and sidebar_unread_notifs > 0 %}
+          <span class="ml-auto bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+            {{ sidebar_unread_notifs }}</span>
+        {% endif %}
+      </a>
+    </div>
+  </nav>
+</div>

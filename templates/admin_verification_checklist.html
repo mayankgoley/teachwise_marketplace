@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Verification Checklist - {{ tutor.name }} | TeachWise Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="flex gap-8">
+    {% include "admin_sidebar.html" %}
+    <div class="flex-1">
+      <!-- Back Link -->
+      <a href="{{ url_for('admin_bp.dashboard') }}"
+         class="text-blue-600 hover:underline text-sm mb-4 inline-block">
+        <i class="fas fa-arrow-left mr-1"></i>Back to Dashboard</a>
+
+      <h1 class="text-2xl font-bold text-gray-800 mb-6">
+        <i class="fas fa-clipboard-check mr-2 text-green-600"></i>Verification Checklist</h1>
+
+      <!-- Tutor Info Header -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div class="flex justify-between items-start">
+          <div>
+            <h2 class="text-xl font-bold text-gray-800">{{ tutor.name }}</h2>
+            <p class="text-gray-500 text-sm mt-1">{{ tutor.email }}</p>
+            <p class="text-gray-500 text-sm">Subject: {{ tutor.subject }} | Experience: {{ tutor.experience or 0 }} years</p>
+          </div>
+          <div class="text-right">
+            <span class="px-3 py-1 rounded-full text-xs font-semibold
+              {% if tutor.verification_status == 'verified' %}bg-green-100 text-green-700
+              {% elif tutor.verification_status == 'rejected' %}bg-red-100 text-red-700
+              {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+              {{ tutor.verification_status|replace('_', ' ')|title }}</span>
+            {% if tutor.reviewed_by %}
+            <p class="text-xs text-gray-400 mt-2">Reviewed by {{ tutor.reviewed_by }}</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Verification Checklist Form -->
+      <form method="POST" action="{{ url_for('admin_bp.save_verification_checklist', tutor_id=tutor.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-tasks mr-2 text-blue-500"></i>Checklist Items</h3>
+
+          <div class="space-y-4">
+            {% for key, label in default_items %}
+            <label class="flex items-start space-x-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer transition">
+              <input type="checkbox" name="check_{{ key }}" value="1"
+                     {% if checklist.get(key) %}checked{% endif %}
+                     class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+              <div>
+                <p class="text-sm font-medium text-gray-800">{{ label }}</p>
+                {% if checklist.get(key) %}
+                <p class="text-xs text-green-600 mt-0.5"><i class="fas fa-check mr-1"></i>Completed</p>
+                {% else %}
+                <p class="text-xs text-gray-400 mt-0.5">Not yet checked</p>
+                {% endif %}
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+
+          <!-- Completion Progress -->
+          {% set completed_count = checklist|length %}
+          {% set total_count = default_items|length %}
+          <div class="mt-6 pt-4 border-t border-gray-100">
+            <div class="flex justify-between text-sm text-gray-600 mb-2">
+              <span>Progress</span>
+              <span>{{ completed_count }} / {{ total_count }} items</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5">
+              <div class="bg-blue-600 h-2.5 rounded-full transition-all" style="width: {{ (completed_count / total_count * 100) if total_count > 0 else 0 }}%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Documents Section -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-file-alt mr-2 text-purple-500"></i>Uploaded Documents</h3>
+
+          {% if documents %}
+          <div class="space-y-3">
+            {% for doc in documents %}
+            <div class="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <i class="fas fa-file text-gray-400"></i>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-gray-800">{{ doc.original_filename }}</p>
+                  <p class="text-xs text-gray-400">
+                    {{ doc.document_type|replace('_', ' ')|title }}
+                    {% if doc.file_size_bytes %} | {{ (doc.file_size_bytes / 1024)|round(0)|int }} KB{% endif %}
+                    {% if doc.uploaded_at %} | {{ doc.uploaded_at.strftime('%b %d, %Y') }}{% endif %}
+                  </p>
+                </div>
+              </div>
+              <div class="flex items-center space-x-2">
+                {% if doc.review_status is defined %}
+                <span class="px-2 py-0.5 text-xs rounded-full
+                  {% if doc.review_status == 'approved' %}bg-green-100 text-green-700
+                  {% elif doc.review_status == 'rejected' %}bg-red-100 text-red-700
+                  {% elif doc.review_status == 'revision_required' %}bg-yellow-100 text-yellow-700
+                  {% else %}bg-gray-100 text-gray-600{% endif %}">
+                  {{ doc.review_status|default('pending')|replace('_', ' ')|title }}</span>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-gray-400 text-center py-6">No documents uploaded yet.</p>
+          {% endif %}
+        </div>
+
+        <!-- Save Button -->
+        <div class="flex justify-end">
+          <button type="submit"
+                  class="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+            <i class="fas fa-save mr-2"></i>Save Checklist</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

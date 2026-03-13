@@ -16,6 +16,10 @@ class InAppNotification(db.Model):
     color = db.Column(db.String(20), default='blue')  # blue, green, red, yellow, purple
     url = db.Column(db.String(500), nullable=True)  # link to related page
 
+    source_id = db.Column(db.String(100), nullable=True)  # A2: for grouping
+    group_key = db.Column(db.String(100), nullable=True)  # A2: grouping key
+    count = db.Column(db.Integer, default=1)  # A2: grouped count
+
     is_read = db.Column(db.Boolean, default=False)
     read_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

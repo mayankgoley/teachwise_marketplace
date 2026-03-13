@@ -11,16 +11,71 @@
         {{ unread_count }} new</span>
       {% endif %}
     </h1>
-    {% if unread_count > 0 %}
-    <button onclick="markAllRead()"
-            class="text-sm text-blue-600 hover:underline font-medium">
-      Mark all as read</button>
-    {% endif %}
+    <div class="flex items-center space-x-3">
+      <!-- Sound toggle -->
+      <button id="soundToggle" title="Toggle notification sound"
+              class="text-gray-400 hover:text-blue-600 transition">
+        <i class="fas {{ 'fa-volume-up text-blue-600' if notification_sound else 'fa-volume-mute' }} text-lg"></i>
+      </button>
+      {% if unread_count > 0 %}
+      <button onclick="markAllRead()"
+              class="text-sm text-blue-600 hover:underline font-medium">
+        <i class="fas fa-check-double mr-1"></i>Mark all as read</button>
+      {% endif %}
+    </div>
   </div>
 
-  <!-- Filter tabs -->
-  <div class="flex space-x-2 mb-6 overflow-x-auto">
-    {% for t in ['all', 'booking', 'payment', 'review', 'system'] %}
+  <!-- Settings panel (collapsible) -->
+  <div class="mb-6">
+    <button id="toggleSettings" class="text-sm text-gray-500 hover:text-blue-600">
+      <i class="fas fa-cog mr-1"></i>Notification Preferences</button>
+    <div id="settingsPanel" class="hidden mt-3 bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+      <!-- Email digest frequency -->
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-800">Email Digest Frequency</p>
+          <p class="text-xs text-gray-400">How often to receive email summaries</p>
+        </div>
+        <select id="emailDigestSelect"
+                class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white">
+          <option value="instant" {{ 'selected' if email_digest == 'instant' }}>Instant</option>
+          <option value="daily" {{ 'selected' if email_digest == 'daily' }}>Daily</option>
+          <option value="weekly" {{ 'selected' if email_digest == 'weekly' }}>Weekly</option>
+          <option value="none" {{ 'selected' if email_digest == 'none' }}>None</option>
+        </select>
+      </div>
+
+      <!-- Reminder timing checkboxes -->
+      <div>
+        <p class="text-sm font-medium text-gray-800 mb-2">Session Reminders</p>
+        <div class="grid grid-cols-2 gap-2">
+          {% for key, label in [('24h', '24 hours before'), ('12h', '12 hours before'), ('1h', '1 hour before'), ('30m', '30 minutes before')] %}
+          <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <input type="checkbox" class="reminder-cb rounded text-blue-600" data-key="{{ key }}"
+                   {{ 'checked' if reminder_times.get(key, key in ('24h', '1h')) }}>
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Push notifications -->
+      <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+        <div>
+          <p class="text-sm font-medium text-gray-800">Push Notifications</p>
+          <p class="text-xs text-gray-400">Receive browser push notifications</p>
+        </div>
+        <button id="pushToggle"
+                class="px-4 py-1.5 rounded-lg text-sm font-medium border transition
+                       bg-white text-blue-600 border-blue-300 hover:bg-blue-50">
+          <i class="fas fa-bell mr-1"></i>Enable</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter tabs (extended types) -->
+  <div class="flex space-x-2 mb-6 overflow-x-auto pb-1">
+    {% for t in ['all', 'booking', 'payment', 'review', 'assignment', 'progress', 'chat', 'system'] %}
     <a href="?type={{ t }}"
        class="px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap
               {% if filter_type == t %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
@@ -40,7 +95,13 @@
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between">
-          <p class="font-medium text-gray-800 text-sm">{{ n.title }}</p>
+          <div class="flex items-center gap-2">
+            <p class="font-medium text-gray-800 text-sm">{{ n.title }}</p>
+            {% if n.count is defined and n.count and n.count > 1 %}
+            <span class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
+              {{ n.count }}</span>
+            {% endif %}
+          </div>
           <span class="text-xs text-gray-400 whitespace-nowrap ml-2">
             {{ n.created_at.strftime('%b %d, %I:%M %p') }}</span>
         </div>
@@ -86,21 +147,97 @@
 </div>
 
 <script>
+var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
 function markRead(id) {
-  fetch('/api/notifications/' + id + '/read', { method: 'POST' })
-    .then(r => r.json())
-    .then(() => {
-      const el = document.getElementById('notif-' + id);
+  fetch('/api/notifications/' + id + '/read', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': csrfToken }
+  })
+    .then(function(r) { return r.json(); })
+    .then(function() {
+      var el = document.getElementById('notif-' + id);
       if (el) {
         el.classList.remove('border-blue-200', 'bg-blue-50');
         el.classList.add('border-gray-100');
       }
     });
 }
+
 function markAllRead() {
-  fetch('/api/notifications/read-all', { method: 'POST' })
-    .then(r => r.json())
-    .then(() => location.reload());
+  fetch('/api/notifications/read-all', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': csrfToken }
+  })
+    .then(function(r) { return r.json(); })
+    .then(function() { location.reload(); });
 }
+
+// Sound toggle
+document.getElementById('soundToggle').addEventListener('click', function() {
+  var icon = this.querySelector('i');
+  var isOn = icon.classList.contains('fa-volume-up');
+  fetch('/api/notifications/sound', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+    body: JSON.stringify({ enabled: !isOn })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.enabled) {
+      icon.className = 'fas fa-volume-up text-blue-600 text-lg';
+    } else {
+      icon.className = 'fas fa-volume-mute text-lg';
+    }
+  });
+});
+
+// Settings panel toggle
+document.getElementById('toggleSettings').addEventListener('click', function() {
+  document.getElementById('settingsPanel').classList.toggle('hidden');
+});
+
+// Email digest
+document.getElementById('emailDigestSelect').addEventListener('change', function() {
+  fetch('/api/notifications/email-digest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+    body: JSON.stringify({ frequency: this.value })
+  });
+});
+
+// Reminder timing
+document.querySelectorAll('.reminder-cb').forEach(function(cb) {
+  cb.addEventListener('change', function() {
+    var times = {};
+    document.querySelectorAll('.reminder-cb').forEach(function(c) {
+      times[c.dataset.key] = c.checked;
+    });
+    fetch('/api/notifications/reminder-timing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+      body: JSON.stringify({ times: times })
+    });
+  });
+});
+
+// Push notifications toggle
+document.getElementById('pushToggle').addEventListener('click', function() {
+  var btn = this;
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    alert('Push notifications are not supported in your browser.');
+    return;
+  }
+  Notification.requestPermission().then(function(perm) {
+    if (perm === 'granted') {
+      btn.innerHTML = '<i class="fas fa-check mr-1"></i>Enabled';
+      btn.className = 'px-4 py-1.5 rounded-lg text-sm font-medium border transition bg-green-50 text-green-700 border-green-300';
+      // In production, would register service worker & send subscription to server
+      fetch('/api/notifications/push-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ subscription: { enabled: true } })
+      });
+    }
+  });
+});
 </script>
 {% endblock %}

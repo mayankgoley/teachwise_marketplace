@@ -1,0 +1,38 @@
+<!-- Guardian Sidebar (include partial) -->
+<div id="guardianSidebar" class="tw-sidebar w-56 flex-shrink-0">
+  <nav class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sticky top-24">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold text-gray-800 text-sm tw-sidebar-label">Guardian Menu</h3>
+      <button onclick="document.getElementById('guardianSidebar').classList.toggle('tw-sidebar-collapsed')"
+              class="text-gray-400 hover:text-purple-600 focus:outline-none" title="Toggle sidebar">
+        <i class="fas fa-bars text-sm"></i>
+      </button>
+    </div>
+    <div class="space-y-1">
+      <a href="{{ url_for('guardian_bp.guardian_dashboard') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'guardian_bp.guardian_dashboard' %}text-white bg-purple-600{% else %}text-gray-600 hover:bg-purple-50{% endif %}">
+        <i class="fas fa-home mr-2 w-4"></i><span class="tw-sidebar-text">Dashboard</span></a>
+
+      <a href="{{ url_for('guardian_bp.guardian_messages') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'guardian_bp.guardian_messages' %}text-white bg-purple-600{% else %}text-gray-600 hover:bg-purple-50{% endif %}">
+        <i class="fas fa-envelope mr-2 w-4"></i><span class="tw-sidebar-text">Messages</span>
+        {% if sidebar_unread_msgs is defined and sidebar_unread_msgs > 0 %}
+          <span class="ml-auto bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+            {{ sidebar_unread_msgs }}</span>
+        {% endif %}
+      </a>
+
+      <a href="{{ url_for('guardian_bp.spending_limits') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'guardian_bp.spending_limits' %}text-white bg-purple-600{% else %}text-gray-600 hover:bg-purple-50{% endif %}">
+        <i class="fas fa-money-check-alt mr-2 w-4"></i><span class="tw-sidebar-text">Spending Limits</span></a>
+
+      <a href="{{ url_for('guardian_bp.guardian_notification_settings') }}"
+         class="flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                {% if request.endpoint == 'guardian_bp.guardian_notification_settings' %}text-white bg-purple-600{% else %}text-gray-600 hover:bg-purple-50{% endif %}">
+        <i class="fas fa-bell mr-2 w-4"></i><span class="tw-sidebar-text">Notifications</span></a>
+    </div>
+  </nav>
+</div>
