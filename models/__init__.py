@@ -21,3 +21,8 @@ from .session_note import SessionNote
 from .learning_goal import LearningGoal, ProgressEntry
 from .chatbot import ChatbotConversation, ChatbotMessage
 from .student_saved_location import StudentSavedLocation
+from .refund_request import RefundRequest
+from .audit_log import AuditLog
+from .content_report import ContentReport
+from .guardian_message import GuardianMessage
+from .platform_setting import PlatformSetting

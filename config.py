@@ -26,6 +26,14 @@ class Config:
     SESSION_KEY_PREFIX = 'tw:session:'
     SESSION_USE_SIGNER = True
 
+    # Session cookie settings — required for cross-port dev (Next.js 3000 → Flask 5001)
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SECURE = False   # True in production only
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SECURE = False  # True in production only
+
     # --- Email (Resend.com) ---
     RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
     EMAIL_FROM = os.environ.get('EMAIL_FROM', 'onboarding@resend.dev')

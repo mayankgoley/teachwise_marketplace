@@ -1,10 +1,11 @@
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, request, jsonify
 from config import Config
 from database import db
 from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
 from flask_socketio import emit, join_room, leave_room
+from flask_cors import CORS
 from extensions import limiter, socketio
 import stripe
 import os
@@ -13,6 +14,34 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# --- Sentry Error Tracking ---
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+_sentry_dsn = os.environ.get('SENTRY_DSN', '')
+if _sentry_dsn and os.environ.get('FLASK_ENV') == 'production':
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        environment='production',
+        integrations=[
+            FlaskIntegration(transaction_style='url'),
+            SqlalchemyIntegration(),
+        ],
+        traces_sample_rate=0.05,
+        before_send=lambda event, hint: (
+            {**event, 'request': {**event.get('request', {}), 'cookies': {}}}
+            if event.get('request', {}).get('cookies')
+            else event
+        ),
+    )
+
+# --- CORS (allow Next.js frontend in dev and production) ---
+CORS(app, supports_credentials=True, origins=[
+    "http://localhost:3000",
+    "https://teachwiseedu.com",
+])
 
 from utils.logging_config import configure_logging
 configure_logging(app)
@@ -130,8 +159,17 @@ def invalidate_user_cache(uid):
 
 @login_manager.unauthorized_handler
 def unauthorized():
-    from flask import request as req
+    from flask import request as req, jsonify
     path = req.path
+    # API endpoints return JSON 401 instead of redirecting
+    if path.startswith('/api/'):
+        return jsonify({
+            "success": False,
+            "error": {
+                "code": 401,
+                "message": "Authentication required.",
+            },
+        }), 401
     if path.startswith('/tutor'):
         return redirect(url_for('tutor_bp.login'))
     elif path.startswith('/admin'):
@@ -191,6 +229,74 @@ app.register_blueprint(notif_center_bp)
 
 from routes.geocoding_routes import geocoding_bp
 app.register_blueprint(geocoding_bp)
+
+from routes.api_auth import api_auth_bp
+app.register_blueprint(api_auth_bp)
+csrf.exempt(api_auth_bp)
+
+from routes.api_dashboard import api_dashboard_bp
+app.register_blueprint(api_dashboard_bp)
+csrf.exempt(api_dashboard_bp)
+
+from routes.api_search import api_search_bp
+app.register_blueprint(api_search_bp)
+csrf.exempt(api_search_bp)
+
+from routes.api_tutor_public import api_tutor_public_bp
+app.register_blueprint(api_tutor_public_bp)
+csrf.exempt(api_tutor_public_bp)
+
+from routes.api_student_features import api_student_features_bp
+app.register_blueprint(api_student_features_bp)
+csrf.exempt(api_student_features_bp)
+
+from routes.api_tutor_features import api_tutor_features_bp
+app.register_blueprint(api_tutor_features_bp)
+csrf.exempt(api_tutor_features_bp)
+
+from routes.api_assignments import api_assignments_bp
+app.register_blueprint(api_assignments_bp)
+csrf.exempt(api_assignments_bp)
+
+from routes.api_progress import api_progress_bp
+app.register_blueprint(api_progress_bp)
+csrf.exempt(api_progress_bp)
+
+from routes.api_chat import api_chat_bp
+app.register_blueprint(api_chat_bp)
+csrf.exempt(api_chat_bp)
+
+from routes.api_session import api_session_bp
+app.register_blueprint(api_session_bp)
+csrf.exempt(api_session_bp)
+
+from routes.api_tutor_profile import api_tutor_profile_bp
+app.register_blueprint(api_tutor_profile_bp)
+csrf.exempt(api_tutor_profile_bp)
+
+from routes.api_tutor_documents import api_tutor_documents_bp
+app.register_blueprint(api_tutor_documents_bp)
+csrf.exempt(api_tutor_documents_bp)
+
+from routes.api_admin import api_admin_bp
+app.register_blueprint(api_admin_bp)
+csrf.exempt(api_admin_bp)
+
+from routes.api_guardian_features import api_guardian_features_bp
+app.register_blueprint(api_guardian_features_bp)
+csrf.exempt(api_guardian_features_bp)
+
+from routes.api_verify import api_verify_bp
+app.register_blueprint(api_verify_bp)
+csrf.exempt(api_verify_bp)
+
+from routes.api_reschedule import api_reschedule_bp
+app.register_blueprint(api_reschedule_bp)
+csrf.exempt(api_reschedule_bp)
+
+from routes.api_recordings import api_recordings_bp
+app.register_blueprint(api_recordings_bp)
+csrf.exempt(api_recordings_bp)
 
 from models import *
 
@@ -303,7 +409,12 @@ def page_not_found(e):
 
 @app.errorhandler(500)
 def internal_server_error(e):
-    return render_template('500.html'), 500
+    if request.path.startswith('/api/'):
+        return jsonify({"success": False, "error": {"message": "Internal server error", "code": 500}}), 500
+    try:
+        return render_template('500.html'), 500
+    except Exception:
+        return jsonify({"success": False, "error": {"message": "Internal server error", "code": 500}}), 500
 
 
 # A5: Sidebar badge counts context processor

@@ -9,3 +9,5 @@ instance/
 node_modules/
 ~$*
 .claude/
+*.docx
+teachwise-redesign.html

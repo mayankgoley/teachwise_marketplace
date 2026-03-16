@@ -1,0 +1,180 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Dark mode (default) ──────────────────────────────────────────── */
+:root {
+  --bg: #03040a;
+  --surface: #0b0d18;
+  --surface2: rgba(16, 20, 34, 0.5);
+  --border: rgba(255, 255, 255, 0.07);
+  --accent: #4f8eff;
+  --accent2: #00e5ff;
+  --accent3: #ff4fd8;
+  --text: #e8eaf6;
+  --muted: rgba(232, 234, 246, 0.68);
+  --glow: rgba(79, 142, 255, 0.18);
+}
+
+/* ── Light mode ───────────────────────────────────────────────────── */
+.light {
+  --bg: #f4f6fb;
+  --surface: #ffffff;
+  --surface2: rgba(255, 255, 255, 0.85);
+  --border: rgba(0, 0, 0, 0.09);
+  --text: #0d1117;
+  --muted: rgba(13, 17, 23, 0.62);
+  --glow: rgba(79, 142, 255, 0.12);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "DM Sans", sans-serif;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── Grid background overlay ──────────────────────────────────────── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: linear-gradient(
+      rgba(79, 142, 255, 0.04) 1px,
+      transparent 1px
+    ),
+    linear-gradient(90deg, rgba(79, 142, 255, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Gradient text utility ────────────────────────────────────────── */
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(
+      90deg,
+      var(--accent),
+      var(--accent2),
+      var(--accent3)
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 200%;
+  }
+
+  .text-gradient-stat {
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .btn-gradient {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── Component hover effects ─────────────────────────────────── */
+.stat-card {
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+.stat-card-clickable:hover {
+  border-color: var(--accent) !important;
+  cursor: pointer;
+}
+
+.data-table-row {
+  transition: background-color 0.15s ease;
+  cursor: default;
+}
+.data-table-row-clickable {
+  cursor: pointer;
+}
+.data-table-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tutor-card {
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.tutor-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent);
+}
+
+/* ── Loading screen keyframes ──────────────────────────────────── */
+@keyframes load {
+  0% { width: 0%; }
+  60% { width: 75%; }
+  100% { width: 100%; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* ── Chatbot keyframes ─────────────────────────────────────────── */
+@keyframes chatPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(79, 142, 255, 0.5); }
+  50% { box-shadow: 0 0 0 16px rgba(79, 142, 255, 0); }
+}
+
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ── Focus rings for keyboard navigation (WCAG AA) ──────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Light mode overrides ──────────────────────────────────────── */
+.light body::before {
+  background-image: linear-gradient(rgba(79, 142, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 142, 255, 0.06) 1px, transparent 1px);
+}
+
+/* ── Noise overlay ─────────────────────────────────────────────── */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.5;
+}

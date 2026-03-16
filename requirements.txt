@@ -8,6 +8,9 @@ psycopg2-binary==2.9.7         # PostgreSQL driver
 GeoAlchemy2==0.15.2            # PostGIS integration for spatial queries
 python-dotenv==1.0.0           # Load .env file into environment
 
+# === CORS (Next.js frontend) ===
+Flask-Cors==4.0.0               # Cross-origin requests from Next.js dev server
+
 # === Security ===
 Flask-WTF==1.2.1               # CSRF protection on all forms
 Flask-Limiter==3.5.1           # Rate limiting (brute-force protection)
