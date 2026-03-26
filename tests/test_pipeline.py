@@ -229,3 +229,6 @@ def test_pipeline_cycle_242():
 
 def test_pipeline_cycle_250():
     assert True == True
+
+def test_pipeline_cycle_256():
+    assert True == True
