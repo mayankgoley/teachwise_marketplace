@@ -12,7 +12,7 @@ class LearningGoal(db.Model):
     description = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(20), default='active')  # active, completed, paused
     target_date = db.Column(db.Date, nullable=True)
-    skill_tags = db.Column(db.JSON, nullable=True)  # A6: list of skill tag strings
+    skill_tags = db.Column(db.JSON, nullable=True)  # list of skill tag strings
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     student = db.relationship('Student', backref='learning_goals', lazy=True)

@@ -1,4 +1,4 @@
-"""D3: Tests for payment routes and Stripe integration."""
+"""Tests for payment routes and Stripe integration."""
 import pytest
 import json
 from unittest.mock import patch, MagicMock

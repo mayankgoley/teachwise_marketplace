@@ -1,4 +1,4 @@
-"""D5: Tests for service layer functions."""
+"""Tests for service layer functions."""
 import pytest
 from datetime import date, time, timedelta, datetime
 

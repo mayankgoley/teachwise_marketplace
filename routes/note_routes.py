@@ -19,7 +19,7 @@ ALLOWED_TAGS = ['p', 'br', 'strong', 'em', 'u', 's', 'ol', 'ul', 'li',
                 'h1', 'h2', 'h3', 'blockquote', 'pre', 'code', 'a', 'span']
 ALLOWED_ATTRS = {'a': ['href', 'target'], 'span': ['style'], '*': ['class']}
 
-# B5: Note templates
+# note templates
 NOTE_TEMPLATES = [
     {'name': 'Session Summary', 'content': '<h3>Topics Covered</h3><ul><li></li></ul><h3>Key Takeaways</h3><p></p><h3>Homework / Next Steps</h3><ul><li></li></ul>'},
     {'name': 'Lesson Plan', 'content': '<h3>Objectives</h3><ul><li></li></ul><h3>Activities</h3><ol><li></li></ol><h3>Assessment</h3><p></p>'},
@@ -27,7 +27,6 @@ NOTE_TEMPLATES = [
     {'name': 'Quick Notes', 'content': '<p>- </p>'},
 ]
 
-# B6: File attachment settings
 NOTE_ALLOWED_EXT = {'pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'txt'}
 NOTE_MAX_FILE_MB = 10
 
@@ -53,7 +52,6 @@ def view_notes(slot_id):
             return redirect(url_for('tutor_bp.tutor_dashboard'))
         return redirect(url_for('student_bp.dashboard'))
 
-    # B4: Search filter
     search_q = request.args.get('q', '').strip()
 
     notes = SessionNote.query.filter_by(slot_id=slot_id).order_by(
@@ -66,7 +64,6 @@ def view_notes(slot_id):
             note.author_type == user_type and note.author_id == user_id
         ):
             continue
-        # B4: Filter by search
         if search_q and search_q.lower() not in note.content.lower():
             continue
         visible_notes.append(note)
@@ -107,7 +104,7 @@ def add_note(slot_id):
         return redirect(url_for('main.index'))
 
     content = request.form.get('content', '')
-    # B1: Sanitize rich text
+    # sanitize the rich text before storing
     content = bleach.clean(content, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS, strip=True)
     content = sanitize_input_length(content, MAX_NOTE_LENGTH)
     is_private = request.form.get('is_private') == 'on'
@@ -116,7 +113,6 @@ def add_note(slot_id):
         flash('Note cannot be empty.', 'danger')
         return redirect(url_for('note_bp.view_notes', slot_id=slot_id))
 
-    # B6: Handle file attachments
     attachments = []
     files = request.files.getlist('attachments')
     for f in files:
@@ -171,7 +167,7 @@ def edit_note(note_id):
         flash('Note cannot be empty.', 'danger')
         return redirect(url_for('note_bp.view_notes', slot_id=note.slot_id))
 
-    # B3: Save version history before edit
+    # snapshot the old content before we overwrite it
     version = NoteVersion(
         note_id=note.id,
         content=note.content,
@@ -191,7 +187,7 @@ def edit_note(note_id):
 @note_bp.route('/session/notes/<int:note_id>/history')
 @login_required
 def note_history(note_id):
-    """B3: View edit history of a note."""
+    """View edit history of a note."""
     note = SessionNote.query.get_or_404(note_id)
     user_type = current_user.user_type
     user_id = current_user.id

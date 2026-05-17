@@ -708,7 +708,7 @@ def view_tutor_profile(tutor_id):
                     TutorSlot.current_students < TutorSlot.max_students)
         )
     ).order_by(TutorSlot.date.asc()).all()
-    # D4: Paginated reviews
+    # paginated reviews
     page = request.args.get('page', 1, type=int)
     per_page = 5
     reviews_query = Review.query.filter_by(tutor_id=tutor_id).order_by(
@@ -737,13 +737,13 @@ def view_tutor_profile(tutor_id):
             'value': round(sum(r.rating_value for r in dim_reviews) / len(dim_reviews), 1),
         }
 
-    # D2: Rating distribution for chart
-    rating_distribution = [0, 0, 0, 0, 0]  # index 0 = 1 star, index 4 = 5 stars
+    # rating distribution for the chart — index 0 = 1 star, index 4 = 5 stars
+    rating_distribution = [0, 0, 0, 0, 0]
     for r in all_reviews:
         if r.rating and 1 <= r.rating <= 5:
             rating_distribution[r.rating - 1] += 1
 
-    # D7: User's existing votes
+    # this user's existing helpfulness votes
     user_votes = {}
     if current_user and current_user.is_authenticated:
         from models.review import ReviewVote
@@ -1863,7 +1863,7 @@ def logout():
     return redirect(url_for('main.index'))
 
 
-# D6: Tutor response to a review
+# tutor responds to a review
 @tutor_bp.route('/tutor/review/<int:review_id>/respond', methods=['POST'])
 @role_required('tutor')
 def respond_to_review(review_id):
@@ -1890,7 +1890,7 @@ def respond_to_review(review_id):
     return redirect(url_for('tutor_bp.view_tutor_profile', tutor_id=current_user.id))
 
 
-# D5: Report a review
+# report a review
 @tutor_bp.route('/review/<int:review_id>/report', methods=['POST'])
 @login_required
 def report_review(review_id):
@@ -1925,7 +1925,7 @@ def report_review(review_id):
     return jsonify({'ok': True})
 
 
-# D7: Vote on review helpfulness
+# vote on whether a review was helpful
 @tutor_bp.route('/review/<int:review_id>/vote', methods=['POST'])
 @login_required
 def vote_review(review_id):

@@ -1,4 +1,4 @@
-"""D7: Security tests — XSS, CSRF, injection, access control."""
+"""Security tests — XSS, CSRF, injection, access control."""
 import pytest
 import json
 

@@ -657,7 +657,7 @@ def submit_review(booking_id):
             flash('Please provide ratings for all dimensions.', 'warning')
             return redirect(url_for('student_bp.submit_review', booking_id=booking_id))
 
-        # D3: Minimum character requirement for comments
+        # require a real comment, not one-word reviews
         if comment and len(comment.strip()) < 20:
             flash('Please write at least 20 characters in your comment.', 'warning')
             return redirect(url_for('student_bp.submit_review', booking_id=booking_id))

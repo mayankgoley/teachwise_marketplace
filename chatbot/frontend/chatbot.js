@@ -1,7 +1,7 @@
 (function () {
   var CSS_URL = "/api/chatbot/static/chatbot.css";
 
-  // D5: Quick replies loaded from server
+  // fallback if /quick-replies fails
   var DEFAULT_QUICK_ACTIONS = [
     "Help with my booking",
     "I want a refund",
@@ -97,7 +97,7 @@
       '<div style="display:flex;align-items:center;gap:8px">' +
       '<i class="fas fa-robot"></i><span style="font-weight:600;font-size:14px">Support Chat</span></div>' +
       '<div style="display:flex;align-items:center;gap:2px">' +
-      // D2: New Chat button
+      // new chat button
       '<button id="tw-chatbot-newchat" aria-label="New chat" title="New chat" style="width:32px;height:32px;display:flex;' +
       'align-items:center;justify-content:center;border-radius:4px;border:none;background:transparent;' +
       'color:#fff;cursor:pointer;opacity:0.85" onmouseover="this.style.opacity=1;this.style.background=\'rgba(255,255,255,0.15)\'" ' +
@@ -120,7 +120,7 @@
       // Messages area
       '<div id="tw-chatbot-messages" class="tw-chatbot-messages" style="flex:1;overflow-y:auto;' +
       'padding:12px 16px" role="log" aria-live="polite"></div>' +
-      // D3: Follow-up actions area
+      // follow-up actions area
       '<div id="tw-chatbot-followups" style="padding:0 16px;display:none"></div>' +
       // Quick actions
       '<div id="tw-chatbot-quick" style="padding:0 16px 8px;display:flex;flex-wrap:wrap;gap:8px"></div>' +
@@ -152,7 +152,6 @@
     };
   }
 
-  // D5: Load quick replies from server
   function loadQuickReplies() {
     api("/quick-replies")
       .then(function (data) {
@@ -207,7 +206,7 @@
       ";margin-bottom:12px";
 
     var feedbackHtml = "";
-    // D6: Feedback buttons for assistant messages
+    // thumbs up/down on assistant messages
     if (!isUser && msg.id) {
       feedbackHtml =
         '<div class="tw-feedback" style="display:flex;gap:4px;margin-top:4px;padding:0 4px" data-msg-id="' +
@@ -241,7 +240,7 @@
     els.messages.appendChild(div);
   }
 
-  // D6: Global feedback handler
+  // exposed globally so inline onclick handlers can reach it
   window.twChatbotFeedback = function (msgId, feedback) {
     if (!state.conversationId) return;
     api(
@@ -268,7 +267,7 @@
     scrollBottom();
   }
 
-  // D1: Typing indicator
+  // typing indicator
   function showTyping() {
     var div = document.createElement("div");
     div.id = "tw-chatbot-typing";
@@ -289,7 +288,6 @@
     if (t) t.remove();
   }
 
-  // D3: Render follow-up action cards
   function renderFollowUps(followUps) {
     if (!followUps || followUps.length === 0) {
       els.followups.style.display = "none";
@@ -359,7 +357,6 @@
     }
   }
 
-  // D2: New chat
   function newChat() {
     if (state.conversationId) {
       api("/conversations/" + state.conversationId + "/resolve", {
@@ -441,7 +438,6 @@
           notifyUnread();
           scrollBottom();
 
-          // D3: Show follow-up actions
           if (data.follow_ups) {
             renderFollowUps(data.follow_ups);
           }

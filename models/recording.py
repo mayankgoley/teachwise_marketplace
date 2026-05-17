@@ -12,7 +12,7 @@ class SessionRecording(db.Model):
     file_encryption_key = db.Column(db.Text, nullable=True)
     duration_seconds = db.Column(db.Integer, nullable=True)
     file_size_bytes = db.Column(db.Integer, nullable=True)
-    quality = db.Column(db.String(20), nullable=True)  # C1: 'low','medium','high'
+    quality = db.Column(db.String(20), nullable=True)  # 'low','medium','high'
     consent_student = db.Column(db.Boolean, default=False)
     consent_tutor = db.Column(db.Boolean, default=False)
     expires_at = db.Column(db.DateTime, nullable=True)

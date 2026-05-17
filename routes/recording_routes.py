@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 recording_bp = Blueprint('recording_bp', __name__)
 
-# C1: Quality presets
+# quality presets
 QUALITY_PRESETS = {
     'low': {'label': 'Low (360p)', 'width': 640, 'height': 360, 'bitrate': 500000},
     'medium': {'label': 'Medium (720p)', 'width': 1280, 'height': 720, 'bitrate': 1500000},
@@ -41,7 +41,7 @@ def _get_user_role(slot):
 
 
 def _is_guardian_of(slot):
-    """C6: Check if current user is guardian of the student in this slot."""
+    """Check if the current user is guardian of the student in this slot."""
     if not current_user.is_authenticated or current_user.user_type != 'guardian':
         return False
     student = Student.query.get(slot.student_id)
@@ -81,7 +81,7 @@ def record_consent(slot_id):
     })
 
 
-# C2: Get consent status
+# consent status
 @recording_bp.route('/session/<int:slot_id>/record/consent-status')
 def consent_status(slot_id):
     slot = TutorSlot.query.get_or_404(slot_id)
@@ -99,7 +99,6 @@ def consent_status(slot_id):
     })
 
 
-# C1: Get quality presets
 @recording_bp.route('/api/recording/quality-presets')
 @login_required
 def quality_presets():
@@ -159,7 +158,7 @@ def upload_recording(slot_id):
 
 @recording_bp.route('/session/<int:slot_id>/recording/<int:recording_id>')
 def playback_recording(slot_id, recording_id):
-    """C4: Streaming playback with range request support."""
+    """Streaming playback with range request support."""
     slot = TutorSlot.query.get_or_404(slot_id)
     recording = SessionRecording.query.get_or_404(recording_id)
 
@@ -188,7 +187,7 @@ def playback_recording(slot_id, recording_id):
         flash('Could not retrieve recording.', 'danger')
         return redirect(url_for('main.index'))
 
-    # C4: Support range requests for streaming
+    # handle range requests so the player can seek
     total_size = len(file_bytes)
     range_header = request.headers.get('Range')
     if range_header:
@@ -243,7 +242,6 @@ def view_recording(recording_id):
     tutor = Tutor.query.get(slot.tutor_id)
     student = Student.query.get(slot.student_id) if slot.student_id else None
 
-    # C5: Expiry warning
     days_until_expiry = None
     if recording.expires_at:
         delta = recording.expires_at - datetime.utcnow()
@@ -268,7 +266,7 @@ def student_recordings():
             SessionRecording.is_deleted == False
         ).order_by(SessionRecording.created_at.desc()).all()
 
-    # C5: Flag recordings expiring within 3 days
+    # flag recordings expiring within 3 days
     expiring_soon = []
     for rec in recordings:
         if rec.expires_at:
@@ -311,7 +309,7 @@ def tutor_recordings():
                            quality_presets=QUALITY_PRESETS)
 
 
-# C6: Guardian recordings list
+# guardian recordings list
 @recording_bp.route('/guardian/recordings')
 @login_required
 def guardian_recordings():

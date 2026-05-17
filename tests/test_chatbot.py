@@ -1,4 +1,4 @@
-"""D4: Tests for the chatbot API endpoints."""
+"""Tests for the chatbot API endpoints."""
 import pytest
 import json
 

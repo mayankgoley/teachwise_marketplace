@@ -401,7 +401,7 @@ app.register_blueprint(main)
 from flask import jsonify
 
 
-# C4: Custom error pages
+# error pages
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html'), 404
@@ -417,7 +417,7 @@ def internal_server_error(e):
         return jsonify({"success": False, "error": {"message": "Internal server error", "code": 500}}), 500
 
 
-# A5: Sidebar badge counts context processor
+# sidebar badge counts
 @app.context_processor
 def inject_sidebar_badges():
     from flask_login import current_user as cu

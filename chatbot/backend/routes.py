@@ -87,7 +87,7 @@ def send_message(conversation_id):
         if 'error' in result and 'message' not in result:
             return jsonify(result), 400
 
-        # D3: Follow-up action cards
+        # follow-up action cards
         follow_ups = _extract_follow_ups(result.get('message', ''), user_role)
 
         return jsonify({
@@ -121,7 +121,7 @@ def resolve_conversation(conversation_id):
     return jsonify({'status': 'resolved'})
 
 
-# D2: Delete/new conversation
+# delete conversation
 @chatbot_bp.route('/conversations/<conversation_id>', methods=['DELETE'])
 def delete_conversation(conversation_id):
     from chatbot.backend.models import ChatbotConversation
@@ -134,7 +134,7 @@ def delete_conversation(conversation_id):
     return jsonify({'status': 'deleted'})
 
 
-# D6: Message feedback
+# message feedback
 @chatbot_bp.route('/conversations/<conversation_id>/messages/<message_id>/feedback', methods=['POST'])
 def message_feedback(conversation_id, message_id):
     from chatbot.backend.models import ChatbotMessage
@@ -153,7 +153,7 @@ def message_feedback(conversation_id, message_id):
     return jsonify({'success': True, 'feedback': feedback})
 
 
-# D4: Booking modification via chatbot
+# modify a booking from the chat
 @chatbot_bp.route('/conversations/<conversation_id>/modify-booking', methods=['POST'])
 def modify_booking(conversation_id):
     from chatbot.backend.models import ChatbotConversation
@@ -192,7 +192,7 @@ def modify_booking(conversation_id):
     return jsonify({'error': f'Action "{action}" not supported yet'}), 400
 
 
-# D5: Quick replies
+# quick replies
 @chatbot_bp.route('/quick-replies')
 def quick_replies():
     user_id, user_role = _user_info()
@@ -223,7 +223,7 @@ def quick_replies():
 
 
 def _extract_follow_ups(message, user_role):
-    """D3: Extract follow-up action suggestions from the assistant's response."""
+    """Pull follow-up action suggestions out of the assistant's response."""
     follow_ups = []
     msg_lower = (message or '').lower()
 

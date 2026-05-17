@@ -11,7 +11,7 @@ class SessionNote(db.Model):
     author_id = db.Column(db.Integer, nullable=False)
     content = db.Column(db.Text, nullable=False)
     is_private = db.Column(db.Boolean, default=False)  # private = only author sees it
-    attachments = db.Column(db.JSON, nullable=True)  # B6: [{key, encryption_key, name, size}]
+    attachments = db.Column(db.JSON, nullable=True)  # [{key, encryption_key, name, size}]
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow,
                            onupdate=datetime.utcnow)
@@ -22,7 +22,7 @@ class SessionNote(db.Model):
 
 
 class NoteVersion(db.Model):
-    """B3: Track edit history of session notes."""
+    """Track edit history of session notes."""
     __tablename__ = 'note_versions'
 
     id = db.Column(db.Integer, primary_key=True)

@@ -25,7 +25,7 @@ admin_bp = Blueprint('admin_bp', __name__)
 
 
 def _log_action(action, target_type=None, target_id=None, details=None):
-    """C7: Create audit log entry."""
+    """Create an audit log entry."""
     log = AuditLog(
         admin_id=current_user.id if current_user.is_authenticated else None,
         admin_name=current_user.name if current_user.is_authenticated else None,
@@ -110,7 +110,7 @@ def dashboard():
     sent_emails = EmailNotification.query.filter_by(status='sent').count()
     email_rate = round((sent_emails / total_emails * 100) if total_emails > 0 else 0, 1)
 
-    # C5: Pending moderation count
+    # pending moderation count
     pending_reports = ContentReport.query.filter_by(status='pending').count()
     try:
         from models.review import ReviewReport
@@ -135,7 +135,7 @@ def dashboard():
                            tutors=tutors)
 
 
-# C1: Bulk user actions
+# user management + bulk actions
 @admin_bp.route('/admin/users')
 @role_required('admin')
 def admin_users():
@@ -163,7 +163,6 @@ def admin_users():
                            user_type=user_type, search=search)
 
 
-# C1: Bulk action endpoint
 @admin_bp.route('/admin/users/bulk', methods=['POST'])
 @role_required('admin')
 def bulk_user_action():
@@ -247,7 +246,7 @@ def admin_emails():
     return render_template('admin_emails.html', results=paginated, status=status_filter)
 
 
-# C2: Verification checklist
+# verification checklist
 @admin_bp.route('/admin/verification/<int:tutor_id>')
 @role_required('admin')
 def verification_checklist(tutor_id):
@@ -295,7 +294,7 @@ def save_verification_checklist(tutor_id):
     return redirect(url_for('admin_bp.verification_checklist', tutor_id=tutor_id))
 
 
-# C3: Booking analytics
+# booking analytics
 @admin_bp.route('/admin/analytics/bookings')
 @role_required('admin')
 def booking_analytics():
@@ -341,7 +340,6 @@ def booking_analytics():
                            dow_stats=dow_stats)
 
 
-# C4: System analytics
 @admin_bp.route('/admin/analytics/system')
 @role_required('admin')
 def system_analytics():
@@ -384,7 +382,7 @@ def system_analytics():
                            escalated_chats=escalated_chats)
 
 
-# C5: Moderation queue
+# moderation queue
 @admin_bp.route('/admin/moderation')
 @role_required('admin')
 def moderation_queue():
@@ -447,7 +445,6 @@ def moderate_review_report(report_id):
     return redirect(url_for('admin_bp.moderation_queue'))
 
 
-# C6: Revenue dashboard
 @admin_bp.route('/admin/analytics/revenue')
 @role_required('admin')
 def revenue_dashboard():
@@ -497,7 +494,7 @@ def revenue_dashboard():
                            platform_revenue=float(platform_revenue))
 
 
-# C7: Audit log
+# audit log
 @admin_bp.route('/admin/audit-log')
 @role_required('admin')
 def audit_log():
@@ -515,7 +512,6 @@ def audit_log():
                            results=paginated, action_filter=action_filter)
 
 
-# C8: Platform settings
 @admin_bp.route('/admin/settings', methods=['GET', 'POST'])
 @role_required('admin')
 def platform_settings():

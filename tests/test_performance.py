@@ -1,4 +1,4 @@
-"""D8: Performance test skeletons using Locust.
+"""Performance test skeletons using Locust.
 
 Run with: locust -f tests/test_performance.py --host=http://localhost:5001
 

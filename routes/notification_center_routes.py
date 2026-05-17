@@ -18,7 +18,6 @@ def notification_center():
         user_type=current_user.user_type
     ).order_by(InAppNotification.created_at.desc())
 
-    # A3: Type filter
     if filter_type != 'all':
         query = query.filter_by(type=filter_type)
 
@@ -32,7 +31,7 @@ def notification_center():
         is_read=False
     ).count()
 
-    # A2: Group notifications by group_key for display
+    # collapse notifications that share a group_key
     grouped = {}
     ungrouped = []
     for n in notifications:
@@ -47,13 +46,9 @@ def notification_center():
     display_notifications = list(grouped.values()) + ungrouped
     display_notifications.sort(key=lambda n: n.created_at, reverse=True)
 
-    # A1: Sound preference
+    # per-user notification prefs (default if the attr isn't set)
     notification_sound = getattr(current_user, 'notification_sound', True)
-
-    # A5: Email digest frequency
     email_digest = getattr(current_user, 'email_digest_frequency', 'instant')
-
-    # A6: Reminder timing
     reminder_times = getattr(current_user, 'reminder_times', {}) or {}
 
     return render_template('notification_center.html',
@@ -79,7 +74,7 @@ def mark_read(notif_id):
     return jsonify(success=True)
 
 
-# A4: Mark all read
+# mark all read
 @notif_center_bp.route('/api/notifications/read-all', methods=['POST'])
 @login_required
 def mark_all_read():
@@ -103,7 +98,6 @@ def unread_count():
     return jsonify(count=count)
 
 
-# A1: Toggle notification sound
 @notif_center_bp.route('/api/notifications/sound', methods=['POST'])
 @login_required
 def toggle_sound():
@@ -125,7 +119,7 @@ def toggle_sound():
     return jsonify(success=True, enabled=bool(enabled))
 
 
-# A5: Email digest preferences
+# email digest preferences
 @notif_center_bp.route('/api/notifications/email-digest', methods=['POST'])
 @login_required
 def set_email_digest():
@@ -149,7 +143,6 @@ def set_email_digest():
     return jsonify(success=True, frequency=freq)
 
 
-# A6: Reminder timing
 @notif_center_bp.route('/api/notifications/reminder-timing', methods=['POST'])
 @login_required
 def set_reminder_timing():
@@ -174,7 +167,7 @@ def set_reminder_timing():
     return jsonify(success=True, times=cleaned)
 
 
-# A7: Push subscription
+# web push subscription
 @notif_center_bp.route('/api/notifications/push-subscribe', methods=['POST'])
 @login_required
 def push_subscribe():

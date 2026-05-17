@@ -15,8 +15,8 @@ class Review(db.Model):
     rating_punctuality = db.Column(db.Integer, nullable=True)    # 1-5
     rating_value = db.Column(db.Integer, nullable=True)          # 1-5
     comment = db.Column(db.Text, nullable=True)
-    tutor_response = db.Column(db.Text, nullable=True)  # D6
-    tutor_response_at = db.Column(db.DateTime, nullable=True)  # D6
+    tutor_response = db.Column(db.Text, nullable=True)
+    tutor_response_at = db.Column(db.DateTime, nullable=True)
     is_verified = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -34,7 +34,7 @@ class Review(db.Model):
 
 
 class ReviewReport(db.Model):
-    """D5: Flag/report inappropriate reviews."""
+    """Flag/report inappropriate reviews."""
     __tablename__ = 'review_reports'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -48,7 +48,7 @@ class ReviewReport(db.Model):
 
 
 class ReviewVote(db.Model):
-    """D7: Helpfulness voting on reviews."""
+    """Helpfulness voting on reviews."""
     __tablename__ = 'review_votes'
 
     id = db.Column(db.Integer, primary_key=True)

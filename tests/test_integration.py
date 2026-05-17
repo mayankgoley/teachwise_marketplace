@@ -1,4 +1,4 @@
-"""D6: Integration tests — end-to-end flows."""
+"""Integration tests — end-to-end flows."""
 import pytest
 import json
 from datetime import date, time, timedelta

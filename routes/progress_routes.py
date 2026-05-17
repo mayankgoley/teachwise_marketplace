@@ -13,7 +13,7 @@ from datetime import datetime
 
 progress_bp = Blueprint('progress_bp', __name__)
 
-# A1: Goal templates
+# goal templates
 GOAL_TEMPLATES = [
     {'title': 'Master Core Concepts', 'description': 'Build a solid foundation in fundamental concepts and theories.'},
     {'title': 'Exam Preparation', 'description': 'Prepare for an upcoming exam with focused study and practice problems.'},
@@ -42,7 +42,7 @@ def student_progress():
     tutor_ids = [t[0] for t in completed_tutor_ids]
     tutors = Tutor.query.filter(Tutor.id.in_(tutor_ids)).all() if tutor_ids else []
 
-    # A6: Collect all unique skill tags across goals
+    # collect unique skill tags across all goals
     all_tags = set()
     for g in goals:
         if g.skill_tags:
@@ -85,7 +85,6 @@ def create_goal():
         except ValueError:
             pass
 
-    # A6: Parse skill tags
     skill_tags = None
     if skill_tags_str.strip():
         skill_tags = [t.strip() for t in skill_tags_str.split(',') if t.strip()][:10]
@@ -132,7 +131,7 @@ def goal_detail(goal_id):
     entries = ProgressEntry.query.filter_by(goal_id=goal_id)\
         .order_by(ProgressEntry.created_at.desc()).all()
 
-    # A2: Chart data for progress over time
+    # chart data — ratings over time
     chart_entries = ProgressEntry.query.filter_by(goal_id=goal_id)\
         .order_by(ProgressEntry.created_at.asc()).all()
     chart_labels = [e.created_at.strftime('%b %d') for e in chart_entries if e.rating]
@@ -181,7 +180,7 @@ def add_entry(goal_id):
     db.session.add(entry)
     db.session.commit()
 
-    # A3: Check if goal just completed — flash celebration
+    # celebrate if the goal is already done
     if goal.status == 'completed':
         flash('__CELEBRATION__', 'celebration')
     else:
@@ -218,7 +217,7 @@ def update_goal_status(goal_id):
 @progress_bp.route('/student/goals/<int:goal_id>/tags', methods=['POST'])
 @login_required
 def update_skill_tags(goal_id):
-    """A6: Update skill tags for a goal."""
+    """Update skill tags for a goal."""
     goal = LearningGoal.query.get_or_404(goal_id)
     user_type = current_user.user_type
     user_id = current_user.id
@@ -306,7 +305,7 @@ def tutor_create_goal(student_id):
     return redirect(url_for('progress_bp.goal_detail', goal_id=goal.id))
 
 
-# A4: Auto-prompt check — returns pending goals for a completed session
+# after a session ends, surface active goals to prompt for a progress entry
 @progress_bp.route('/api/progress/prompt/<int:slot_id>')
 @login_required
 def progress_prompt(slot_id):
@@ -336,7 +335,7 @@ def progress_prompt(slot_id):
     })
 
 
-# A5: PDF progress report
+# pdf progress report
 @progress_bp.route('/student/goals/<int:goal_id>/report')
 @login_required
 def goal_report_pdf(goal_id):

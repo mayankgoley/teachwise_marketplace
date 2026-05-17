@@ -137,7 +137,7 @@ def guardian_dashboard():
     guardian = current_user
     students = Student.query.filter_by(guardian_id=guardian.id).all()
 
-    # B1: Enhanced stats per child
+    # per-child stats
     children = []
     now = datetime.utcnow()
     week_ago = now - timedelta(days=7)
@@ -153,7 +153,6 @@ def guardian_dashboard():
             .join(Booking, Booking.slot_id == TutorSlot.id)\
             .filter(Booking.student_id == s.id, Booking.status != 'Cancelled').scalar()
 
-        # B1: Additional stats
         completed = Booking.query.filter_by(student_id=s.id, status='Completed').count()
         upcoming = Booking.query.filter_by(student_id=s.id, status='Booked').count()
 
@@ -188,7 +187,7 @@ def guardian_dashboard():
             Booking.status == 'Booked'
         ).order_by(Booking.booked_on.desc()).all()
 
-    # B2: Recent activity feed
+    # recent activity feed
     activity_feed = []
     if student_ids:
         recent = Booking.query.filter(
@@ -206,7 +205,6 @@ def guardian_dashboard():
                 'timestamp': b.booked_on
             })
 
-    # B5: Unread messages count
     unread_messages = 0
     if student_ids:
         unread_messages = GuardianMessage.query.filter(
@@ -215,7 +213,7 @@ def guardian_dashboard():
             GuardianMessage.is_read == False
         ).count()
 
-    # B6: Spending limit warnings
+    # warn when a child is near the weekly/monthly spend limit
     spending_warnings = []
     for c in children:
         if guardian.weekly_spending_limit and c['spent_this_week'] >= guardian.weekly_spending_limit * 0.8:
@@ -269,7 +267,6 @@ def child_activity(student_id):
     total_spent = sum(bd['slot'].price for bd in booking_details
                       if bd['slot'] and bd['booking'].status != 'Cancelled')
 
-    # B3: Per-child notification config
     child_config = (guardian.child_notification_config or {}).get(str(student_id), {})
 
     return render_template('guardian_child_activity.html',
@@ -280,7 +277,7 @@ def child_activity(student_id):
                            child_config=child_config)
 
 
-# B3: Save per-child notification config
+# save per-child notification config
 @guardian_bp.route('/guardian/child/<int:student_id>/config', methods=['POST'])
 @role_required('guardian')
 def save_child_config(student_id):
@@ -363,7 +360,7 @@ def emergency_cancel(booking_id):
     return redirect(url_for('guardian_bp.guardian_dashboard'))
 
 
-# B5: Guardian-Tutor messaging
+# guardian <-> tutor messaging
 @guardian_bp.route('/guardian/messages')
 @role_required('guardian')
 def guardian_messages():
@@ -446,7 +443,6 @@ def guardian_message_thread(tutor_id, student_id):
                            student=student, messages=messages)
 
 
-# B6: Spending limits
 @guardian_bp.route('/guardian/spending-limits', methods=['GET', 'POST'])
 @role_required('guardian')
 def spending_limits():
